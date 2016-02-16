@@ -24,3 +24,7 @@ MAIN_LOG=/path/to/log/file.txt
 ```bash
 python report_projects.py > projects_table.txt
 ```
+### usf_overview.py
+```bash
+python usf_overview.py > usf_run_overview.txt
+```
