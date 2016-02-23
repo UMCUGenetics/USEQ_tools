@@ -5,7 +5,7 @@ import urllib
 import os
 import re
 
-from usf_overview_config import MAPPING_DIRS, RAW_DATA_DIRS, BACKUP_DIRS,SEQUENCING_PROCESSES ,USERNAME, PASSWORD, BASEURI
+from usf_run_overview_config import MAPPING_DIRS, RAW_DATA_DIRS, BACKUP_DIRS,SEQUENCING_PROCESSES ,USERNAME, PASSWORD, BASEURI
 import time
 from datetime import datetime
 from xml.dom.minidom import parseString
