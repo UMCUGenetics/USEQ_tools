@@ -11,7 +11,7 @@ MAPPING_DIRS={
 
 RAW_DATA_DIRS={
     'NEXTSEQ' : ['/hpc/cog_bioinf/raw_data/nextseq_umc03','/hpc/cog_bioinf/raw_data/nextseq_umc04','/hpc/cog_bioinf/raw_data/nextseq_umc05'],
-    'HISEQ' : ['/hpc/cog_bioinf/raw_data/hiseq'],
+    'HISEQ' : ['/hpc/cog_bioinf/raw_data/hiseq', '/hpc/cog_bioinf/raw_data/hiseq_umc01'],
     'MISEQ' : ['/hpc/cog_bioinf/raw_data/miseq']
 }
 
