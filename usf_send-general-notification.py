@@ -81,7 +81,6 @@ def sendMails ( mailInfo, emailAddresses ):
     
     if choice:
 	for email in emailAddresses:
-	    message[ "To"] = email
 	    s = smtplib.SMTP( "localhost" )
 	    s.sendmail( options.mail, email, message.as_string() )
 	    s.quit()
