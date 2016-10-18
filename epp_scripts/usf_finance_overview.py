@@ -2,6 +2,7 @@ import glsapiutil
 import xml.dom.minidom
 import smtplib
 import codecs
+import json
 
 from xml.dom.minidom import parseString
 from optparse import OptionParser
@@ -122,9 +123,18 @@ def getLab( uri ):
 
     return getObjectDOM( uri)
 
+def getAllCosts( uri ):
+
+    costJSON = api.getResourceByURI( uri )
+    return json.loads( costJSON )
+
 def getSeqFinance() :
     
     seqFinance = []
+    
+    allCosts = getAllCosts( 'http://www.useq.nl/useq_getfinance.php?type=all&mode=json' )
+    #for step in allCosts:
+	#print step
     
 
     stepURI = options.stepURI + "/details"
@@ -168,9 +178,11 @@ def getSeqFinance() :
 	
 	
 	samples = getSamples( sampleIDS )
+	sampleDateReceived = ''
 	
 	for sample in samples:
 	    sampleType = api.getUDF( sample, 'Sample Type' )
+	    sampleDateReceived = sample.getElementsByTagName( "date-received" )[0].firstChild.data
 	    if sampleType is None:
 		errors.append( "Sample without 'Sample Type' found" )
 	    elif sampleType.endswith( "unisolated" ):
@@ -184,8 +196,6 @@ def getSeqFinance() :
 	project_name = project.getElementsByTagName( "name" )[0].firstChild.data
 	
 	
-	
-	
 	researcher = getResearcher( project.getElementsByTagName( "researcher" )[0].getAttribute( "uri" ) )
 	researcher_fname = researcher.getElementsByTagName( "first-name" )[0].firstChild.data
 	researcher_lname = researcher.getElementsByTagName( "last-name" )[0].firstChild.data
@@ -195,9 +205,39 @@ def getSeqFinance() :
 	lab_name = lab.getElementsByTagName( "name" )[0].firstChild.data
 	billing_address = lab.getElementsByTagName( "billing-address" )[0]
 
+	###Calculate run costs
+	sample_type = getUniqueUDF( samples,'Sample Type')
+	library_prep_kit = getUniqueUDF( samples,'Library prep kit')
+	sequencing_runtype = getUniqueUDF( samples,'Sequencing Runtype')
+	billingDate = None
+	
+	for date in sorted( allCosts[ sequencing_runtype ][ 'date_costs'].keys() ):
+	    if date <= sampleDateReceived :
+		billingDate = date
+		
+	#Contingency for if samples were recieved before implementation of cost database
+	if billingDate is None:
+	    billingDate = sorted( allCosts[ sequencing_runtype ][ 'date_costs'].keys())[0]
+	    errors.append("Could not find a billing date matching the sample recieved date")
+	
+	seq_costs = allCosts[ sequencing_runtype ]['date_costs'][ billingDate]
+
+	###Calculate library prep costs
+	if library_prep_kit in allCosts :
+	    prep_costs = allCosts[library_prep_kit][ 'date_costs'][ billingDate ] * n_prepped
+	elif n_prepped > 0:
+	    errors.append("Could not find library prep kit in billing database")
+	
+	###Calculate isolation costs
+	if sampleType == 'DNA unisolated':
+	    iso_costs = allCosts['DNA isolation'][ 'date_costs' ][ billingDate ] * n_isolated
+	elif sampleType == 'RNA unisolated':
+	    iso_costs = allCosts['RNA isolation'][ 'date_costs' ][ billingDate ] * n_isolated
+	
+	t_costs = int(seq_costs) + int(prep_costs) + int(iso_costs)
 	
 	seqFinance.append(
-	    u"{errors}\t{pool_name}\t{project_name}\t{id}\t{open_date}\t{contact_name}\t{contact_email}\t{sequencing_runtype}\t{sequencing_succesful}\t{requested_analysis}\t{nr_samples}\t{nr_samples_prepped}\t{nr_samples_isolated}\t{sample_type}\t{library_prep_kit}\t{account}\t{project_budget_number}\t{sequencing_costs}\t{library_prep_costs}\t{isolation_costs}\t{total_costs}\t{billing_institute}\t{billing_postalcode}\t{billing_city}\t{billing_country}".format(
+	    u"{errors}\t{pool_name}\t{project_name}\t{id}\t{open_date}\t{contact_name}\t{contact_email}\t{sequencing_runtype}\t{sequencing_succesful}\t{requested_analysis}\t{nr_samples}\t{nr_samples_prepped}\t{nr_samples_isolated}\t{sample_type}\t{library_prep_kit}\t{account}\t{project_budget_number}\t{sequencing_costs}\t{library_prep_costs}\t{isolation_costs}\t{total_costs}\t{billing_institute}\t{billing_postalcode}\t{billing_city}\t{billing_country}\t{billing_department}\t{billing_street}".format(
 		errors = ','.join( set(errors) ),
 		pool_name = artifact.getElementsByTagName( "name" )[0].firstChild.data,
 		project_name = project_name,
@@ -205,14 +245,14 @@ def getSeqFinance() :
 		open_date = project.getElementsByTagName( "open-date" )[0].firstChild.data,
 		contact_name = researcher_name,
 		contact_email = researcher.getElementsByTagName( "email" )[0].firstChild.data,
-		sequencing_runtype = getUniqueUDF( samples,'Sequencing Runtype'),
+		sequencing_runtype = sequencing_runtype,
 		sequencing_succesful = api.getUDF( artifact, 'Sequencing Succesful' ),
 		requested_analysis = getUniqueUDF( samples,'Analysis'),
 		nr_samples = len(samples),
 		nr_samples_prepped = n_prepped,
 		nr_samples_isolated = n_isolated,
-		sample_type = getUniqueUDF( samples,'Sample Type'),
-		library_prep_kit = getUniqueUDF( samples,'Library prep kit'),
+		sample_type = sample_type,
+		library_prep_kit = library_prep_kit,
 		account = lab_name,
 		project_budget_number = getUniqueUDF( samples,'Budget Number'),
 		sequencing_costs = seq_costs,
@@ -222,7 +262,9 @@ def getSeqFinance() :
 		billing_institute = billing_address.getElementsByTagName( "institution" )[0].firstChild.data,
 		billing_postalcode = billing_address.getElementsByTagName( "postalCode" )[0].firstChild.data,
 		billing_city = billing_address.getElementsByTagName( "city" )[0].firstChild.data,
-		billing_country = billing_address.getElementsByTagName( "country" )[0].firstChild.data
+		billing_country = billing_address.getElementsByTagName( "country" )[0].firstChild.data,
+		billing_department = billing_address.getElementsByTagName( "department" )[0].firstChild.data,
+		billing_street = billing_address.getElementsByTagName( "street" )[0].firstChild.data
 	    )
 	)
     return seqFinance
@@ -253,7 +295,7 @@ def main():
 	#print "\n".join( seqFinanceTable )
 	
 	seq_finance = codecs.open(options.outname, 'w', 'utf-8')
-	seq_finance.write(u"errors\tpool_name\tproject_name\tid\topen_date\tcontact_name\tcontact_email\tsequencing_runtype\tsequencing_succesful\trequested_analysis\tnr_samples\tnr_samples_prepped\tnr_samples_isolated\tsample_type\tlibrary_prep_kit\taccount\tproject_budget_number\tsequencing_costs\tlibrary_prep_costs\tisolation_costs\ttotal_costs\tbilling_institute\tbilling_postalcode\tbilling_city\tbilling_country")
+	seq_finance.write(u"errors\tpool_name\tproject_name\tid\topen_date\tcontact_name\tcontact_email\tsequencing_runtype\tsequencing_succesful\trequested_analysis\tnr_samples\tnr_samples_prepped\tnr_samples_isolated\tsample_type\tlibrary_prep_kit\taccount\tproject_budget_number\tsequencing_costs\tlibrary_prep_costs\tisolation_costs\ttotal_costs\tbilling_institute\tbilling_postalcode\tbilling_city\tbilling_country\tbilling_department\tbilling_street\n")
 	seq_finance.write( "\n".join( seqFinanceTable ) )
 	seq_finance.close()
 	
