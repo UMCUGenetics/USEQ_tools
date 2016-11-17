@@ -224,15 +224,17 @@ def getSeqFinance() :
 
 	###Calculate library prep costs
 	if library_prep_kit in allCosts :
-	    prep_costs = allCosts[library_prep_kit][ 'date_costs'][ billingDate ] * n_prepped
+    
+	    prep_costs = int( allCosts[library_prep_kit][ 'date_costs'][ billingDate ] ) * n_prepped
 	elif n_prepped > 0:
 	    errors.append("Could not find library prep kit in billing database")
 	
 	###Calculate isolation costs
 	if sampleType == 'DNA unisolated':
-	    iso_costs = allCosts['DNA isolation'][ 'date_costs' ][ billingDate ] * n_isolated
+	    iso_costs = int( allCosts['DNA isolation'][ 'date_costs' ][ billingDate ] ) * n_isolated
 	elif sampleType == 'RNA unisolated':
-	    iso_costs = allCosts['RNA isolation'][ 'date_costs' ][ billingDate ] * n_isolated
+	    iso_costs = int( allCosts['RNA isolation'][ 'date_costs' ][ billingDate ] ) * n_isolated
+	
 	
 	t_costs = int(seq_costs) + int(prep_costs) + int(iso_costs)
 	

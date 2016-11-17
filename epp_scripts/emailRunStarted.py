@@ -16,7 +16,7 @@ api = None
 options = None
 CACHE = {}
 
-RECIPIENTS = [ "s.w.boymans@umcutrecht.nl", "R.F.Ernst-3@umcutrecht.nl", "inijman@umcutrecht.nl", "M.E.deBruijn-7@umcutrecht.nl" ]
+RECIPIENTS = [ "s.w.boymans@umcutrecht.nl", "R.F.Ernst-3@umcutrecht.nl", "inijman@umcutrecht.nl", "R.R.E.Janssen-10@umcutrecht.nl" ]
 
 def getObjectDOM( uri ):
 
@@ -98,7 +98,7 @@ def buildMessage():
 	stepDOM = parseString( stepXML )	
 
 	## get the container name from the process UDF (Flow Cell ID)
-	cName = api.getUDF( stepDOM, "Flow Cell ID" ) 
+	cName = api.getUDF( stepDOM, "Flow Cell ID" )
 
 	## get the input analytes
 	iLUIDS = []
