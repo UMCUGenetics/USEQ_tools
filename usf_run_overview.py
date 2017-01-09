@@ -4,7 +4,7 @@ import smtplib
 import urllib
 import os
 import re
-
+import sys
 from usf_run_overview_config import MAPPING_DIRS, RAW_DATA_DIRS, BACKUP_DIRS,SEQUENCING_PROCESSES ,USERNAME, PASSWORD, BASEURI
 import time
 from datetime import datetime
@@ -407,8 +407,8 @@ def main():
     api.setHostname( HOSTNAME )
     api.setVersion( VERSION )
     api.setup( API_USER, API_PW )
-
-    
+    reload(sys)
+    sys.setdefaultencoding('utf8')
     #current_date = datetime.fromtimestamp( time.localtime() )
     #print current_date
     ## at this point, we have the parameters the EPP plugin passed, and we have network plumbing

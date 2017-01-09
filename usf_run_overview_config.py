@@ -4,9 +4,9 @@ from genologics.config import BASEURI, USERNAME, PASSWORD
 
 
 MAPPING_DIRS={
-    'NEXTSEQ' : ['/hpc/cog_bioinf/data/mapping/nextseq'],
-    'HISEQ' : ['/hpc/cog_bioinf/data/mapping/hiseq'],
-    'MISEQ' : ['/hpc/cog_bioinf/data/mapping/miseq']
+    'NEXTSEQ' : ['/hpc/cog_bioinf/ubec/runs/'],
+    'HISEQ' : ['/hpc/cog_bioinf/ubec/runs/'],
+    'MISEQ' : ['/hpc/cog_bioinf/ubec/runs/']
 }
 
 RAW_DATA_DIRS={
