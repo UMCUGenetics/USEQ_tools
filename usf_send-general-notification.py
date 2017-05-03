@@ -59,11 +59,11 @@ def sendMails ( mailInfo, emailAddresses ):
     
     message = MIMEText( "".join( TEXT ), 'html' )
 
-    message[ "Subject" ] = 'USF - New website'
+    message[ "Subject" ] = 'USF announcement: data analysis service by UBEC / seq run service fees changed'
     message[ "From" ] = options.mail
 
     print "You're about to send the following email :"
-    print "Subject : USF - New website"
+    print "Subject : USF announcement: data analysis service by UBEC / seq run service fees changed"
     print "Content : \n" + "".join( mailInfo )
     print "To:"
     print "\t".join( sorted(emailAddresses) )

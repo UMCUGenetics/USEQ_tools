@@ -16,7 +16,7 @@ api = None
 options = None
 CACHE = {}
 
-RECIPIENTS = [ "s.w.boymans@umcutrecht.nl", "R.F.Ernst-3@umcutrecht.nl", "inijman@umcutrecht.nl", "R.R.E.Janssen-10@umcutrecht.nl" ]
+RECIPIENTS = [ "s.w.boymans@umcutrecht.nl", "R.R.E.Janssen-10@umcutrecht.nl" ]
 
 def getObjectDOM( uri ):
 

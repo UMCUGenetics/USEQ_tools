@@ -142,7 +142,7 @@ class glsapiutil:
 
 	def getUDF( self, DOM, udfname ):
 
-		response = ""
+		response = None
 
 		elements = DOM.getElementsByTagName( "udf:field" )
 		for udf in elements:
@@ -257,4 +257,3 @@ class glsapiutil:
 		inXml = inXml.replace(tagname, '')
 
 		return inXml
-
