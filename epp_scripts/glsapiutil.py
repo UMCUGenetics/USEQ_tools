@@ -4,7 +4,7 @@ import sys
 import xml.dom.minidom
 from xml.dom.minidom import parseString
 
-DEBUG = 0
+DEBUG = 1
 
 class glsapiutil:
 
@@ -118,8 +118,8 @@ class glsapiutil:
 		xml = ""
 
 		opener = urllib2.build_opener(self.auth_handler)
-		
-		req = urllib2.Request( url )
+
+		req = urllib2.Request(url)
 		req.add_data( links )
 		req.get_method = lambda: 'POST'
 		req.add_header('Accept', 'application/xml')
@@ -142,7 +142,7 @@ class glsapiutil:
 
 	def getUDF( self, DOM, udfname ):
 
-		response = ""
+		response = None
 
 		elements = DOM.getElementsByTagName( "udf:field" )
 		for udf in elements:
@@ -257,4 +257,3 @@ class glsapiutil:
 		inXml = inXml.replace(tagname, '')
 
 		return inXml
-
