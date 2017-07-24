@@ -490,10 +490,12 @@ def getSeqFinance() :
 	    }
 	    #-->
 	    if 'name' not in sequencing_runs[ pool_id ][ project_id ] :
+
 		project_metadata = getProject( project_id )
 		project_name = project_metadata.getElementsByTagName( "name" )[0].firstChild.data
 		project_open_date = project_metadata.getElementsByTagName( "open-date" )[0].firstChild.data
 		sequencing_succesful = api.getUDF( artifact, 'Sequencing Succesful' )
+
 
 		researcher = getResearcher( project_metadata.getElementsByTagName( "researcher" )[0].getAttribute( "uri" ) )
 		researcher_fname = researcher.getElementsByTagName( "first-name" )[0].firstChild.data
@@ -501,6 +503,7 @@ def getSeqFinance() :
 		researcher_name = researcher_fname+" "+researcher_lname
 		researcher_email = researcher.getElementsByTagName( "email" )[0].firstChild.data
 
+		print project_name, researcher_name
 		lab = getLab( researcher.getElementsByTagName( "lab" )[0].getAttribute( "uri" ) )
 		lab_name = lab.getElementsByTagName( "name" )[0].firstChild.data
 
@@ -511,6 +514,7 @@ def getSeqFinance() :
 		billing_country = billing_address.getElementsByTagName( "country" )[0].firstChild.data
 		billing_department = billing_address.getElementsByTagName( "department" )[0].firstChild.data
 		billing_street = billing_address.getElementsByTagName( "street" )[0].firstChild.data
+
 
 		sequencing_runs[ pool_id ][ project_id ][ 'first_submission_date' ] = received_date
 		sequencing_runs[ pool_id ][ project_id ][ 'succesful' ] = sequencing_succesful
