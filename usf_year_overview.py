@@ -144,8 +144,11 @@ def getProjectByID( project_id ):
 	    elif sample_type.endswith( "isolated" ):
 		project['nr_prepped'] += 1
 
-    process_XML = api.getResourceByURI( BASE_URI + 'processes/?projectname=' + project['name'] )
-    process_DOM = parseString( process_XML)
+    try:
+        process_XML = api.getResourceByURI( BASE_URI + 'processes/?projectname=' + project['name'] )
+        process_DOM = parseString( process_XML)
+    except:
+        return ''
     processes_list = []
     processes = []
     # print process_XML

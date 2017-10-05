@@ -288,7 +288,7 @@ def getSnpFinance() :
 	iso_costs = 0
 	errors = []
 	isolated = 'no'
-
+	descriptions = []
 
 
 	container_uri = artifact.getElementsByTagName( "container" )[0].getAttribute( "uri" )
@@ -307,10 +307,13 @@ def getSnpFinance() :
 	samples = getSamples( sampleIDS )
 	sampleDateReceived = ''
         sample_name = ''
-
+	
 	for sample in samples:
 	    sampleType = api.getUDF( sample, 'Sample Type' )
 	    sample_name = sample.getElementsByTagName( "name" )[0].firstChild.data
+	    description = api.getUDF( sample, 'Description' )
+	    if description:
+		descriptions.append( description)
 	    sampleDateReceived = sample.getElementsByTagName( "date-received" )[0].firstChild.data
 	    if sampleType is None:
 		errors.append( "Sample without 'Sample Type' found" )
@@ -347,12 +350,6 @@ def getSnpFinance() :
 
 	plate_costs = allCosts[ 'open snp array' ]['date_costs'][ billingDate]
 
-	###Calculate library prep costs
-#	if library_prep_kit in allCosts :
-
-#	    prep_costs = int( allCosts[library_prep_kit][ 'date_costs'][ billingDate ] ) * n_prepped
-#	elif n_prepped > 0:
-#	    errors.append("Could not find library prep kit in billing database")
 
 	###Calculate isolation costs
 	if sampleType == 'DNA unisolated':
@@ -364,11 +361,12 @@ def getSnpFinance() :
 	#t_costs = int(seq_costs) + int(iso_costs)
 
 
-	snpFinance.append(u"{errors}\t{container_name}\t{project_name}\t{id}\t{sample_name}\t{open_date}\t{contact_name}\t{contact_email}\t{isolated}\t{sample_type}\t{account}\t{project_budget_number}\t{plate_costs}\t{isolation_costs}\t{billing_institute}\t{billing_postalcode}\t{billing_city}\t{billing_country}\t{billing_department}\t{billing_street}".format(
+	snpFinance.append(u"{errors}\t{container_name}\t{description}\t{project_name}\t{id}\t{sample_name}\t{open_date}\t{contact_name}\t{contact_email}\t{isolated}\t{sample_type}\t{account}\t{project_budget_number}\t{plate_costs}\t{isolation_costs}\t{billing_institute}\t{billing_postalcode}\t{billing_city}\t{billing_country}\t{billing_department}\t{billing_street}".format(
 
 
 		errors = ','.join( set(errors) ),
 		container_name = container_name,
+		description = ','.join( set( descriptions ) ),
 		project_name = project_name,
 		id = project.getElementsByTagName( "prj:project" )[0].getAttribute( "limsid" ),
 		sample_name = sample_name,
@@ -490,10 +488,12 @@ def getSeqFinance() :
 	    }
 	    #-->
 	    if 'name' not in sequencing_runs[ pool_id ][ project_id ] :
+
 		project_metadata = getProject( project_id )
 		project_name = project_metadata.getElementsByTagName( "name" )[0].firstChild.data
 		project_open_date = project_metadata.getElementsByTagName( "open-date" )[0].firstChild.data
 		sequencing_succesful = api.getUDF( artifact, 'Sequencing Succesful' )
+
 
 		researcher = getResearcher( project_metadata.getElementsByTagName( "researcher" )[0].getAttribute( "uri" ) )
 		researcher_fname = researcher.getElementsByTagName( "first-name" )[0].firstChild.data
@@ -501,6 +501,7 @@ def getSeqFinance() :
 		researcher_name = researcher_fname+" "+researcher_lname
 		researcher_email = researcher.getElementsByTagName( "email" )[0].firstChild.data
 
+		print project_name, researcher_name
 		lab = getLab( researcher.getElementsByTagName( "lab" )[0].getAttribute( "uri" ) )
 		lab_name = lab.getElementsByTagName( "name" )[0].firstChild.data
 
@@ -511,6 +512,7 @@ def getSeqFinance() :
 		billing_country = billing_address.getElementsByTagName( "country" )[0].firstChild.data
 		billing_department = billing_address.getElementsByTagName( "department" )[0].firstChild.data
 		billing_street = billing_address.getElementsByTagName( "street" )[0].firstChild.data
+
 
 		sequencing_runs[ pool_id ][ project_id ][ 'first_submission_date' ] = received_date
 		sequencing_runs[ pool_id ][ project_id ][ 'succesful' ] = sequencing_succesful
@@ -805,7 +807,7 @@ def main():
 	elif mode == 'USF : Post Fingerprinting steps':
 	    snpFinanceTable = getSnpFinance()
 	    snp_finance = codecs.open(options.outname, 'w', 'utf-8')
-	    snp_finance.write(u"errors\tcontainer_name\tproject_name\tid\tsample_name\topen_date\tcontact_name\tcontact_email\tisolated\tsample_type\taccount\tproject_budget_number\tplate_costs\tisolation_costs\tbilling_institute\tbilling_postalcode\tbilling_city\tbilling_country\tbilling_department\tbilling_street\n")
+	    snp_finance.write(u"errors\tcontainer_name\tdescription\tproject_name\tid\tsample_name\topen_date\tcontact_name\tcontact_email\tisolated\tsample_type\taccount\tproject_budget_number\tplate_costs\tisolation_costs\tbilling_institute\tbilling_postalcode\tbilling_city\tbilling_country\tbilling_department\tbilling_street\n")
 	    snp_finance.write( "\n".join( snpFinanceTable ) )
 	    snp_finance.close()
 
