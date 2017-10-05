@@ -8,6 +8,7 @@ import os
 import tarfile
 import sys
 import multiprocessing
+import subprocess
 from xml.dom.minidom import parseString
 from optparse import OptionParser
 from email.mime.text import MIMEText
@@ -146,7 +147,6 @@ def zipRun( project_id, run_dir ):
     run_name = os.path.basename(run_dir)
     run_zip = "{0}/{1}.tar.gz".format(run_dir,project_id)
 
-    # if not os.path.isfile(file_path): sys.exit("File path '{0}' is not a file".format(file_path))
     if os.path.isfile(run_zip):
         print "Zip file '{0}' already exists".format(run_zip)
     else:
@@ -157,15 +157,27 @@ def zipRun( project_id, run_dir ):
 
     return run_zip
 
-def getResearcherEmail( uri ):
+def encryptRun( run_zip, researcher_email, researcher_user_name):
+
+    return_code = subprocess.call("gpg --encrypt --output {0}.gpg --recipient '{1}' {0}".format(run_zip,researcher_user_name), shell=True)
+    if return_code:
+        sys.exit("Encryption failed with message : {0}".format(return_code))
+    else:
+        os.remove(run_zip)
+    return run_zip+".gpg"
+
+
+def getResearcher( uri ):
     r_DOM = getObjectDOM( uri )
     email = r_DOM.getElementsByTagName( "email" )[0].firstChild.data
-    if not email:
-        sys.exit("Could not find email for researcher uri {}".format(uri))
+    user_name = r_DOM.getElementsByTagName( "username" )[0].firstChild.data
 
-    return email
+    if not email or not user_name:
+        sys.exit("Could not find researcher uri {}".format(uri))
 
-def shareWorker(project_name, project_id, researcher_email):
+    return {'email':email,'user_name':user_name}
+
+def shareWorker(project_name, project_id, researcher_email, researcher_user_name):
     name = multiprocessing.current_process().name
     print "{0} : Starting".format(name)
 
@@ -185,6 +197,11 @@ def shareWorker(project_name, project_id, researcher_email):
          return
 
     run_zip = zipRun( project_id,run_dir )
+
+    if options.encrypt == 'yes':
+        print "{0} : Running encryption of {1}".format(name, run_zip)
+        run_zip = encryptRun( run_zip, researcher_email,researcher_user_name )
+
 
     upload_response = nc_util.upload(run_zip)
     if upload_response:
@@ -215,13 +232,15 @@ def shareFromProjectId():
         project_name = p_DOM.getElementsByTagName( "name" )[0].firstChild.data
         researcher_uri = p_DOM.getElementsByTagName( "researcher" )[0].getAttribute( "uri" )
 
-        researcher_email = getResearcherEmail( researcher_uri )
+        researcher = getResearcher( researcher_uri )
+        researcher_email = researcher['email']
+        researcher_user_name = researcher['user_name']
 
         run_info = getRunInfo(project_name)
         run_name = run_info[0]
         run_flowcell = run_info[1]
 
-        share_worker = multiprocessing.Process(name="Worker_{0}".format(project_name), target=shareWorker, args=(project_name,project_id, researcher_email))
+        share_worker = multiprocessing.Process(name="Worker_{0}".format(project_name), target=shareWorker, args=(project_name,project_id, researcher_email,researcher_user_name))
 
         share_workers.append( share_worker)
         share_worker.start()
@@ -265,9 +284,13 @@ def shareFromStep():
         project_name = project_DOM.getElementsByTagName("name")[0].firstChild.data
 
         researcher_uri = project_DOM.getElementsByTagName( "researcher" )[0].getAttribute( "uri" )
-        researcher_email = getResearcherEmail( researcher_uri )
 
-        share_worker = multiprocessing.Process(name="Worker_{0}".format(project_name), target=shareWorker, args=(project_name,project_id, researcher_email))
+        researcher = getResearcher( researcher_uri )
+        researcher_email = researcher['email']
+        researcher_user_name = researcher['user_name']
+        # researcher_email = getResearcher( researcher_uri )
+
+        share_worker = multiprocessing.Process(name="Worker_{0}".format(project_name), target=shareWorker, args=(project_name,project_id, researcher_email,researcher_user_name))
 
         share_workers.append( share_worker)
         share_worker.start()
@@ -287,6 +310,7 @@ def main():
     parser.add_option( "-s", "--stepURI", help = "the URI of the step that launched this script" )
     parser.add_option( "-i", "--projectids", help="The projectid(s) of the run you want to share. If multiple separate by comma." )
     parser.add_option( "-d", "--dataDir", help = "Root directory for sequencing runs ")
+    parser.add_option( "-e", "--encrypt", help = "GPG encrypt data (yes/no)")
 
 
     nextcloud_hostname = "ncie01.op.umcutrecht.nl"
@@ -307,14 +331,10 @@ def main():
     nc_util.setHostname( nextcloud_hostname )
     nc_util.setup( options.username, options.password )
 
-
     if options.stepURI:
         shareFromStep()
     elif options.projectids:
         shareFromProjectId()
-
-
-
 
 if __name__ == "__main__":
 
