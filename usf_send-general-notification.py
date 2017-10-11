@@ -5,6 +5,9 @@ import urllib
 import sys
 from optparse import OptionParser
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+import re
 #from genologics.lims import *
 from genologics.config import BASEURI, USERNAME, PASSWORD
 from xml.dom.minidom import parseString
@@ -52,19 +55,50 @@ def setupGlobalsFromURI( uri ):
 
 
 def sendMails ( mailInfo, emailAddresses ):
-    TEXT = []
-    for line in mailInfo:
-	TEXT.append( "<p>%s</p>" % (line) )
 
+    outer = MIMEMultipart()
+    outer[ "Subject" ] = 'USEQ announcement: '+ str(options.subject)
+    outer[ "From" ] = options.mail
 
-    message = MIMEText( "".join( TEXT ), 'html' )
+    contents = ""
 
-    message[ "Subject" ] = 'USEQ announcement: '+ options.subject
-    message[ "From" ] = options.mail
+    # header = MIMEText('<p>Dear USEQ user,</p>', 'html')
+    contents += "<p>Dear USEQ user,</p>"
+    # outer.attach(header)
+
+    fp = open(mailInfo)
+
+    # message = MIMEText( fp.read(), 'html' )
+    # outer.attach(message)
+    message = fp.read()
+    contents += message
+
+    logo = 'resources/useq_logo.jpg'
+    logo_name = 'useq_logo.jpg'
+
+    footer_html = "<p>Kind regards,</p>"
+    footer_html += "<p>The USEQ team</p><img src='cid:logo_image' style='width:231;height:80;'><p>"
+    footer_html += "<i>Utrecht Sequencing Facility (USEQ) | Joint initiative of the University Medical Center Utrecht, "
+    footer_html += "Hubrecht Institute and Utrecht University Center for Molecular Medicine | UMC Utrecht | room STR2.207 | "
+    footer_html += "Heidelberglaan 100 | 3584 CX Utrecht | The Netherlands | Tel: +31 (0)88 75 55164 | "
+    footer_html += "<a href='mailto:USEQ@umcutrecht.nl'>USEQ@umcutrecht.nl</a> | <a href='www.USEQ.nl'>www.USEQ.nl</a></i></p>"
+    # footer = MIMEText( footer_html, 'html')
+    contents += footer_html
+
+    contents = MIMEText( contents, 'html')
+    outer.attach( contents )
+
+    #read the logo and add it to the email
+    fp = open(logo, 'rb')
+    logo_image = MIMEImage(fp.read())
+    fp.close()
+    logo_image.add_header('Content-ID', '<logo_image>')
+    outer.attach(logo_image)
+
 
     print "You're about to send the following email :"
-    print "Subject : USEQ announcement: " + options.subject
-    print "Content : \n" + "".join( mailInfo )
+    print "Subject : USEQ announcement: " + str(options.subject)
+    print "Content : \n" + message
     print "To:"
     print "\t".join( sorted(emailAddresses) )
     print "Are you sure? Please respond with (y)es or (n)o."
@@ -73,29 +107,27 @@ def sendMails ( mailInfo, emailAddresses ):
     no = set(['no','n'])
     choice = raw_input().lower()
     if choice in yes:
-	choice = True
+       choice = True
     elif choice in no:
-	choice = False
+       choice = False
     else:
-	sys.stdout.write("Please respond with 'yes' or 'no'")
+       sys.stdout.write("Please respond with 'yes' or 'no'")
 
     if choice:
-	for email in emailAddresses:
-	    s = smtplib.SMTP( "localhost" )
-	    s.sendmail( options.mail, email, message.as_string() )
-	    s.quit()
+
+        for email in emailAddresses:
+
+            s = smtplib.SMTP( "localhost" )
+            s.sendmail( options.mail, email, outer.as_string() )
+            s.quit()
+
+
+
+
 
 def parseFile ( file ):
-    f = open( file )
 
-    mailInfo = []
-
-    for line in f:
-	#line = line.rstrip( "\n" )
-	mailInfo.append(line)
-
-    f.close
-    return mailInfo
+    return file
 
 def getEmailAddresses(all, group, user):
 

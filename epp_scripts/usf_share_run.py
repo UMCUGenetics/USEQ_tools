@@ -12,9 +12,13 @@ import subprocess
 from xml.dom.minidom import parseString
 from optparse import OptionParser
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+
 from xml.parsers.expat import ExpatError
 from nextcloud_util import NextcloudUtil
 import datetime
+import getpass
 
 HOSTNAME = ''
 VERSION = ''
@@ -177,6 +181,43 @@ def getResearcher( uri ):
 
     return {'email':email,'user_name':user_name}
 
+def sendMail(project_id, researcher_email, share_id):
+
+    outer = MIMEMultipart()
+    outer[ "Subject" ] = "USEQ sequencing of sequencing-run ID {0} finished".format(project_id)
+    outer[ "From" ] = 'useq@umcutrecht.nl'
+
+    contents = ""
+    contents += "<p>Dear USEQ user,</p>"
+    contents += "<p>Sequencing-run ID {0} has succesfully been sequenced.</p>".format(project_id)
+    contents += "<p>You can download your data using <a href='https://ncie01.op.umcutrecht.nl/index.php/s/{0}'>this</a> link.</p>".format(share_id)
+    contents += "<p>This link will remain active for 7 days. If you're unable to download your data within this period, please let us know. "
+    contents += "Please also be aware that we're able to store your sequencing data for a maximum of two months, after which it is automatically deleted from our servers.</p>"
+
+    logo = '../resources/useq_logo.jpg'
+    logo_name = 'useq_logo.jpg'
+
+    contents += "<p>Kind regards,</p>"
+    contents += "<p>The USEQ team</p><img src='cid:logo_image' style='width:30%;height:30%;'><p>"
+    contents += "<i>Utrecht Sequencing Facility (USEQ) | Joint initiative of the University Medical Center Utrecht, "
+    contents += "Hubrecht Institute and Utrecht University Center for Molecular Medicine | UMC Utrecht | room STR2.207 | "
+    contents += "Heidelberglaan 100 | 3584 CX Utrecht | The Netherlands | Tel: +31 (0)88 75 55164 | "
+    contents += "<a href='mailto:USEQ@umcutrecht.nl'>USEQ@umcutrecht.nl</a> | <a href='www.USEQ.nl'>www.USEQ.nl</a></i></p>"
+
+    contents = MIMEText( contents, 'html')
+    outer.attach( contents )
+
+    #read the logo and add it to the email
+    fp = open(logo, 'rb')
+    logo_image = MIMEImage(fp.read())
+    fp.close()
+    logo_image.add_header('Content-ID', '<logo_image>')
+    outer.attach(logo_image)
+
+    s = smtplib.SMTP( "localhost" )
+    s.sendmail( 'useq@umcutrecht.nl', researcher_email, outer.as_string() )
+    s.quit()
+
 def shareWorker(project_name, project_id, researcher_email, researcher_user_name):
     name = multiprocessing.current_process().name
     print "{0} : Starting".format(name)
@@ -209,15 +250,16 @@ def shareWorker(project_name, project_id, researcher_email, researcher_user_name
         print "{0} : {1}".format(name, upload_response)
         return
 
-    share_response = nc_util.share(run_zip, researcher_email)
-    if share_response:
+    share_id = nc_util.share(run_zip, researcher_email)
+    if not share_id:
         print "{0} : Sharing of {1} failed".format(name, run_zip)
         print "{0} : {1}".format(name, share_response)
         return
-
-    print "{0} : Finished".format(name)
-    return
-
+    else:
+        print "{0} : Sending {1} to {2} with id {3}".format(name,run_zip,researcher_email,share_id)
+        sendMail(project_id, researcher_email, share_id)
+        print "{0} : Finished".format(name)
+        return
 
 
 def shareFromProjectId():
@@ -306,11 +348,12 @@ def main():
 
     parser = OptionParser()
     parser.add_option( "-u", "--username", help = "username of the current user", action = 'store', dest = 'username' )
-    parser.add_option( "-p", "--password", help = "password of the current user" )
+    # parser.add_option( "-p", "--password", help = "password of the current user" )
     parser.add_option( "-s", "--stepURI", help = "the URI of the step that launched this script" )
     parser.add_option( "-i", "--projectids", help="The projectid(s) of the run you want to share. If multiple separate by comma." )
     parser.add_option( "-d", "--dataDir", help = "Root directory for sequencing runs ")
     parser.add_option( "-e", "--encrypt", help = "GPG encrypt data (yes/no)")
+
 
 
     nextcloud_hostname = "ncie01.op.umcutrecht.nl"
@@ -319,17 +362,20 @@ def main():
 
     (options, otherArgs) = parser.parse_args()
 
+    pw = getpass.getpass("Please enter the password for account {0}:\n".format(options.username))
+
+
     if options.stepURI: setupGlobalsFromURI( options.stepURI )
     else: setupGlobalsFromURI( api_uri )
 
     api = glsapiutil.glsapiutil()
     api.setHostname( HOSTNAME )
     api.setVersion( VERSION )
-    api.setup( options.username, options.password )
+    api.setup( options.username, pw )
 
     nc_util = NextcloudUtil()
     nc_util.setHostname( nextcloud_hostname )
-    nc_util.setup( options.username, options.password )
+    nc_util.setup( options.username, pw )
 
     if options.stepURI:
         shareFromStep()
