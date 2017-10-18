@@ -1,3 +1,4 @@
+import time
 import smtplib
 import glsapiutil
 import xml.dom.minidom
@@ -120,7 +121,7 @@ def sendMails ( mailInfo, emailAddresses ):
             s = smtplib.SMTP( "localhost" )
             s.sendmail( options.mail, email, outer.as_string() )
             s.quit()
-
+            time.sleep(1)
 
 
 
