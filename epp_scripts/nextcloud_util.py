@@ -8,7 +8,7 @@ import ntpath
 import requests
 import json
 #import xml.dom.minidom
-#from xml.dom.minidom import parseString
+from xml.dom.minidom import parseString
 from optparse import OptionParser
 DEBUG = 0
 
@@ -59,15 +59,19 @@ class NextcloudUtil(object):
         data={
             'path' : "sequencing_runs/{0}".format(file_basename),
             'shareType' : 4,
-            'shareWith' : email
-            # 'shareWith' : 's.w.boymans@umcutrecht.nl'
-
+            'shareWith' : 'useq@umcutrecht.nl'
         }
 
 
+        #temporary commented
         response = requests.post("https://{0}/ocs/v1.php/apps/files_sharing/api/v1/shares".format(self.hostname), auth=(self.user, self.password), headers={'OCS-APIRequest':'true','Content-Type': 'application/json'},data=json.dumps(data))
+
+        share_id = None
         if not self.webdav.exists(remote_path):
             return "File '{0}' upload failed".format(file_basename)
 
+        response_DOM = parseString( response.text )
+        share_id = response_DOM.getElementsByTagName( "token" )[0].firstChild.data
+
         os.remove(file_path)
-        return
+        return share_id
