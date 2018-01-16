@@ -58,7 +58,7 @@ def setupGlobalsFromURI( uri ):
 def sendMails ( mailInfo, emailAddresses ):
 
     outer = MIMEMultipart()
-    outer[ "Subject" ] = 'USEQ announcement: '+ str(options.subject)
+    outer[ "Subject" ] = str(options.subject)
     outer[ "From" ] = options.mail
 
     contents = ""
@@ -98,7 +98,7 @@ def sendMails ( mailInfo, emailAddresses ):
 
 
     print "You're about to send the following email :"
-    print "Subject : USEQ announcement: " + str(options.subject)
+    print "Subject : " + str(options.subject)
     print "Content : \n" + message
     print "To:"
     print "\t".join( sorted(emailAddresses) )

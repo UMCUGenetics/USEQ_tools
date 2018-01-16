@@ -669,10 +669,12 @@ def getSeqFinance() :
 
 	    #determine sequencing costs
 
-	    if len(requested_runtypes.keys()) > 1 or len(lims_runtypes.keys()) > 1:
+	    if len(requested_runtypes.keys()) != 1 or len(lims_runtypes.keys()) != 1 or not requested_runtypes.keys()[0]:
 		errors.append("Multiple runtypes found, can't calculate costs")
 	    else:
 		first_submission_date = sequencing_runs[ run_id ][ project_id ][ 'first_submission_date' ]
+		#print "requested",requested_runtypes.keys()
+		#print "lims",lims_runtypes.keys()
 		requested_machine = requested_runtypes.keys()[0].lower()
 		requested_machine = requested_machine.split()[0].strip()
 		#print run_id,project_id,lims_runtypes.keys()
