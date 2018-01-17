@@ -624,7 +624,7 @@ def getSeqFinance() :
 					if lims_libraryprep_ori in all_costs:
 						prep_costs += int(all_costs[ lims_libraryprep_ori ][ 'date_costs' ][ billing_date ]) * lims_librarypreps[ lims_libraryprep ]
 					else:
-					errors.append("Could not find library prep kit '"+lims_libraryprep_ori+"' in billing database")
+						errors.append("Could not find library prep kit '"+lims_libraryprep_ori+"' in billing database")
 
 			#determine isolation costs
 			if lims_isolations.keys() :
