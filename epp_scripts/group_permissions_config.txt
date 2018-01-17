@@ -1,5 +1,3 @@
 Last	First	Groups
-ONeil	Shaquille	GroupA,GroupB
-Jordan	Michael	GroupG
-James	LeBron	GroupA,GroupB, GroupC
-System	Administrator	GroupC,GroupD
+Boymans Sander  USEQ
+Ernst Robert  DX

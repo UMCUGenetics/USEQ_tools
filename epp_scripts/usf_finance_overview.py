@@ -257,10 +257,10 @@ def getSnpFinance() :
     #Get the input analytes lims ids
     analyteIDS = []
     for input in stepDOM.getElementsByTagName( "input" ):
-	analyteID = input.getAttribute( "limsid" )
-	#print analyteID
-	if analyteID not in analyteIDS:
-	    analyteIDS.append( analyteID )
+		analyteID = input.getAttribute( "limsid" )
+		#print analyteID
+		if analyteID not in analyteIDS:
+		    analyteIDS.append( analyteID )
 
     #Get the input artifacts (which can be a pool samples) by lims id
     artifacts = getArtifacts( analyteIDS )
@@ -268,126 +268,123 @@ def getSnpFinance() :
 
     #Get all parent artifacts
     for artifact in artifacts:
-	parent_process_uri = artifact.getElementsByTagName( "parent-process" )[0].getAttribute( "uri" )
-	parent_process = getObjectDOM( parent_process_uri )
+		parent_process_uri = artifact.getElementsByTagName( "parent-process" )[0].getAttribute( "uri" )
+		parent_process = getObjectDOM( parent_process_uri )
 
-	for parent_artifact in parent_process.getElementsByTagName( "input" ):
-	    aid = parent_artifact.getAttribute("limsid")
-	    if aid not in parent_artifact_ids:
-		parent_artifact_ids.append( aid )
+		for parent_artifact in parent_process.getElementsByTagName( "input" ):
+	    	aid = parent_artifact.getAttribute("limsid")
+	    	if aid not in parent_artifact_ids:
+				parent_artifact_ids.append( aid )
 
     parent_artifacts = getArtifacts(parent_artifact_ids)
 
-
-
-
     for artifact in parent_artifacts:
     	samples = []
-	sampleIDS = []
-	snp_costs = 0
-	iso_costs = 0
-	errors = []
-	isolated = 'no'
-	descriptions = []
+		sampleIDS = []
+		snp_costs = 0
+		iso_costs = 0
+		errors = []
+		isolated = 'no'
+		descriptions = []
 
 
-	container_uri = artifact.getElementsByTagName( "container" )[0].getAttribute( "uri" )
-	container = getContainer( container_uri )
-	container_name = container.getElementsByTagName( "name" )[0].firstChild.data
+		container_uri = artifact.getElementsByTagName( "container" )[0].getAttribute( "uri" )
+		container = getContainer( container_uri )
+		container_name = container.getElementsByTagName( "name" )[0].firstChild.data
 	#print container_name
 
-	for sample in artifact.getElementsByTagName( "sample" ):
-	    sampleID = sample.getAttribute( "limsid" )
-	    #print sampleID
-	    if sampleID not in sampleIDS:
-		sampleIDS.append( sampleID )
+		for sample in artifact.getElementsByTagName( "sample" ):
+		    sampleID = sample.getAttribute( "limsid" )
+		    #print sampleID
+		    if sampleID not in sampleIDS:
+				sampleIDS.append( sampleID )
 
 
 
-	samples = getSamples( sampleIDS )
-	sampleDateReceived = ''
-        sample_name = ''
-	
-	for sample in samples:
-	    sampleType = api.getUDF( sample, 'Sample Type' )
-	    sample_name = sample.getElementsByTagName( "name" )[0].firstChild.data
-	    description = api.getUDF( sample, 'Description' )
-	    if description:
-		descriptions.append( description)
-	    sampleDateReceived = sample.getElementsByTagName( "date-received" )[0].firstChild.data
-	    if sampleType is None:
-		errors.append( "Sample without 'Sample Type' found" )
-	    elif sampleType.endswith( "unisolated" ):
-		isolated = 'yes'
+		samples = getSamples( sampleIDS )
+		sampleDateReceived = ''
+		sample_name = ''
 
-	project = getProject( samples[0].getElementsByTagName( "project" )[0].getAttribute( "limsid" ) )
-	project_name = project.getElementsByTagName( "name" )[0].firstChild.data
+		for sample in samples:
+		    sampleType = api.getUDF( sample, 'Sample Type' )
+		    sample_name = sample.getElementsByTagName( "name" )[0].firstChild.data
+		    description = api.getUDF( sample, 'Description' )
+		    if description:
+				descriptions.append( description)
+			    sampleDateReceived = sample.getElementsByTagName( "date-received" )[0].firstChild.data
+		    if sampleType is None:
+				errors.append( "Sample without 'Sample Type' found" )
+		    elif sampleType.endswith( "unisolated" ):
+				isolated = 'yes'
 
-
-
-	researcher = getResearcher( project.getElementsByTagName( "researcher" )[0].getAttribute( "uri" ) )
-	researcher_fname = researcher.getElementsByTagName( "first-name" )[0].firstChild.data
-	researcher_lname = researcher.getElementsByTagName( "last-name" )[0].firstChild.data
-	researcher_name = researcher_fname+" "+researcher_lname
-
-
-	lab = getLab( researcher.getElementsByTagName( "lab" )[0].getAttribute( "uri" ) )
-	lab_name = lab.getElementsByTagName( "name" )[0].firstChild.data
-	billing_address = lab.getElementsByTagName( "billing-address" )[0]
-	billingDate = None
+		project = getProject( samples[0].getElementsByTagName( "project" )[0].getAttribute( "limsid" ) )
+		project_name = project.getElementsByTagName( "name" )[0].firstChild.data
 
 
 
-
-	for date in sorted( allCosts[ 'open snp array' ][ 'date_costs'].keys() ):
-	    if date <= sampleDateReceived :
-		billingDate = date
-
-	#Contingency for if samples were recieved before implementation of cost database
-	if billingDate is None:
-	    billingDate = sorted( allCosts[ 'open snp array' ][ 'date_costs'].keys())[0]
-	    errors.append("Could not find a billing date matching the sample recieved date")
-
-	plate_costs = allCosts[ 'open snp array' ]['date_costs'][ billingDate]
+		researcher = getResearcher( project.getElementsByTagName( "researcher" )[0].getAttribute( "uri" ) )
+		researcher_fname = researcher.getElementsByTagName( "first-name" )[0].firstChild.data
+		researcher_lname = researcher.getElementsByTagName( "last-name" )[0].firstChild.data
+		researcher_name = researcher_fname+" "+researcher_lname
 
 
-	###Calculate isolation costs
-	if sampleType == 'DNA unisolated':
-	    iso_costs = int( allCosts['dna isolation'][ 'date_costs' ][ billingDate ] )
-	elif sampleType == 'RNA unisolated':
-	    iso_costs = int( allCosts['rna isolation'][ 'date_costs' ][ billingDate ] )
+		lab = getLab( researcher.getElementsByTagName( "lab" )[0].getAttribute( "uri" ) )
+		lab_name = lab.getElementsByTagName( "name" )[0].firstChild.data
+		billing_address = lab.getElementsByTagName( "billing-address" )[0]
+		billingDate = None
 
 
-	#t_costs = int(seq_costs) + int(iso_costs)
 
 
-	snpFinance.append(u"{errors}\t{container_name}\t{description}\t{project_name}\t{id}\t{sample_name}\t{open_date}\t{contact_name}\t{contact_email}\t{isolated}\t{sample_type}\t{account}\t{project_budget_number}\t{plate_costs}\t{isolation_costs}\t{billing_institute}\t{billing_postalcode}\t{billing_city}\t{billing_country}\t{billing_department}\t{billing_street}".format(
+		for date in sorted( allCosts[ 'open snp array' ][ 'date_costs'].keys() ):
+		    if date <= sampleDateReceived :
+				billingDate = date
+
+		#Contingency for if samples were recieved before implementation of cost database
+		if billingDate is None:
+		    billingDate = sorted( allCosts[ 'open snp array' ][ 'date_costs'].keys())[0]
+		    errors.append("Could not find a billing date matching the sample recieved date")
+
+		plate_costs = allCosts[ 'open snp array' ]['date_costs'][ billingDate]
 
 
-		errors = ','.join( set(errors) ),
-		container_name = container_name,
-		description = ','.join( set( descriptions ) ),
-		project_name = project_name,
-		id = project.getElementsByTagName( "prj:project" )[0].getAttribute( "limsid" ),
-		sample_name = sample_name,
-		open_date = project.getElementsByTagName( "open-date" )[0].firstChild.data,
-		contact_name = researcher_name,
-		contact_email = researcher.getElementsByTagName( "email" )[0].firstChild.data,
-		isolated = isolated,
-		sample_type = sampleType,
-		account = lab_name,
-		project_budget_number = getUniqueUDF( samples,'Budget Number'),
-		plate_costs = plate_costs,
-		isolation_costs = iso_costs,
-		billing_institute = billing_address.getElementsByTagName( "institution" )[0].firstChild.data,
-		billing_postalcode = billing_address.getElementsByTagName( "postalCode" )[0].firstChild.data,
-		billing_city = billing_address.getElementsByTagName( "city" )[0].firstChild.data,
-		billing_country = billing_address.getElementsByTagName( "country" )[0].firstChild.data,
-		billing_department = billing_address.getElementsByTagName( "department" )[0].firstChild.data,
-		billing_street = billing_address.getElementsByTagName( "street" )[0].firstChild.data
+		###Calculate isolation costs
+		if sampleType == 'DNA unisolated':
+		    iso_costs = int( allCosts['dna isolation'][ 'date_costs' ][ billingDate ] )
+		elif sampleType == 'RNA unisolated':
+		    iso_costs = int( allCosts['rna isolation'][ 'date_costs' ][ billingDate ] )
 
-	    )
-	)
+
+		#t_costs = int(seq_costs) + int(iso_costs)
+
+
+		snpFinance.append(u"{errors}\t{container_name}\t{description}\t{project_name}\t{id}\t{sample_name}\t{open_date}\t{contact_name}\t{contact_email}\t{isolated}\t{sample_type}\t{account}\t{project_budget_number}\t{plate_costs}\t{isolation_costs}\t{billing_institute}\t{billing_postalcode}\t{billing_city}\t{billing_country}\t{billing_department}\t{billing_street}".format(
+
+
+			errors = ','.join( set(errors) ),
+			container_name = container_name,
+			description = ','.join( set( descriptions ) ),
+			project_name = project_name,
+			id = project.getElementsByTagName( "prj:project" )[0].getAttribute( "limsid" ),
+			sample_name = sample_name,
+			open_date = project.getElementsByTagName( "open-date" )[0].firstChild.data,
+			contact_name = researcher_name,
+			contact_email = researcher.getElementsByTagName( "email" )[0].firstChild.data,
+			isolated = isolated,
+			sample_type = sampleType,
+			account = lab_name,
+			project_budget_number = getUniqueUDF( samples,'Budget Number'),
+			plate_costs = plate_costs,
+			isolation_costs = iso_costs,
+			billing_institute = billing_address.getElementsByTagName( "institution" )[0].firstChild.data,
+			billing_postalcode = billing_address.getElementsByTagName( "postalCode" )[0].firstChild.data,
+			billing_city = billing_address.getElementsByTagName( "city" )[0].firstChild.data,
+			billing_country = billing_address.getElementsByTagName( "country" )[0].firstChild.data,
+			billing_department = billing_address.getElementsByTagName( "department" )[0].firstChild.data,
+			billing_street = billing_address.getElementsByTagName( "street" )[0].firstChild.data
+
+		    )
+		)
 
     return snpFinance
 
