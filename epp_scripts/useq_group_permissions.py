@@ -37,7 +37,7 @@ def setupGlobalsFromURI( uri ):
 def readConfig():
 	# config file format needs to be tab delimited with columns of Last,First, and Groups.
 	# The groups that a user is part of need to be separated by a comma (no space)
-	with open('config.txt') as f:
+	with open('group_permissions_config.txt') as f:
 		lines = f.readlines()
 	for line in lines:
 		line = line.strip()
@@ -70,7 +70,7 @@ def checkResearcher(rURI):
 		step_approved = [y.strip() for y in (args["groups"].split(","))]
 		if bool(set(config_groups) & set(step_approved)) is False:
 		#fail script, stop user from moving forward in the step and have the last last print statement appear in message box
-			print "Nice try %s %s, but you have not been approved to run steps in this protocol." % ( first, last )
+			print "User %s %s has not been approved to run steps in this protocol." % ( first, last )
 			exit (-1)
 
 	except:
