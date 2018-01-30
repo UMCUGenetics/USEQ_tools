@@ -6,6 +6,11 @@ import glsapiutil
 from xml.dom.minidom import parseString
 from useq_route_artifacts_config import NEXT_STEPS
 
+DEBUG = True
+api = None
+options = None
+CACHE = {}
+
 def getObjectDOM( uri ):
 
     global CACHE
