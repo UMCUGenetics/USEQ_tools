@@ -127,32 +127,28 @@ def routeAnalytes(  ):
 
 def main():
 
-	global api
-	global options
+    global api
+    global options
 
-    #Next step:
-        #based on sample udf
-        #based on argument
-
-	parser = OptionParser()
-	parser.add_option( "-u", "--username", help = "username of the current user", action = 'store', dest = 'username' )
-	parser.add_option( "-p", "--password", help = "password of the current user" )
-	parser.add_option( "-s", "--stepURI", help = "the URI of the step that launched this script" )
-    parser.add_options("-n", "--next_protocol", help = "manually set next protocol by name")
-	parser.add_option( "-f", "--udf_name", help = "set next protocol by udf name)
+    parser = OptionParser()
+    parser.add_option( "-u", "--username", help = "username of the current user", action = 'store', dest = 'username' )
+    parser.add_option( "-p", "--password", help = "password of the current user" )
+    parser.add_option( "-s", "--stepURI", help = "the URI of the step that launched this script" )
+    parser.add_option("-n", "--next_protocol", help = "manually set next protocol by name")
+    parser.add_option( "-f", "--udf_name", help = "set next protocol by udf name")
     parser.add_option( "-i", "--input", action="store_true", default=False, help="uses input artifact UDFs")             # input or output artifact - Default is output
-	(options, otherArgs) = parser.parse_args()
+    (options, otherArgs) = parser.parse_args()
 
-	setupGlobalsFromURI( options.stepURI )
-	api = glsapiutil.glsapiutil()
-	api.setHostname( HOSTNAME )
-	api.setVersion( VERSION )
-	api.setup( options.username, options.password )
+    setupGlobalsFromURI( options.stepURI )
+    api = glsapiutil.glsapiutil()
+    api.setHostname( HOSTNAME )
+    api.setVersion( VERSION )
+    api.setup( options.username, options.password )
 
-	## at this point, we have the parameters the EPP plugin passed, and we have network plumbing
-	## so let's get this show on the road!
+    ## at this point, we have the parameters the EPP plugin passed, and we have network plumbing
+    ## so let's get this show on the road!
     routeAnalytes()
 
-	# mode = getStepWorkflow( options.stepURI + "/details" )
+# mode = getStepWorkflow( options.stepURI + "/details" )
 if __name__ == "__main__":
-	main()
+    main()
