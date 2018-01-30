@@ -69,7 +69,7 @@ def routeAnalytes(  ):
 
     analytes = set()
     for io in process_DOM.getElementsByTagName( 'input-output-map' ):
-        input_art = io.getElementsByTagName("input")[0].getAttribute("uri")
+        input_art = io.getElementsByTagName("input")[0].getAttribute("limsid")
         if options.input:
              analytes.add( input_art )
         else:
