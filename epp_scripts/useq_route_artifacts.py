@@ -65,7 +65,7 @@ def routeAnalytes(  ):
 
     ## Step 1: Get the step XML
     process_URI = options.stepURI + "/details"
-    process_DOM = api.getObjectDOM(process_URI)
+    process_DOM = getObjectDOM(process_URI)
 
     analytes = set()
     for io in processDOM.getElementsByTagName( 'input-output-map' ):
