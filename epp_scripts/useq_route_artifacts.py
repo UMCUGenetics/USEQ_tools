@@ -68,7 +68,7 @@ def routeAnalytes(  ):
     process_DOM = getObjectDOM(process_URI)
 
     analytes = set()
-    for io in processDOM.getElementsByTagName( 'input-output-map' ):
+    for io in process_DOM.getElementsByTagName( 'input-output-map' ):
         input_art = io.getElementsByTagName("input")[0].getAttribute("uri")
         if options.input:
              analytes.add( input_art )
