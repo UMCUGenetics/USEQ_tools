@@ -41,26 +41,28 @@ def setupGlobalsFromURI( uri ):
 		print BASE_URI
 
 def getArtifacts( ids ):
-	artifactLinksXML = []
+    artifactLinksXML = []
 
-	artifactLinksXML.append( '<ri:links xmlns:ri="http://genologics.com/ri">' )
-	for limsid in ids:
-		artifactLinksXML.append( '<link uri="' + BASE_URI + 'artifacts/' + limsid + '" rel="artifacts"/>' )
-		artifactLinksXML.append( '</ri:links>' )
-		artifactLinksXML = ''.join( artifactLinksXML )
+    artifactLinksXML.append( '<ri:links xmlns:ri="http://genologics.com/ri">' )
+    for limsid in ids:
+        artifactLinksXML.append( '<link uri="' + BASE_URI + 'artifacts/' + limsid + '" rel="artifacts"/>' )
+    artifactLinksXML.append( '</ri:links>' )
+    artifactLinksXML = ''.join( artifactLinksXML )
 
-	artifactsXML = api.getBatchResourceByURI( BASE_URI + "artifacts/batch/retrieve", artifactLinksXML )
-	## did we get back anything useful?
-	try:
-		artifactsDOM = parseString( artifactsXML )
-		nodes = artifactsDOM.getElementsByTagName( "art:artifact" )
-		if len(nodes) > 0:
-			response = nodes
-		else:
-			response = ""
-	except:
-		response = ""
+    artifactsXML = api.getBatchResourceByURI( BASE_URI + "artifacts/batch/retrieve", artifactLinksXML )
+    # print artifactsXML
+    ## did we get back anything useful?
+    try:
+        artifactsDOM = parseString( artifactsXML )
+        nodes = artifactsDOM.getElementsByTagName( "art:artifact" )
+        if len(nodes) > 0:
+            response = nodes
+        else:
+            response = ""
+    except:
+        response = ""
 
+    return response
 def routeAnalytes(  ):
 
     ## Step 1: Get the step XML
@@ -81,9 +83,9 @@ def routeAnalytes(  ):
     artifacts_to_route = {} # Set up the dictionary of destination stages
 
 
-    artifacts_DOM = getArtifacts( analytes )
+    artifacts = getArtifacts( analytes )
 
-    for artifact in artifacts_DOM.getElementsByTagName( "art:artifact" ):
+    for artifact in artifacts:
         artifact_URI = artifact.getAttribute("uri").split('?')[0]
         if options.next_protocol:
             next_step = NEXT_STEPS[ options.next_protocol ]
@@ -118,7 +120,8 @@ def routeAnalytes(  ):
             rXML = rXML + '<artifact uri="' + uri + '"/>'
         rXML = rXML + '</assign>'
         rXML = rXML + '</rt:routing>'
-        response = api.POST( rXML, api.getBaseURI() + "route/artifacts/" )
+        response = api.createObject( rXML, BASE_URI + "route/artifacts/")
+        # response = api.POST( rXML, BASE_URI + "route/artifacts/" )
         return response
 
     # Step 3: Send separate routing messages for each destination stage
