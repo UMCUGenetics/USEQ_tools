@@ -120,8 +120,10 @@ def routeAnalytes(  ):
             rXML = rXML + '<artifact uri="' + uri + '"/>'
         rXML = rXML + '</assign>'
         rXML = rXML + '</rt:routing>'
+        # print rXML
         response = api.createObject( rXML, BASE_URI + "route/artifacts/")
         # response = api.POST( rXML, BASE_URI + "route/artifacts/" )
+        # print response
         return response
 
     # Step 3: Send separate routing messages for each destination stage
@@ -132,7 +134,7 @@ def routeAnalytes(  ):
         else:
             msg = r
         logging.debug( msg )
-
+        print msg
 def main():
 
     global api
@@ -142,7 +144,7 @@ def main():
     parser.add_option( "-u", "--username", help = "username of the current user", action = 'store', dest = 'username' )
     parser.add_option( "-p", "--password", help = "password of the current user" )
     parser.add_option( "-s", "--stepURI", help = "the URI of the step that launched this script" )
-    parser.add_option("-n", "--next_protocol", help = "manually set next protocol by name")
+    parser.add_option( "-n", "--next_protocol", help = "manually set next protocol by name")
     parser.add_option( "-f", "--udf_name", help = "set next protocol by udf name")
     parser.add_option( "-i", "--input", action="store_true", default=False, help="uses input artifact UDFs")             # input or output artifact - Default is output
     (options, otherArgs) = parser.parse_args()

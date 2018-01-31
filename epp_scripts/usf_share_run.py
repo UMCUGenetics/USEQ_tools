@@ -163,11 +163,11 @@ def zipRun( project_id, run_dir ):
 
 def encryptRun( run_zip, researcher_email, researcher_user_name):
 
-    return_code = subprocess.call("gpg --encrypt --output {0}.gpg --recipient '{1}' {0}".format(run_zip,researcher_email), shell=True)
-    if return_code:
-        sys.exit("Encryption failed with message : {0}".format(return_code))
-    else:
-        os.remove(run_zip)
+    # return_code = subprocess.call("gpg --encrypt --output {0}.gpg --recipient '{1}' {0}".format(run_zip,researcher_email), shell=True)
+    # if return_code:
+    #     sys.exit("Encryption failed with message : {0}".format(return_code))
+    # else:
+    #     os.remove(run_zip)
     return run_zip+".gpg"
 
 
@@ -242,7 +242,6 @@ def shareWorker(project_name, project_id, researcher_email, researcher_user_name
     if options.encrypt == 'yes':
         print "{0} : Running encryption of {1}".format(name, run_zip)
         run_zip = encryptRun( run_zip, researcher_email,researcher_user_name )
-
 
     upload_response = nc_util.upload(run_zip)
     if upload_response:
