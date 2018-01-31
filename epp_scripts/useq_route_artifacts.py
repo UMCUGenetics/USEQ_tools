@@ -122,6 +122,7 @@ def routeAnalytes(  ):
         rXML = rXML + '</rt:routing>'
         # print rXML
         response = api.createObject( rXML, BASE_URI + "route/artifacts/")
+        # response = ''
         # response = api.POST( rXML, BASE_URI + "route/artifacts/" )
         # print response
         return response
@@ -134,7 +135,8 @@ def routeAnalytes(  ):
         else:
             msg = r
         logging.debug( msg )
-        print msg
+    print msg
+    return msg
 def main():
 
     global api
