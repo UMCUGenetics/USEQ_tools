@@ -73,8 +73,10 @@ def routeAnalytes(  ):
     for io in process_DOM.getElementsByTagName( 'input-output-map' ):
         input_art = io.getElementsByTagName("input")[0].getAttribute("limsid")
         if options.input:
-             analytes.add( input_art )
+            print 'using input'
+            analytes.add( input_art )
         else:
+            print 'using output'
             output_art_type = io.getElementsByTagName("output")[0].getAttribute("type")
             if output_art_type == "Analyte":    # only analytes can be routed to different queues
                 output_art = io.getElementsByTagName("output")[0].getAttribute("limsid")
@@ -92,6 +94,7 @@ def routeAnalytes(  ):
             if next_step not in artifacts_to_route:
                 artifacts_to_route[ next_step ] = []
             artifacts_to_route[ next_step ].append(artifact_URI)
+
         else:
             samples = artifact.getElementsByTagName("sample")
             #If it's a pool there's going to be 1 or more samples, so get the first for info.
@@ -100,8 +103,9 @@ def routeAnalytes(  ):
             sample = getObjectDOM(sample_uri)
 
             sample_udf_value = api.getUDF(sample, options.udf_name)
-
+            print sample_udf_value
             next_step = NEXT_STEPS[sample_udf_value]
+            print next_step
             if next_step not in artifacts_to_route:
                 artifacts_to_route[ next_step ] = []
             artifacts_to_route[ next_step ].append(artifact_URI)
@@ -115,10 +119,20 @@ def routeAnalytes(  ):
     def pack_and_send( stageURI, a_ToGo ):
         ## Build and POST the routing message
         rXML = '<rt:routing xmlns:rt="http://genologics.com/ri/routing">'
+        workflowURI = "/".join(stageURI.split("/")[0:-2])
+
+        #First unassign artifacts from workflow to prevent samples from automatically moving to the next step in the workflow
+        #This is a necessary workound
+        rXML = rXML + '<unassign workflow-uri="' + workflowURI + '">'
+        for uri in a_ToGo:
+            rXML = rXML + '<artifact uri="' + uri + '"/>'
+        rXML = rXML + '</unassign>'
+
         rXML = rXML + '<assign stage-uri="' + stageURI + '">'
         for uri in a_ToGo:
             rXML = rXML + '<artifact uri="' + uri + '"/>'
         rXML = rXML + '</assign>'
+
         rXML = rXML + '</rt:routing>'
         # print rXML
         response = api.createObject( rXML, BASE_URI + "route/artifacts/")
