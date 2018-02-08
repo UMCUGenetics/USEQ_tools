@@ -120,13 +120,13 @@ def routeAnalytes(  ):
         ## Build and POST the routing message
         rXML = '<rt:routing xmlns:rt="http://genologics.com/ri/routing">'
         workflowURI = "/".join(stageURI.split("/")[0:-2])
-
+        # print workflowURI
         #First unassign artifacts from workflow to prevent samples from automatically moving to the next step in the workflow
         #This is a necessary workound
-        rXML = rXML + '<unassign workflow-uri="' + workflowURI + '">'
-        for uri in a_ToGo:
-            rXML = rXML + '<artifact uri="' + uri + '"/>'
-        rXML = rXML + '</unassign>'
+        # rXML = rXML + '<unassign workflow-uri="' + workflowURI + '">'
+        # for uri in a_ToGo:
+        #     rXML = rXML + '<artifact uri="' + uri + '"/>'
+        # rXML = rXML + '</unassign>'
 
         rXML = rXML + '<assign stage-uri="' + stageURI + '">'
         for uri in a_ToGo:
