@@ -3,6 +3,7 @@ __author__ = 'travis.glennon'
 import sys
 import getopt
 import glsapiutil
+import os
 from xml.dom.minidom import parseString
 
 HOSTNAME = ""
@@ -15,7 +16,8 @@ api = None
 args = None
 
 configDict = {}
-
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+print __location__
 def setupGlobalsFromURI( uri ):
 
 	global HOSTNAME
@@ -37,7 +39,7 @@ def setupGlobalsFromURI( uri ):
 def readConfig():
 	# config file format needs to be tab delimited with columns of Last,First, and Groups.
 	# The groups that a user is part of need to be separated by a comma (no space)
-	with open('group_permissions_config.txt') as f:
+	with open(os.path.join(__location__,'group_permissions_config.txt')) as f:
 		lines = f.readlines()
 	for line in lines:
 		line = line.strip()
