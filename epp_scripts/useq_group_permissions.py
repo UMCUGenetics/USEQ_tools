@@ -11,7 +11,7 @@ VERSION = ""
 BASE_URI = ""
 limsid = ""
 
-DEBUG = True
+DEBUG = False
 api = None
 args = None
 
@@ -54,7 +54,6 @@ def findResearcherFromProcess():
 	pDOM = parseString(pXML)
 	nodes = pDOM.getElementsByTagName("technician")
 	step_researcher_uri = nodes[0].getAttribute("uri")
-	# print step_researcher_uri
 	return step_researcher_uri
 
 
@@ -63,10 +62,10 @@ def checkResearcher(rURI):
 	rDOM = parseString(rXML)
 	nodes = rDOM.getElementsByTagName( "first-name" )
 	first = nodes[0].firstChild.data
-	# print first
+
 	nodes = rDOM.getElementsByTagName( "last-name" )
 	last = nodes[0].firstChild.data
-	# print last
+
 	readConfig()
 	try:
 		# is the technicians name a key in the dictionary created from the config file
