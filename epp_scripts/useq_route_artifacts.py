@@ -4,7 +4,7 @@ from optparse import OptionParser
 import logging
 import glsapiutil
 from xml.dom.minidom import parseString
-from useq_route_artifacts_config import NEXT_STEPS
+from useq_route_artifacts_config import NEXT_STEPS, STEP_NAMES
 
 DEBUG = True
 api = None
@@ -68,6 +68,7 @@ def routeAnalytes(  ):
     ## Step 1: Get the step XML
     process_URI = options.stepURI + "/details"
     process_DOM = getObjectDOM(process_URI)
+    current_step = process_DOM.getElementsByTagName("configuration")[0].firstChild.data
 
     analytes = set()
     for io in process_DOM.getElementsByTagName( 'input-output-map' ):
@@ -89,26 +90,36 @@ def routeAnalytes(  ):
 
     for artifact in artifacts:
         artifact_URI = artifact.getAttribute("uri").split('?')[0]
-        if options.next_protocol:
-            next_step = NEXT_STEPS[ options.next_protocol ]
-            if next_step not in artifacts_to_route:
-                artifacts_to_route[ next_step ] = []
-            artifacts_to_route[ next_step ].append(artifact_URI)
+        samples = artifact.getElementsByTagName("sample")
+        sample_uri = samples[0].getAttribute("uri")
+        sample = getObjectDOM(sample_uri)
+        next_step = None
+        if current_step in STEP_NAMES['ISOLATION']:
+            sample_libprep = api.getUDF(sample, 'Library prep kit')
+            next_step = NEXT_STEPS[sample_libprep]
 
-        else:
-            samples = artifact.getElementsByTagName("sample")
-            #If it's a pool there's going to be 1 or more samples, so get the first for info.
-            #If it's not a pool there's going to be only 1 samples, so also get the first one for INFO
-            sample_uri = samples[0].getAttribute("uri")
-            sample = getObjectDOM(sample_uri)
+        elif current_step in STEP_NAMES['LIBPREP']:
+            next_step = NEXT_STEPS['USEQ - Library Pooling']
 
-            sample_udf_value = api.getUDF(sample, options.udf_name)
-            print sample_udf_value
-            next_step = NEXT_STEPS[sample_udf_value]
-            print next_step
-            if next_step not in artifacts_to_route:
-                artifacts_to_route[ next_step ] = []
-            artifacts_to_route[ next_step ].append(artifact_URI)
+        elif current_step in STEP_NAMES['POOLING']:
+            sample_type = api.getUDF(sample, 'Sample Type')
+            if sample_type == 'DNA library' or sample_type == 'RNA library': #Go to pool QC
+                next_step = NEXT_STEPS['USEQ - Pool QC']
+            else: #Pool QC has already been done
+                sample_platform = api.getUDF(sample, 'Platform')
+                next_step = NEXT_STEPS[sample_platform]
+
+        elif current_step in STEP_NAMES['POOL QC']:
+            sample_platform = api.getUDF(sample, 'Platform')
+            next_step = NEXT_STEPS[sample_platform]
+
+        elif current_step in STEP_NAMES['SEQUENCING']:
+            next_step = NEXT_STEPS['USEQ - Post Sequencing']
+
+
+        if next_step not in artifacts_to_route:
+            artifacts_to_route[ next_step ] = []
+        artifacts_to_route[ next_step ].append(artifact_URI)
 
 
     if len( artifacts_to_route ) == 0:
@@ -150,8 +161,7 @@ def main():
     parser.add_option( "-u", "--username", help = "username of the current user", action = 'store', dest = 'username' )
     parser.add_option( "-p", "--password", help = "password of the current user" )
     parser.add_option( "-s", "--stepURI", help = "the URI of the step that launched this script" )
-    parser.add_option( "-n", "--next_protocol", help = "manually set next protocol by name")
-    parser.add_option( "-f", "--udf_name", help = "set next protocol by udf name")
+
     parser.add_option( "-i", "--input", action="store_true", default=False, help="uses input artifact UDFs")             # input or output artifact - Default is output
     (options, otherArgs) = parser.parse_args()
 
