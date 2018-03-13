@@ -9,7 +9,7 @@ import tarfile
 import sys
 import multiprocessing
 import subprocess
-from xml.dom.minidom import parseString
+from xml.dom.minidom import parseString, parse
 from optparse import OptionParser
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -29,6 +29,16 @@ api = None
 options = None
 CACHE = {}
 RUN_TYPES = ['NextSeq Run (NextSeq) 1.0', 'MiSeq Run (MiSeq) 4.0', 'HiSeq Run (HiSeq) 5.0']
+RUNTYPE_YIELDS={
+    "Version3" : 20000000, #MiSeq
+    "Version2" : 12000000, #MiSeq
+    "NextSeq Mid" : 120000000, #NextSeq
+    "NextSeq High" : 350000000, #NextSeq
+    "HiSeq rapid" : 250000000, #Hiseq
+}
+
+
+
 
 
 def getObjectDOM( uri ):
@@ -129,6 +139,92 @@ def getRunInfo( project_name ):
     sorted_run_dates = [datetime.datetime.strftime(ts, "%Y-%m-%d") for ts in run_dates]
     return runs[sorted_run_dates[-1]] #return the most recent run, this is the run we want to share
 
+def parseRunParameters(run_parameters):
+    run_parameters = parse(run_parameters)
+    expected_reads = '0'
+    try:
+        run_chem = run_parameters.getElementsByTagName('Chemistry')[0].firstChild.nodeValue
+    except:
+        run_chem = ''
+    try:
+        run_version = run_parameters.getElementsByTagName('ReagentKitVersion')[0].firstChild.nodeValue
+    except:
+        run_version = ''
+    if run_chem in RUNTYPE_YIELDS:
+        expected_reads = RUNTYPE_YIELDS[run_chem]
+    elif run_version in RUNTYPE_YIELDS:
+        expected_reads = RUNTYPE_YIELDS[run_version]
+    else:
+        expected_reads = RUNTYPE_YIELDS['HiSeq rapid']
+
+    return expected_reads
+
+def parseConversionStats( conversion_stats ):
+
+    stats_DOM = parse( conversion_stats )
+    stats_summary = {'samples':{}, 'unknown':{}, 'total_reads' : 0, 'total_reads_raw' : 0}
+    paired_end = False
+
+    for sample in stats_DOM.getElementsByTagName("Sample"):
+        sample_name = sample.getAttribute("name")
+        if sample_name != "all":
+
+
+
+            barcode = sample.getElementsByTagName("Barcode")[0]
+            barcode_name = barcode.getAttribute("name")
+            if "N" in barcode_name:
+                continue
+            stats_summary['samples'][ sample_name ] = {}
+            stats_summary['samples'][ sample_name] = {'barcode':barcode_name, 'qsum':0,'yield':0,'yield_Q30':0,'cluster_count':0, 'mean_quality':0, 'percent_Q30':0}
+            for lane in barcode.getElementsByTagName("Lane"):
+
+                lane_nr = lane.getAttribute("number")
+                lane_counts = {
+                    'pf' : {'r1':{'yield':0,'yield_Q30':0,'qscore_sum':0}, 'r2':{'yield':0,'yield_Q30':0,'qscore_sum':0}}
+                }
+                for tile in lane.getElementsByTagName("Tile"):
+                    tile_nr = tile.getAttribute("number")
+
+                    raw_counts = tile.getElementsByTagName("Raw")[0]
+                    pf_counts = tile.getElementsByTagName("Pf")[0]
+                    stats_summary['samples'][ sample_name]['cluster_count'] += int(pf_counts.getElementsByTagName("ClusterCount")[0].firstChild.nodeValue)
+                    stats_summary['total_reads'] += int(pf_counts.getElementsByTagName("ClusterCount")[0].firstChild.nodeValue)
+                    stats_summary['total_reads_raw'] += int(raw_counts.getElementsByTagName("ClusterCount")[0].firstChild.nodeValue)
+
+                    for read in pf_counts.getElementsByTagName("Read"):
+                        read_number = read.getAttribute("number")
+                        lane_counts['pf']['r'+str(read_number)]['yield'] += int(read.getElementsByTagName("Yield")[0].firstChild.nodeValue)
+                        lane_counts['pf']['r'+str(read_number)]['yield_Q30'] += int(read.getElementsByTagName("YieldQ30")[0].firstChild.nodeValue)
+                        lane_counts['pf']['r'+str(read_number)]['qscore_sum'] += int(read.getElementsByTagName("QualityScoreSum")[0].firstChild.nodeValue)
+
+                    stats_summary['samples'][ sample_name]['qsum'] += lane_counts['pf']['r1']['qscore_sum']
+                    stats_summary['samples'][ sample_name]['qsum'] += lane_counts['pf']['r2']['qscore_sum']
+                    stats_summary['samples'][ sample_name]['yield'] += lane_counts['pf']['r1']['yield']
+                    stats_summary['samples'][ sample_name]['yield'] += lane_counts['pf']['r2']['yield']
+                    stats_summary['samples'][ sample_name]['yield_Q30'] += lane_counts['pf']['r1']['yield_Q30']
+                    stats_summary['samples'][ sample_name]['yield_Q30'] += lane_counts['pf']['r2']['yield_Q30']
+
+            stats_summary['samples'][ sample_name ]['percent_Q30'] = "{0:.2f}".format( (stats_summary['samples'][ sample_name ]['yield_Q30'] / float(stats_summary['samples'][ sample_name ]['yield']))*100 )
+            stats_summary['samples'][ sample_name ]['mean_quality'] = "{0:.2f}".format( stats_summary['samples'][ sample_name ]['qsum'] / float(stats_summary['samples'][ sample_name ]['yield']) )
+            stats_summary['samples'][ sample_name ]['cluster_count'] = "{0:,}".format( stats_summary['samples'][ sample_name]['cluster_count'] )
+
+
+    for top_unknown in stats_DOM.getElementsByTagName("TopUnknownBarcodes"):
+        for barcode in top_unknown.getElementsByTagName("Barcode"):
+            bc_count = int(barcode.getAttribute("count"))
+            bc_seq = barcode.getAttribute("sequence")
+            if bc_seq in stats_summary['unknown']:
+                stats_summary['unknown'][bc_seq] += bc_count
+            else:
+                stats_summary['unknown'][bc_seq] = bc_count
+
+    for bc in stats_summary['unknown']:
+        stats_summary['unknown'][bc] = "{0:,}".format(stats_summary['unknown'][bc])
+
+    return stats_summary
+
+
 def getRunDirectory( run_name=None, run_flowcell=None ):
     run_dir = None
     if run_name:
@@ -181,7 +277,7 @@ def getResearcher( uri ):
 
     return {'email':email,'user_name':user_name}
 
-def sendMail(project_id, researcher_email, share_id):
+def sendMail(project_id, researcher_email, share_id, conversion_stats, expected_reads):
 
     outer = MIMEMultipart()
     outer[ "Subject" ] = "USEQ sequencing of sequencing-run ID {0} finished".format(project_id)
@@ -189,11 +285,41 @@ def sendMail(project_id, researcher_email, share_id):
 
     contents = ""
     contents += "<p>Dear USEQ user,</p>"
-    contents += "<p>Sequencing-run ID {0} has succesfully been sequenced.</p>".format(project_id)
+    contents += "<p>Sequencing-run ID {0} has succesfully been sequenced. You can find a short run report below.</p>".format(project_id)
     contents += "<p>You can download your data using <a href='https://ncie01.op.umcutrecht.nl/index.php/s/{0}'>this</a> link.</p>".format(share_id)
     contents += "<p>This link will remain active for 7 days. If you're unable to download your data within this period, please let us know. "
     contents += "Please also be aware that we're able to store your sequencing data for a maximum of two months, after which it is automatically deleted from our servers.</p>"
+    contents += "<p><b><u>Run Report</u></b></p>"
+    contents += \
+    "<table> \
+        <tr><td><b>Expected Raw Reads:</b></td><td>{0}</td></tr> \
+        <tr><td><b>Raw Reads:</b></td><td>{1}</td></tr> \
+        <tr><td><b>Filtered Reads:</b></td><td>{2}</td></tr> \
+    </table>".format(expected_reads,conversion_stats['total_reads_raw'],conversion_stats['total_reads'])
+    contents += \
+    "<table border='1'> \
+        <tr>\
+            <th><b>Sample</b></th>\
+            <th><b>Barcode Sequence</b></th>\
+            <th><b>Reads</b></th>\
+            <th><b>% >= Q30</b></th>\
+            <th><b>Mean Quality Score</b></th>\
+        </tr>"
+    for sample in conversion_stats['samples']:
+        barcode = conversion_stats['samples'][sample]['barcode']
+        cluster_count = conversion_stats['samples'][sample]['cluster_count']
+        percent_Q30 = conversion_stats['samples'][sample]['percent_Q30']
+        mean_quality = conversion_stats['samples'][sample]['mean_quality']
+        contents += \
+        "<tr>\
+            <td>{0}</td>\
+            <td>{1}</td>\
+            <td>{2}</td>\
+            <td>{3}</td>\
+            <td>{4}</td>\
+        </tr>".format(sample, barcode, cluster_count, percent_Q30, mean_quality)
 
+    contents += "</table>"
     logo = '../resources/useq_logo.jpg'
     logo_name = 'useq_logo.jpg'
 
@@ -215,7 +341,9 @@ def sendMail(project_id, researcher_email, share_id):
     outer.attach(logo_image)
 
     s = smtplib.SMTP( "localhost" )
-    s.sendmail( 'useq@umcutrecht.nl', researcher_email, outer.as_string() )
+    recipients = [researcher_email, 'useq@umcutrecht.nl']
+    s.sendmail( 'useq@umcutrecht.nl', recipients, outer.as_string() )
+
     s.quit()
 
 def shareWorker(project_name, project_id, researcher_email, researcher_user_name):
@@ -237,12 +365,14 @@ def shareWorker(project_name, project_id, researcher_email, researcher_user_name
          print "{0} : Could not find {1} in {2}".format(name, run_dir, options.dataDir)
          return
 
+    conversion_stats = parseConversionStats('{}/Data/Intensities/BaseCalls/Stats/ConversionStats.xml'.format(run_dir))
+    expected_reads = parseRunParameters('{}/RunParameters.xml'.format(run_dir))
+
     run_zip = zipRun( project_id,run_dir )
 
     if options.encrypt == 'yes':
         print "{0} : Running encryption of {1}".format(name, run_zip)
         run_zip = encryptRun( run_zip, researcher_email,researcher_user_name )
-
 
     upload_response = nc_util.upload(run_zip)
     if upload_response:
@@ -257,7 +387,7 @@ def shareWorker(project_name, project_id, researcher_email, researcher_user_name
         return
     else:
         print "{0} : Sending {1} to {2} with id {3}".format(name,run_zip,researcher_email,share_id)
-        sendMail(project_id, researcher_email, share_id)
+        sendMail(project_id, researcher_email, share_id, conversion_stats, expected_reads)
         print "{0} : Finished".format(name)
         return
 
