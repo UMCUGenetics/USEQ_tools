@@ -40,20 +40,21 @@ class NextcloudUtil(object):
         if self.webdav.exists(remote_path):
             # sys.exit("File path '{0}' already exists on server".format(file_basename))
             # sys.exit("File path '{0}' already exists on server".format(file_basename))
-            return "File path '{0}' already exists on server".format(file_basename)
+            return {"ERROR" : "File path '{0}' already exists on server".format(file_basename)}
         else:
         #upload file
             self.webdav.upload(file_path, remote_path)
 
         #check if file upload succeeded
         upload_response = self.webdav.exists(remote_path)
-        return
+        return {"SUCCES" : upload_response}
 
     def share(self, file_path, email):
         file_basename = ntpath.basename(file_path)
         remote_path = 'remote.php/webdav/sequencing_runs/'+file_basename
+
         if not self.webdav.exists(remote_path):
-            return "File path '{0}' does not exist on server".format(file_basename)
+            return {"ERROR" : "File path '{0}' does not exist on server".format(file_basename)}
 
         # print "Share with {0}".format(email)
         data={
@@ -63,15 +64,15 @@ class NextcloudUtil(object):
         }
 
 
-        #temporary commented
+
         response = requests.post("https://{0}/ocs/v1.php/apps/files_sharing/api/v1/shares".format(self.hostname), auth=(self.user, self.password), headers={'OCS-APIRequest':'true','Content-Type': 'application/json'},data=json.dumps(data))
 
         share_id = None
         if not self.webdav.exists(remote_path):
-            return "File '{0}' upload failed".format(file_basename)
+            return {"ERROR" : "File '{0}' upload failed".format(file_basename)}
 
         response_DOM = parseString( response.text )
         share_id = response_DOM.getElementsByTagName( "token" )[0].firstChild.data
 
         os.remove(file_path)
-        return share_id
+        return {"SUCCES": share_id}

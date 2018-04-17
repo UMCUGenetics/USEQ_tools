@@ -247,13 +247,8 @@ def zipRun( project_id, run_dir ):
     run_name = os.path.basename(run_dir)
     run_zip = "{0}/{1}.tar.gz".format(run_dir,project_id)
 
-    if os.path.isfile(run_zip):
-        print "Zip file '{0}' already exists".format(run_zip)
-    else:
-        with tarfile.open(run_zip, "w:gz") as tar:
-            tar.add(run_dir, arcname=run_name)
-        tar.close()
-
+    with tarfile.open(run_zip, "w:gz") as tar:
+        tar.add(run_dir, arcname=run_name)
 
     return run_zip
 
@@ -375,17 +370,16 @@ def shareWorker(project_name, project_id, researcher_email, researcher_user_name
         run_zip = encryptRun( run_zip, researcher_email,researcher_user_name )
 
     upload_response = nc_util.upload(run_zip)
-    if upload_response:
-        print "{0} : Upload of {1} failed".format(name, run_zip)
-        print "{0} : {1}".format(name, upload_response)
+    if "ERROR" in upload_response:
+        print "{0} : Uploading of {1} failed with message:\n '{2}'".format(name, run_zip, upload_response["ERROR"])
         return
 
-    share_id = nc_util.share(run_zip, researcher_email)
-    if not share_id:
-        print "{0} : Sharing of {1} failed".format(name, run_zip)
-        print "{0} : {1}".format(name, share_response)
+    share_response = nc_util.share(run_zip, researcher_email)
+    if "ERROR" in share_response:
+        print "{0} : Sharing of {1} failed with message:\n '{2}'".format(name, run_zip, share_response["ERROR"])
         return
     else:
+        share_id = share_response["SUCCES"]
         print "{0} : Sending {1} to {2} with id {3}".format(name,run_zip,researcher_email,share_id)
         sendMail(project_id, researcher_email, share_id, conversion_stats, expected_reads)
         print "{0} : Finished".format(name)
