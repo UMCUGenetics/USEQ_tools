@@ -4,7 +4,7 @@ import sys
 import xml.dom.minidom
 from xml.dom.minidom import parseString
 
-DEBUG = 1
+DEBUG = 0
 
 class glsapiutil:
 

@@ -81,6 +81,7 @@ def routeAnalytes(  ):
             output_art_type = io.getElementsByTagName("output")[0].getAttribute("type")
             if output_art_type == "Analyte":    # only analytes can be routed to different queues
                 output_art = io.getElementsByTagName("output")[0].getAttribute("limsid")
+                print output_art
                 analytes.add( output_art )
 
     artifacts_to_route = {} # Set up the dictionary of destination stages
@@ -94,6 +95,7 @@ def routeAnalytes(  ):
         sample_uri = samples[0].getAttribute("uri")
         sample = getObjectDOM(sample_uri)
         next_step = None
+        print current_step
         if current_step in STEP_NAMES['ISOLATION']:
             sample_libprep = api.getUDF(sample, 'Library prep kit')
             next_step = NEXT_STEPS[sample_libprep]
@@ -114,6 +116,7 @@ def routeAnalytes(  ):
             next_step = NEXT_STEPS[sample_platform]
 
         elif current_step in STEP_NAMES['SEQUENCING']:
+
             next_step = NEXT_STEPS['USEQ - Post Sequencing']
 
 
