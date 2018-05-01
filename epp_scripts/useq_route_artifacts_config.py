@@ -1,13 +1,13 @@
 NEXT_STEPS = {
-    'Truseq DNA nano' : 'https://usf-lims-test.op.umcutrecht.nl/api/v2/configuration/workflows/515/stages/1397',
-    'Truseq RNA stranded ribo-zero' : 'https://usf-lims-test.op.umcutrecht.nl/api/v2/configuration/workflows/515/stages/1406',
-    'Truseq RNA stranded polyA' : 'https://usf-lims-test.op.umcutrecht.nl/api/v2/configuration/workflows/515/stages/1401',
-    'Illumina NextSeq' : 'https://usf-lims-test.op.umcutrecht.nl/api/v2/configuration/workflows/515/stages/1413',
-    'Illumina MiSeq' : 'https://usf-lims-test.op.umcutrecht.nl/api/v2/configuration/workflows/515/stages/1416',
-    'Illumina HiSeq' : 'https://usf-lims-test.op.umcutrecht.nl/api/v2/configuration/workflows/515/stages/1419',
-    'USEQ - Library Pooling' : 'https://usf-lims-test.op.umcutrecht.nl/api/v2/configuration/workflows/515/stages/1411',
-    'USEQ - Post Sequencing' : 'https://usf-lims-test.op.umcutrecht.nl/api/v2/configuration/workflows/515/stages/1422',
-    'USEQ - Pool QC' : 'https://usf-lims-test.op.umcutrecht.nl/api/v2/configuration/workflows/515/stages/1412'
+    'Truseq DNA nano' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/1931',
+    'Truseq RNA stranded ribo-zero' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/1944',
+    'Truseq RNA stranded polyA' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/1937',
+    'Illumina NextSeq' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/2003',
+    'Illumina MiSeq' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/2006',
+    'Illumina HiSeq' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/2009',
+    'USEQ - Library Pooling' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/2001',
+    'USEQ - Post Sequencing' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/2012',
+    'USEQ - Pool QC' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/2002'
 
 }
 
