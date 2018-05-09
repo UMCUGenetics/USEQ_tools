@@ -33,7 +33,7 @@ def sendMessage( msgSubject, msgText ):
 
 	msg = MIMEText( msgText.encode('utf-8') , 'html')
 
-	me = "usf@umcutrecht.nl"
+	me = "useq@umcutrecht.nl"
 
 	msg[ "Subject" ] = msgSubject
 	msg[ "From" ] = me
@@ -125,10 +125,11 @@ def buildMessage():
 	#print bsXML
 	bsDOM = parseString( bsXML )
 	pNames = []
+	pIDs = []
 	rUserName = ""
 	rEmail = ""
 
-	TABLE.append( "<table> <thead > <tr> <th><b>Sample</b></th> <th><b>Project</b></th> <th><b>Analysis</b></th> <th><b>Reference Genome</b></th></tr> </thead>" ) 
+	TABLE.append( "<table> <thead > <tr> <th><b>Sample</b></th> <th><b>Project</b></th> <th><b>Project ID</b></th> <th><b>Analysis</b></th> <th><b>Reference Genome</b></th></tr> </thead>" ) 
 	TABLE.append( "<tbody>" )
 	for sample in bsDOM.getElementsByTagName( "smp:sample" ):
 
@@ -138,7 +139,7 @@ def buildMessage():
 		analysis = api.getUDF( sample, "Analysis" )
 		sName = sample.getElementsByTagName( "name" )[0].firstChild.data
 		pName = ""
-		
+		pLUID = ""
 		## get the corresponding project??
 		try:
 			pLUID = sample.getElementsByTagName( "project" )[0].getAttribute( "limsid" )
@@ -163,18 +164,20 @@ def buildMessage():
 		if pName not in pNames:
 			pNames.append(pName)		
 
+		if pLUID not in pIDs:
+			pIDs.append(pLUID)
 		## build a hyperlink for search purposes:
 		searchURI = HOSTNAME + "/clarity/search?scope=Sample&query=" + sLUID
 		searchURI = searchURI.replace( "http://", "https://" )
 		searchURI = searchURI.replace( ":8080", "" )
 
-		line = "<tr> <td><a href='%s'>%s</a></td> <td>%s</td> <td>%s</td> <td>%s</td> </tr>" % (searchURI, sName, pName, analysis, refGenome)
+		line = "<tr> <td><a href='%s'>%s</a></td> <td>%s</td> <td>%s</td> <td>%s</td> <td>%s</td> </tr>" % (searchURI, sName, pName, pLUID, analysis, refGenome)
 		#print line
 		TABLE.append( line )
 
 	TABLE.append( "</tbody></table>" )
 	TEXT.append( "<p>The responsible contact for this sequencing run is: %s %s (%s).</p>" % (rFirstName, rLastName, rEmail) )
-	SUBJECT = "A "+options.machine+" run for project(s) "+",".join(pNames)+" was just started on "+cName
+	SUBJECT = "A "+options.machine+" run for project(s) "+",".join(pNames)+" ("+ ",".join(pIDs)+") was just started on "+cName
 
 	sendMessage( SUBJECT, "\r\n".join( TEXT + TABLE ) )
 
