@@ -14,9 +14,9 @@ from optparse import OptionParser
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
-
 from xml.parsers.expat import ExpatError
 from nextcloud_util import NextcloudUtil
+import xml.etree.cElementTree as ET
 import datetime
 import getpass
 
@@ -28,7 +28,7 @@ DEBUG = True
 api = None
 options = None
 CACHE = {}
-RUN_TYPES = ['NextSeq Run (NextSeq) 1.0', 'MiSeq Run (MiSeq) 4.0', 'HiSeq Run (HiSeq) 5.0']
+RUN_TYPES = ['NextSeq Run (NextSeq) 1.0','USEQ - NextSeq Run', 'MiSeq Run (MiSeq) 4.0', 'USEQ - MiSeq Run','HiSeq Run (HiSeq) 5.0','USEQ - HiSeq Run']
 RUNTYPE_YIELDS={
     "Version3" : 20000000, #MiSeq
     "Version2" : 12000000, #MiSeq
@@ -159,44 +159,44 @@ def parseRunParameters(run_parameters):
 
     return expected_reads
 
-def parseConversionStats( conversion_stats ):
-
-    stats_DOM = parse( conversion_stats )
+def parseConversionStats( conversion_stats) :
+    tree = ET.ElementTree(file=conversion_stats)
     stats_summary = {'samples':{}, 'unknown':{}, 'total_reads' : 0, 'total_reads_raw' : 0}
+
     paired_end = False
+    for elem in tree.iter(tag='Sample'):
 
-    for sample in stats_DOM.getElementsByTagName("Sample"):
-        sample_name = sample.getAttribute("name")
+        sample_name = elem.attrib['name']
+
         if sample_name != "all":
-
-
-
-            barcode = sample.getElementsByTagName("Barcode")[0]
-            barcode_name = barcode.getAttribute("name")
+            barcode = elem.find('Barcode')
+            barcode_name = barcode.attrib['name']
             if "N" in barcode_name:
                 continue
+
+
             stats_summary['samples'][ sample_name ] = {}
             stats_summary['samples'][ sample_name] = {'barcode':barcode_name, 'qsum':0,'yield':0,'yield_Q30':0,'cluster_count':0, 'mean_quality':0, 'percent_Q30':0}
-            for lane in barcode.getElementsByTagName("Lane"):
-
-                lane_nr = lane.getAttribute("number")
+            for lane in barcode.findall("Lane"):
+                lane_nr = lane.attrib["number"]
                 lane_counts = {
                     'pf' : {'r1':{'yield':0,'yield_Q30':0,'qscore_sum':0}, 'r2':{'yield':0,'yield_Q30':0,'qscore_sum':0}}
                 }
-                for tile in lane.getElementsByTagName("Tile"):
-                    tile_nr = tile.getAttribute("number")
+                for tile in lane.findall("Tile"):
 
-                    raw_counts = tile.getElementsByTagName("Raw")[0]
-                    pf_counts = tile.getElementsByTagName("Pf")[0]
-                    stats_summary['samples'][ sample_name]['cluster_count'] += int(pf_counts.getElementsByTagName("ClusterCount")[0].firstChild.nodeValue)
-                    stats_summary['total_reads'] += int(pf_counts.getElementsByTagName("ClusterCount")[0].firstChild.nodeValue)
-                    stats_summary['total_reads_raw'] += int(raw_counts.getElementsByTagName("ClusterCount")[0].firstChild.nodeValue)
+                    tile_nr = tile.attrib["number"]
+                    raw_counts = tile.find("Raw")
+                    pf_counts = tile.find("Pf")
 
-                    for read in pf_counts.getElementsByTagName("Read"):
-                        read_number = read.getAttribute("number")
-                        lane_counts['pf']['r'+str(read_number)]['yield'] += int(read.getElementsByTagName("Yield")[0].firstChild.nodeValue)
-                        lane_counts['pf']['r'+str(read_number)]['yield_Q30'] += int(read.getElementsByTagName("YieldQ30")[0].firstChild.nodeValue)
-                        lane_counts['pf']['r'+str(read_number)]['qscore_sum'] += int(read.getElementsByTagName("QualityScoreSum")[0].firstChild.nodeValue)
+                    stats_summary['samples'][ sample_name]['cluster_count'] += int(pf_counts.find("ClusterCount").text)
+                    stats_summary['total_reads'] += int(pf_counts.find("ClusterCount").text)
+                    stats_summary['total_reads_raw'] += int(raw_counts.find("ClusterCount").text)
+
+                    for read in pf_counts.findall("Read"):
+                        read_number = read.attrib["number"]
+                        lane_counts['pf']['r'+str(read_number)]['yield'] += int(read.find("Yield").text)
+                        lane_counts['pf']['r'+str(read_number)]['yield_Q30'] += int(read.find("YieldQ30").text)
+                        lane_counts['pf']['r'+str(read_number)]['qscore_sum'] += int(read.find("QualityScoreSum").text)
 
                     stats_summary['samples'][ sample_name]['qsum'] += lane_counts['pf']['r1']['qscore_sum']
                     stats_summary['samples'][ sample_name]['qsum'] += lane_counts['pf']['r2']['qscore_sum']
@@ -209,11 +209,10 @@ def parseConversionStats( conversion_stats ):
             stats_summary['samples'][ sample_name ]['mean_quality'] = "{0:.2f}".format( stats_summary['samples'][ sample_name ]['qsum'] / float(stats_summary['samples'][ sample_name ]['yield']) )
             stats_summary['samples'][ sample_name ]['cluster_count'] = "{0:,}".format( stats_summary['samples'][ sample_name]['cluster_count'] )
 
-
-    for top_unknown in stats_DOM.getElementsByTagName("TopUnknownBarcodes"):
-        for barcode in top_unknown.getElementsByTagName("Barcode"):
-            bc_count = int(barcode.getAttribute("count"))
-            bc_seq = barcode.getAttribute("sequence")
+    for top_unknown in tree.findall("TopUnknownBarcodes"):
+        for barcode in top_unknown.findall("Barcode"):
+            bc_count = int(barcode.attrib["count"])
+            bc_seq = barcode.attrib["sequence"]
             if bc_seq in stats_summary['unknown']:
                 stats_summary['unknown'][bc_seq] += bc_count
             else:
