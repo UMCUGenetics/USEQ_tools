@@ -1,4 +1,3 @@
-#import urllib2
 from pprint import pprint
 import re
 import sys
@@ -7,7 +6,6 @@ import os
 import ntpath
 import requests
 import json
-#import xml.dom.minidom
 from xml.dom.minidom import parseString
 from optparse import OptionParser
 DEBUG = 0
@@ -38,8 +36,7 @@ class NextcloudUtil(object):
         remote_path = 'remote.php/webdav/sequencing_runs/'+file_basename
 
         if self.webdav.exists(remote_path):
-            # sys.exit("File path '{0}' already exists on server".format(file_basename))
-            # sys.exit("File path '{0}' already exists on server".format(file_basename))
+
             return {"ERROR" : "File path '{0}' already exists on server".format(file_basename)}
         else:
         #upload file
@@ -56,16 +53,17 @@ class NextcloudUtil(object):
         if not self.webdav.exists(remote_path):
             return {"ERROR" : "File path '{0}' does not exist on server".format(file_basename)}
 
-        # print "Share with {0}".format(email)
         data={
             'path' : "sequencing_runs/{0}".format(file_basename),
             'shareType' : 4,
             'shareWith' : 'useq@umcutrecht.nl'
         }
 
-
-
         response = requests.post("https://{0}/ocs/v1.php/apps/files_sharing/api/v1/shares".format(self.hostname), auth=(self.user, self.password), headers={'OCS-APIRequest':'true','Content-Type': 'application/json'},data=json.dumps(data))
+        # print response.text
+        if not response.ok:
+            response.raise_for_status()
+            sys.exit()
 
         share_id = None
         if not self.webdav.exists(remote_path):
