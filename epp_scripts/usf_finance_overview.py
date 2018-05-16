@@ -5,12 +5,10 @@ import codecs
 import json
 import urllib2
 import re
-import os
 from xml.dom.minidom import parseString
 from optparse import OptionParser
 from email.mime.text import MIMEText
 from xml.parsers.expat import ExpatError
-
 HOSTNAME = ''
 VERSION = ''
 BASE_URI = ''
@@ -19,19 +17,20 @@ DEBUG = True
 api = None
 options = None
 CACHE = {}
-__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+
 def getObjectDOM( uri ):
 
 	global CACHE
 	#global api
 	if uri not in CACHE.keys():
-	#print uri
+
 		thisXML = api.getResourceByURI( uri )
 
 		thisDOM = parseString( thisXML )
 		CACHE[ uri ] = thisDOM
 
 	return CACHE[ uri ]
+
 
 def setupGlobalsFromURI( uri ):
 
@@ -62,6 +61,7 @@ def getUniqueUDF( objects, udf_name ):
 	else:
 		return None
 
+
 def getArtifacts( ids ):
 	artifactLinksXML = []
 
@@ -85,6 +85,9 @@ def getArtifacts( ids ):
 
 	return response
 
+
+
+
 def getSamples( ids ):
 
 	sampleLinksXML = []
@@ -93,7 +96,7 @@ def getSamples( ids ):
 		sampleLinksXML.append( '<link uri="' + BASE_URI + 'samples/' + limsid + '" rel="sample"/>' )
 	sampleLinksXML.append( '</ri:links>' )
 	sampleLinksXML = ''.join( sampleLinksXML )
-	# print sampleLinksXML
+
 	samplesXML = api.getBatchResourceByURI( BASE_URI + "samples/batch/retrieve", sampleLinksXML )
 
 	## did we get back anything useful?
@@ -122,23 +125,32 @@ def getContainer( uri ):
 	return getObjectDOM( uri )
 
 def getAllCosts( uri ):
-	# costJSON = api.getResourceByURI( uri )
-	finance = os.path.join(__location__,'finance_json.json')
-	costs = json.load(open(finance))
 
-	# for k,v in costs.iteritems():
-	# 	print k,v
+	costJSON = api.getResourceByURI( uri )
+	costs = json.loads( costJSON )
 
-	return dict( (k.lower(), v) for k,v in costs.iteritems())
 
+
+	costs_lower = dict( (k.lower(), v) for k,v in costs.iteritems())
+	#Do some (unfortunately) neccessary name conversions
+	costs_lower['libprep dna'] = costs_lower['truseq dna nano']
+	costs_lower['truseq dna nano (manual)'] = costs_lower['truseq dna nano']
+	costs_lower['truseq dna nano (automatic)'] = costs_lower['truseq dna nano']
+	costs_lower['truseq rna stranded polya (manual)'] =costs_lower['truseq rna stranded polya']
+	costs_lower['truseq rna stranded polya (automatic)'] =costs_lower['truseq rna stranded polya']
+	costs_lower['libprep rna stranded polya'] = costs_lower['truseq rna stranded polya']
+	costs_lower['truseq rna stranded ribo-zero'] = costs_lower['truseq rna stranded ribozero (human, mouse, rat)']
+	costs_lower['libprep rna stranded ribo-zero'] = costs_lower['truseq rna stranded ribozero (human, mouse, rat)']
+
+	return costs_lower
 def getProcesses( uri ):
 	return getObjectDOM( uri)
 
 def getRunTypes( project_name ):
 
-	nextseq_run = getObjectDOM( BASE_URI + 'processes/?projectname='+project_name+'&type=USEQ - MiSeq Run')
-	miseq_run = getObjectDOM( BASE_URI + 'processes/?projectname='+project_name+'&type=USEQ - NextSeq Run')
-	hiseq_run = getObjectDOM( BASE_URI + 'processes/?projectname='+project_name+'&type=USEQ - HiSeq Run')
+	nextseq_run = getObjectDOM( BASE_URI + 'processes/?projectname='+project_name+'&type=NextSeq Run (NextSeq) 1.0&type=USEQ - NextSeq Run')
+	miseq_run = getObjectDOM( BASE_URI + 'processes/?projectname='+project_name+'&type=MiSeq Run (MiSeq) 4.0&type=USEQ - MiSeq Run')
+	hiseq_run = getObjectDOM( BASE_URI + 'processes/?projectname='+project_name+'&type=HiSeq Run (HiSeq) 5.0&type=USEQ - HiSeq Run')
 
 	runtypes = {'nr_nextseq':0, 'nr_miseq':0, 'nr_hiseq':0}
 
@@ -153,22 +165,34 @@ def getRunTypes( project_name ):
 
 	return runtypes
 
+
+
 def getStepWorkflow( uri ):
 
 	step = getObjectDOM( uri )
 	configuration_uri = step.getElementsByTagName( "configuration" )[0].getAttribute( "uri" )
 
 	protocol_uri = re.sub("\/steps\/\d+","",configuration_uri)
-	#print protocol_uri
+
 	protocol = getObjectDOM( protocol_uri )
 	workflow_name = protocol.getElementsByTagName( "protcnf:protocol" )[0].getAttribute( "name" )
 
 	return workflow_name
 
 def getSampleLibraryprepArtID( sample_id ):
-	sample_artifacts = api.getResourceByURI( BASE_URI + 'artifacts?samplelimsid='+sample_id + '&process-type='+urllib2.quote('USEQ - Enrich DNA fragments') )
-	response_text = None
 
+	sample_artifacts = api.getResourceByURI(
+		"{0}artifacts?samplelimsid={1}&process-type={2}&process-type={3}&process-type={4}&process-type={5}".format(
+			BASE_URI,
+			sample_id,
+			urllib2.quote('Enrich DNA fragments (TruSeq Nano) 4.0'),
+			urllib2.quote('Enrich DNA fragments (TruSeq Stranded mRNA) 5.0'),
+			urllib2.quote('Enrich DNA fragments (TruSeq Stranded Total RNA) 5.0'),
+			urllib2.quote('USEQ - Enrich DNA fragments')
+		)
+	)
+
+	response_text = None
 	try:
 		sample_artifacts_DOM = parseString( sample_artifacts )
 
@@ -181,13 +205,23 @@ def getSampleLibraryprepArtID( sample_id ):
 	return response_text
 
 def getSampleIsolationArtID( sample_id ):
-	sample_artifacts = api.getResourceByURI( BASE_URI + 'artifacts?samplelimsid='+sample_id + '&process-type='+urllib2.quote('USEQ - Isolation') )
+
+	sample_artifacts = api.getResourceByURI(
+		"{0}artifacts?samplelimsid={1}&process-type={2}&process-type={3}&process-type={4}".format(
+			BASE_URI,
+			sample_id,
+			urllib2.quote('Qiagen genomic tip DNA isolation'),
+			urllib2.quote('QiaSymphony RNA isolation'),
+			urllib2.quote('USEQ - Isolation'),
+		)
+	)
 	response_text = None
 
 	try:
 		sample_artifacts_DOM = parseString( sample_artifacts )
 		if sample_artifacts_DOM.getElementsByTagName( "artifact"):
 			response_text = sample_artifacts_DOM.getElementsByTagName( "artifact" )[0].getAttribute( "limsid" )
+
 	except ExpatError:
 		response_text = None
 
@@ -195,7 +229,18 @@ def getSampleIsolationArtID( sample_id ):
 
 def getSampleRunTypeArtID( sample_id ):
 
-	sample_artifacts = api.getResourceByURI( BASE_URI + 'artifacts?samplelimsid='+sample_id + '&process-type='+urllib2.quote('USEQ - NextSeq Run')+'&process-type='+urllib2.quote('USEQ - MiSeq Run') +'&process-type='+urllib2.quote('USEQ - HiSeq Run') )
+	sample_artifacts = api.getResourceByURI(
+		"{0}artifacts?samplelimsid={1}&process-type={2}&process-type={3}&process-type={4}&process-type={5}&process-type={6}&process-type={7}".format(
+			BASE_URI,
+			sample_id,
+			urllib2.quote('MiSeq Run (MiSeq) 4.0'),
+			urllib2.quote('NextSeq Run (NextSeq) 1.0'),
+			urllib2.quote('HiSeq Run (HiSeq) 5.0'),
+			urllib2.quote('USEQ - MiSeq Run'),
+			urllib2.quote('USEQ - NextSeq Run'),
+			urllib2.quote('USEQ - HiSeq Run')
+		)
+	)
 	response_text = None
 
 	try:
@@ -212,7 +257,7 @@ def prepareForPrint( counts ):
 	toPrint = []
 	for n in counts:
 		toPrint.append(str(n) + ':' + str(counts[n]))
-	#print "TO PRINT:" + ','.join(toPrint)
+
 	return ','.join( toPrint )
 
 def getSnpFinance() :
@@ -229,7 +274,7 @@ def getSnpFinance() :
 	analyteIDS = []
 	for input in stepDOM.getElementsByTagName( "input" ):
 		analyteID = input.getAttribute( "limsid" )
-	#print analyteID
+
 		if analyteID not in analyteIDS:
 			analyteIDS.append( analyteID )
 
@@ -257,8 +302,6 @@ def getSnpFinance() :
 		errors = []
 		isolated = 'no'
 		descriptions = []
-
-
 		container_uri = artifact.getElementsByTagName( "container" )[0].getAttribute( "uri" )
 		container = getContainer( container_uri )
 		container_name = container.getElementsByTagName( "name" )[0].firstChild.data
@@ -279,7 +322,7 @@ def getSnpFinance() :
 			description = api.getUDF( sample, 'Description' )
 			if description:
 				descriptions.append( description)
-				sampleDateReceived = sample.getElementsByTagName( "date-received" )[0].firstChild.data
+			sampleDateReceived = sample.getElementsByTagName( "date-received" )[0].firstChild.data
 			if sampleType is None:
 				errors.append( "Sample without 'Sample Type' found" )
 			elif sampleType.endswith( "unisolated" ):
@@ -293,6 +336,7 @@ def getSnpFinance() :
 		researcher_lname = researcher.getElementsByTagName( "last-name" )[0].firstChild.data
 		researcher_name = researcher_fname+" "+researcher_lname
 
+
 		lab = getLab( researcher.getElementsByTagName( "lab" )[0].getAttribute( "uri" ) )
 		lab_name = lab.getElementsByTagName( "name" )[0].firstChild.data
 		billing_address = lab.getElementsByTagName( "billing-address" )[0]
@@ -302,13 +346,12 @@ def getSnpFinance() :
 			if date <= sampleDateReceived :
 				billingDate = date
 
-	#Contingency for if samples were recieved before implementation of cost database
+		#Contingency for if samples were recieved before implementation of cost database
 		if billingDate is None:
 			billingDate = sorted( allCosts[ 'open snp array' ][ 'date_costs'].keys())[0]
 			errors.append("Could not find a billing date matching the sample recieved date")
 
 		plate_costs = allCosts[ 'open snp array' ]['date_costs'][ billingDate]
-
 
 		###Calculate isolation costs
 		if sampleType == 'DNA unisolated':
@@ -317,38 +360,36 @@ def getSnpFinance() :
 			iso_costs = int( allCosts['rna isolation'][ 'date_costs' ][ billingDate ] )
 
 		snpFinance.append(u"{errors}\t{container_name}\t{description}\t{project_name}\t{id}\t{sample_name}\t{open_date}\t{contact_name}\t{contact_email}\t{isolated}\t{sample_type}\t{account}\t{project_budget_number}\t{plate_costs}\t{isolation_costs}\t{billing_institute}\t{billing_postalcode}\t{billing_city}\t{billing_country}\t{billing_department}\t{billing_street}".format(
-			errors = ','.join( set(errors) ),
-			container_name = container_name,
-			description = ','.join( set( descriptions ) ),
-			project_name = project_name,
-			id = project.getElementsByTagName( "prj:project" )[0].getAttribute( "limsid" ),
-			sample_name = sample_name,
-			open_date = project.getElementsByTagName( "open-date" )[0].firstChild.data,
-			contact_name = researcher_name,
-			contact_email = researcher.getElementsByTagName( "email" )[0].firstChild.data,
-			isolated = isolated,
-			sample_type = sampleType,
-			account = lab_name,
-			project_budget_number = getUniqueUDF( samples,'Budget Number'),
-			plate_costs = plate_costs,
-			isolation_costs = iso_costs,
-			billing_institute = billing_address.getElementsByTagName( "institution" )[0].firstChild.data,
-			billing_postalcode = billing_address.getElementsByTagName( "postalCode" )[0].firstChild.data,
-			billing_city = billing_address.getElementsByTagName( "city" )[0].firstChild.data,
-			billing_country = billing_address.getElementsByTagName( "country" )[0].firstChild.data,
-			billing_department = billing_address.getElementsByTagName( "department" )[0].firstChild.data,
-			billing_street = billing_address.getElementsByTagName( "street" )[0].firstChild.data
-		))
+				errors = ','.join( set(errors) ),
+				container_name = container_name,
+				description = ','.join( set( descriptions ) ),
+				project_name = project_name,
+				id = project.getElementsByTagName( "prj:project" )[0].getAttribute( "limsid" ),
+				sample_name = sample_name,
+				open_date = project.getElementsByTagName( "open-date" )[0].firstChild.data,
+				contact_name = researcher_name,
+				contact_email = researcher.getElementsByTagName( "email" )[0].firstChild.data,
+				isolated = isolated,
+				sample_type = sampleType,
+				account = lab_name,
+				project_budget_number = getUniqueUDF( samples,'Budget Number'),
+				plate_costs = plate_costs,
+				isolation_costs = iso_costs,
+				billing_institute = billing_address.getElementsByTagName( "institution" )[0].firstChild.data,
+				billing_postalcode = billing_address.getElementsByTagName( "postalCode" )[0].firstChild.data,
+				billing_city = billing_address.getElementsByTagName( "city" )[0].firstChild.data,
+				billing_country = billing_address.getElementsByTagName( "country" )[0].firstChild.data,
+				billing_department = billing_address.getElementsByTagName( "department" )[0].firstChild.data,
+				billing_street = billing_address.getElementsByTagName( "street" )[0].firstChild.data
+			)
+		)
 
 	return snpFinance
 
 def getSeqFinance() :
 
 	seq_finance = []
-
 	all_costs = getAllCosts( 'http://www.useq.nl/useq_getfinance.php?type=all&mode=json' )
-
-	#Dict to store all need run info
 	sequencing_runs = {}
 
 	stepURI = options.stepURI + "/details"
@@ -358,36 +399,36 @@ def getSeqFinance() :
 	analyteIDS = []
 	for input in stepDOM.getElementsByTagName( "input" ):
 		analyteID = input.getAttribute( "limsid" )
-		# print analyteID
+
 		if analyteID not in analyteIDS:
 			analyteIDS.append( analyteID )
 
 	#Get the input artifacts (which is a pool of samples) by lims id
 	artifacts = getArtifacts( analyteIDS )
 
-
 	#Get sample information per pool
 	for artifact in artifacts:
 		pool_id = artifact.getAttribute( "limsid" )
 		sequencing_runs[ pool_id ] = {}
-
 		sample_ids = []
+
 		for sample in artifact.getElementsByTagName( "sample" ):
 			sample_id = sample.getAttribute( "limsid" )
 
 			if sample_id not in sample_ids :
 				sample_ids.append( sample_id )
 
+
 		sample_metadata = getSamples( sample_ids )
-		# print sample_metadata
 		isolation_artifact_IDs = []
 		library_prep_artifact_IDs = []
 		runtype_artifact_IDs = []
 
 		for sample in sample_metadata:
-			# print sample
+
 			sample_id = sample.getAttribute( "limsid" )
 			type = api.getUDF( sample, 'Sample Type' )
+
 			requested_library_prep = api.getUDF( sample, 'Library prep kit' )
 			requested_runtype = api.getUDF( sample, 'Sequencing Runtype')
 			received_date = sample.getElementsByTagName( "date-received" )[0].firstChild.data
@@ -395,8 +436,6 @@ def getSeqFinance() :
 			budget_number = api.getUDF( sample,'Budget Number')
 			rootartifact_id = sample.getElementsByTagName( "artifact" )[0].getAttribute( "limsid" )
 			project_id = sample.getElementsByTagName( "project" )[0].getAttribute( "limsid" )
-
-			# print sample_id,type,requested_library_prep,requested_runtype,received_date,requested_analysis,budget_number,rootartifact_id,project_id
 
 			si_artid = getSampleIsolationArtID( sample_id )
 			sl_artid = getSampleLibraryprepArtID( sample_id )
@@ -411,14 +450,13 @@ def getSeqFinance() :
 
 			if project_id not in sequencing_runs[ pool_id ] :
 				sequencing_runs[ pool_id ][ project_id ] = {
-					'samples' : {}
+				'samples' : {}
 				}
-
 			sequencing_runs[ pool_id ][ project_id ][ 'samples' ][ sample_id ] = {
 				'received_date' : received_date,
 				'type' : type,
-				'requested_library_prep': requested_library_prep,
-				'requested_runtype' : requested_runtype,
+				'requested_library_prep': requested_library_prep.lower(),
+				'requested_runtype' : requested_runtype.lower(),
 				'requested_analysis' : requested_analysis,
 				'lims_isolation' : None,
 				'lims_library_prep' : None,
@@ -463,20 +501,31 @@ def getSeqFinance() :
 				sequencing_runs[ pool_id ][ project_id ][ 'department'] = billing_department
 				sequencing_runs[ pool_id ][ project_id ][ 'street'] = billing_street
 
-		# print sequencing_runs.keys()
-
 		isolation_artifacts = getArtifacts( isolation_artifact_IDs )
 		for artifact in isolation_artifacts:
 			artifact_limsid = artifact.getAttribute("limsid")
 
-			isolation = api.getUDF(artifact, 'US Isolation Type')
+			isolation_type = api.getUDF(artifact, 'US Isolation Type')
+			if isolation_type:
+				if 'DNA' in isolation_type:
+					isolation_type = 'dna'
+				elif 'RNA' in isolation_type:
+					isolation_type = 'rna'
+
+
+			process_limsid = artifact.getElementsByTagName( "parent-process" )[0].getAttribute( "limsid" )
+
+			isolation = getStepWorkflow( BASE_URI + "steps/" + process_limsid )
+
 			for sample in artifact.getElementsByTagName( "sample" ):
 				sample_id = sample.getAttribute( "limsid" )
-				# print isolation
+
 				match = re.search("([A-Z]+\d+)[A-Z]+", sample_id)
 				project_id = match.group(1)
-				sequencing_runs[ pool_id ][ project_id ][ 'samples' ][ sample_id ]['lims_isolation'] = isolation
-
+				if isolation_type:
+					sequencing_runs[ pool_id ][ project_id ][ 'samples' ][ sample_id ]['lims_isolation'] = isolation_type +" "+ isolation
+				else:
+					sequencing_runs[ pool_id ][ project_id ][ 'samples' ][ sample_id ]['lims_isolation'] = isolation
 
 		libraryprep_artifacts = getArtifacts( library_prep_artifact_IDs  )
 		for artifact in libraryprep_artifacts:
@@ -496,179 +545,184 @@ def getSeqFinance() :
 			artifact_limsid = artifact.getAttribute("limsid")
 			process_limsid = artifact.getElementsByTagName( "parent-process" )[0].getAttribute( "limsid" )
 			runtype = getStepWorkflow( BASE_URI + "steps/" + process_limsid )
-			# print artifact_limsid
+
 			for sample in artifact.getElementsByTagName( "sample" ):
 				sample_id = sample.getAttribute( "limsid" )
-
 				match = re.search("([A-Z]+\d+)[A-Z]+", sample_id)
-
 				project_id = match.group(1)
-				if sample_id in sequencing_runs[ pool_id ][ project_id ][ 'samples' ]:
-					sequencing_runs[ pool_id ][ project_id ][ 'samples' ][ sample_id ]['lims_runtype'] = runtype
-
+				sequencing_runs[ pool_id ][ project_id ][ 'samples' ][ sample_id ]['lims_runtype'] = runtype
 
 	for run_id in sequencing_runs:
-			for project_id in sequencing_runs[ run_id ]:
+		for project_id in sequencing_runs[ run_id ]:
+			seq_costs = 0
+			prep_costs = 0
+			iso_costs = 0
+			t_costs = 0
+			errors = []
+			t_fail = 0
+			t_seq = 0
+			n_isolated = 0
+			n_prepped = 0
+			reagent_list = []
+			process_counts = {}
 
-				seq_costs = 0
-				prep_costs = 0
-				iso_costs = 0
-				t_costs = 0
-				errors = []
-				t_fail = 0
-				t_seq = 0
-				n_isolated = 0
-				n_prepped = 0
-				reagent_list = []
-				process_counts = {}
+			billing_date = None
+			sample_count = 0
+			requested_runtypes = {}
+			requested_librarypreps = {}
+			requested_analyses = {}
+			sample_types = {}
+			lims_runtypes = {}
+			lims_librarypreps = {}
+			lims_isolations = {}
 
-				billing_date = None
-				sample_count = 0
-				requested_runtypes = {}
-				requested_librarypreps = {}
-				requested_analyses = {}
-				sample_types = {}
-				lims_runtypes = {}
-				lims_librarypreps = {}
-				lims_isolations = {}
+			for sample_id in sequencing_runs[ run_id ][ project_id ][ 'samples' ]:
+				sample_count += 1
 
-				for sample_id in sequencing_runs[ run_id ][ project_id ][ 'samples' ]:
-					sample_count += 1
+				requested_runtype = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'requested_runtype' ]
+				# print requested_runtype
+				if requested_runtype in requested_runtypes :
+					requested_runtypes[ requested_runtype ] += 1
+				else :
+					requested_runtypes[ requested_runtype ] = 1
 
-					requested_runtype = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'requested_runtype' ]
-					if requested_runtype in requested_runtypes :
-						requested_runtypes[ requested_runtype ] += 1
-					else :
-						requested_runtypes[ requested_runtype ] = 1
+				requested_libraryprep = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'requested_library_prep' ]
+				if requested_libraryprep in requested_librarypreps :
+					requested_librarypreps[ requested_libraryprep ] +=1
+				else :
+					requested_librarypreps[ requested_libraryprep] = 1
 
-					requested_libraryprep = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'requested_library_prep' ]
-					if requested_libraryprep in requested_librarypreps :
-						requested_librarypreps[ requested_libraryprep ] +=1
-					else :
-						requested_librarypreps[ requested_libraryprep] = 1
+				requested_analysis = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'requested_analysis' ]
+				if requested_analysis in requested_analyses :
+					requested_analyses[ requested_analysis ] +=1
+				else :
+					requested_analyses[ requested_analysis ] = 1
 
-					requested_analysis = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'requested_analysis' ]
-					if requested_analysis in requested_analyses :
-						requested_analyses[ requested_analysis ] +=1
-					else :
-						requested_analyses[ requested_analysis ] = 1
+				sample_type = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'type' ]
+				if sample_type in sample_types :
+					sample_types[ sample_type ] +=1
+				else :
+					sample_types[ sample_type ] = 1
 
-					sample_type = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'type' ]
-					if sample_type in sample_types :
-						sample_types[ sample_type ] +=1
-					else :
-						sample_types[ sample_type ] = 1
+				lims_runtype = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'lims_runtype' ]
+				if lims_runtype in lims_runtypes :
+					lims_runtypes[ lims_runtype ] +=1
+				else :
+					lims_runtypes[ lims_runtype ] = 1
 
-					lims_runtype = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'lims_runtype' ]
-					if lims_runtype in lims_runtypes :
-						lims_runtypes[ lims_runtype ] +=1
-					else :
-						lims_runtypes[ lims_runtype ] = 1
+				lims_libraryprep = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'lims_library_prep' ]
+				if lims_libraryprep in lims_librarypreps :
+					lims_librarypreps[ lims_libraryprep ] +=1
+				else :
+					lims_librarypreps[ lims_libraryprep ] = 1
 
-					lims_libraryprep = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'lims_library_prep' ]
-					if lims_libraryprep in lims_librarypreps :
-						lims_librarypreps[ lims_libraryprep ] +=1
-					else :
-						lims_librarypreps[ lims_libraryprep ] = 1
+				lims_isolation = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'lims_isolation' ]
+				if lims_isolation in lims_isolations :
+					lims_isolations[ lims_isolation ] +=1
+				else :
+					lims_isolations[ lims_isolation ] = 1
 
-					lims_isolation = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'lims_isolation' ]
-					if lims_isolation in lims_isolations :
-						lims_isolations[ lims_isolation ] +=1
-					else :
-						lims_isolations[ lims_isolation ] = 1
+			requested_runtype = prepareForPrint(requested_runtypes)
+			requested_libraryprep = prepareForPrint(requested_librarypreps)
+			requested_analysis = prepareForPrint(requested_analyses)
+			sample_type = prepareForPrint(sample_types)
+			lims_runtype = prepareForPrint(lims_runtypes)
+			lims_libraryprep = prepareForPrint(lims_librarypreps)
+			lims_isolation = prepareForPrint(lims_isolations)
 
-				requested_runtype = prepareForPrint(requested_runtypes)
-				requested_libraryprep = prepareForPrint(requested_librarypreps)
-				requested_analysis = prepareForPrint(requested_analyses)
-				sample_type = prepareForPrint(sample_types)
-				lims_runtype = prepareForPrint(lims_runtypes)
-				lims_libraryprep = prepareForPrint(lims_librarypreps)
-				lims_isolation = prepareForPrint(lims_isolations)
+			#determine sequencing costs
 
+			if len(requested_runtypes.keys()) != 1 or len(lims_runtypes.keys()) != 1 or not requested_runtypes.keys()[0]:
 
-				#determine sequencing costs
-				if len(requested_runtypes.keys()) != 1 or len(lims_runtypes.keys()) != 1 or not requested_runtypes.keys()[0]:
-					errors.append("Multiple runtypes found, can't calculate costs")
+				errors.append("Multiple runtypes found, can't calculate costs")
+			else:
+				first_submission_date = sequencing_runs[ run_id ][ project_id ][ 'first_submission_date' ]
+				requested_machine = requested_runtypes.keys()[0].lower()
+				requested_machine = requested_machine.split()[0].strip()
+				requested_machine = ''.join([i for i in requested_machine if not i.isdigit()])
+				lims_machine = lims_runtypes.keys()[0].lower()
+
+				if ':' in lims_machine:
+					lims_machine = lims_machine.split(':')[1].split()[0].strip()
 				else:
-					first_submission_date = sequencing_runs[ run_id ][ project_id ][ 'first_submission_date' ]
-
-					requested_machine = requested_runtypes.keys()[0].lower()
-					requested_machine = requested_machine.split()[0].strip()
-
-					lims_machine = lims_runtypes.keys()[0].lower()
-
 					lims_machine = lims_machine.split('-')[1].split()[0].strip()
 
-					if requested_machine.startswith(lims_machine) and requested_runtypes.keys()[0].lower() in all_costs:
-						for date in sorted( all_costs[ requested_runtypes.keys()[0].lower() ][ 'date_costs'].keys() ):
-							if date <= first_submission_date:
-								billing_date = date
+				# print lims_machine,requested_machine
+				if lims_machine == requested_machine and requested_runtypes.keys()[0].lower() in all_costs:
+
+					for date in sorted( all_costs[ requested_runtypes.keys()[0].lower() ][ 'date_costs'].keys() ):
+
+						if date <= first_submission_date:
+							billing_date = date
+
 
 					#Contingency for if samples were recieved before implementation of cost database
-						if billing_date is None:
-							billing_date = sorted( all_costs[ requested_runtypes.keys()[0].lower() ][ 'date_costs'].keys())[0]
-							errors.append("Could not find a billing date matching the sample recieved date")
+					if billing_date is None:
+						billing_date = sorted( all_costs[ requested_runtypes.keys()[0].lower() ][ 'date_costs'].keys())[0]
+						errors.append("Could not find a billing date matching the sample recieved date")
 
-						seq_costs = all_costs[ requested_runtypes.keys()[0].lower() ][ 'date_costs' ][ billing_date ]
+					seq_costs = all_costs[ requested_runtypes.keys()[0].lower() ][ 'date_costs' ][ billing_date ]
 
+				else:
+					errors.append("Requested runtype '"+requested_runtypes.keys()[0]+"' doesn't match runtype in LIMS")
+
+
+			#determine library prep costs
+			if len(requested_librarypreps.keys()) > 1 or len(lims_librarypreps.keys()) > 1:
+				errors.append("Multiple library prep types found, please check cost calculation")
+
+			if lims_librarypreps.keys() :
+				for lims_libraryprep in lims_librarypreps:
+					if lims_libraryprep is None : continue
+					lims_libraryprep_ori = None
+					if ":" in lims_libraryprep: #OLD WORKFLOW
+						lims_libraryprep_ori = lims_libraryprep.split(':')[1].lower().strip()
+					else:#NEW WORKFLOW
+						lims_libraryprep_ori = lims_libraryprep.split('-')[1].lower().strip()
+
+
+					if lims_libraryprep_ori not in requested_librarypreps.keys():
+
+						errors.append("Library prep '"+lims_libraryprep_ori+"' in LIMS different from requested, please check cost calculation")
+
+					if lims_libraryprep_ori is not None:
+
+						if lims_libraryprep_ori in all_costs:
+
+							prep_costs += int(all_costs[ lims_libraryprep_ori ][ 'date_costs' ][ billing_date ]) * lims_librarypreps[ lims_libraryprep ]
+						else:
+							errors.append("Could not find library prep kit '"+lims_libraryprep_ori+"' in billing database")
+
+			#determine isolation costs
+			if lims_isolations.keys() :
+				if len(sample_types.keys()) > 1 or len(lims_isolations.keys()) > 1:
+					errors.append("Multiple sample types found, please check cost calculation")
+
+				for lims_isolation in lims_isolations:
+					if lims_isolation is None : continue
+					lims_isolation_ori = None
+					if ":" in lims_isolation: #OLD WORKFLOW
+						lims_isolation_ori = lims_isolation.split(':')[1].lower().strip()
+					else: #NEW WORKFLOW
+						lims_isolation_ori = lims_isolation.split('-')[1].lower().strip()
+
+					iso_type = ''
+					if lims_isolation_ori == 'rna isolation':
+						iso_type = 'RNA unisolated'
 					else:
-						errors.append("Requested runtype '"+requested_runtypes.keys()[0]+"' doesn't match runtype in LIMS")
+						iso_type = 'DNA unisolated'
 
+					if iso_type not in sample_types:
+						errors.append("Isolation step '"+iso_type+"' in LIMS doesn't match sample type")
 
-				#determine library prep costs
-				if len(requested_librarypreps.keys()) > 1 or len(lims_librarypreps.keys()) > 1:
-					errors.append("Multiple library prep types found, please check cost calculation")
-
-				if lims_librarypreps.keys() :
-					libpreps = { #maps protocol names to name in costs table
-						'libprep dna' : 'Truseq DNA nano',
-						'libprep rna stranded ribo-zero' : 'Truseq RNA stranded ribo-zero',
-						'libprep rna stranded polya' :'Truseq RNA stranded polyA'
-					}
-					for lims_libraryprep in lims_librarypreps:
-						if lims_libraryprep is None : continue
-						lims_libraryprep_ori = lims_libraryprep.split('-',1)[1].lower().strip()
-
-						lims_libraryprep_ori = libpreps[lims_libraryprep_ori]
-
-						if lims_libraryprep_ori not in requested_librarypreps:
-							errors.append("Library prep '"+lims_libraryprep_ori+"' in LIMS different from requested, please check cost calculation")
-
-						if lims_libraryprep_ori is not None:
-
-							if lims_libraryprep_ori.lower() in all_costs:
-
-								prep_costs += int(all_costs[ lims_libraryprep_ori.lower() ][ 'date_costs' ][ billing_date ]) * lims_librarypreps[ lims_libraryprep ]
-							else:
-								errors.append("Could not find library prep kit '"+lims_libraryprep_ori+"' in billing database")
-
-				#determine isolation costs
-				if lims_isolations.keys() :
-					isolations = { #maps protocol names to name in costs table
-						"RNA QiaSymphony" : "RNA isolation",
-						"RNA Manual Column": "RNA isolation",
-						"RNA Manual Trizol": "RNA isolation",
-						"DNA QiaSymphony": "DNA isolation",
-						"DNA Manual Column": "DNA isolation"
-					}
-					if len(sample_types.keys()) > 1 or len(lims_isolations.keys()) > 1:
-						errors.append("Multiple sample types found, please check cost calculation")
-
-
-					for lims_isolation in lims_isolations:
-						if lims_isolation is None : continue
-						lims_isolation_type = isolations[lims_isolation]
-
-						if lims_isolation_type is not None:
-
-							if lims_isolation_type.lower() in all_costs:
-								iso_costs += int(all_costs[ lims_isolation_type.lower() ][ 'date_costs' ][ billing_date ]) * lims_isolations[ lims_isolation ]
-							else:
-								errors.append("Could not find isolation type '" +lims_isolation +"' in billing database")
-				# print "\n".join(errors)
-
-				seq_finance.append(
-					u"{errors}\t{sequencing_succesful}\t{pool_name}\t{project_name}\t{project_id}\t{open_date}\t{contact_name}\t{contact_email}\t{requested_runtype}\t{lims_runtype}\t{requested_libraryprep}\t{lims_libraryprep}\t{sample_type}\t{lims_isolation}\t{requested_analysis}\t{nr_samples}\t{account}\t{project_budget_number}\t{sequencing_costs}\t{libraryprep_costs}\t{isolation_costs}\t{total_costs}\t{billing_institute}\t{billing_department}\t{billing_postalcode}\t{billing_street}\t{billing_city}\t{billing_country}".format(
+					if lims_isolation_ori is not None:
+						if lims_isolation_ori in all_costs:
+							iso_costs += int(all_costs[ lims_isolation_ori ][ 'date_costs' ][ billing_date ]) * lims_isolations[ lims_isolation ]
+						else:
+							errors.append("Could not find isolation type '" +lims_isolation_ori +"' in billing database")
+			# print errors
+			seq_finance.append(
+				u"{errors}\t{sequencing_succesful}\t{pool_name}\t{project_name}\t{project_id}\t{open_date}\t{contact_name}\t{contact_email}\t{requested_runtype}\t{lims_runtype}\t{requested_libraryprep}\t{lims_libraryprep}\t{sample_type}\t{lims_isolation}\t{requested_analysis}\t{nr_samples}\t{account}\t{project_budget_number}\t{sequencing_costs}\t{libraryprep_costs}\t{isolation_costs}\t{total_costs}\t{billing_institute}\t{billing_department}\t{billing_postalcode}\t{billing_street}\t{billing_city}\t{billing_country}".format(
 					errors 			= ','.join( set(errors) ),
 					sequencing_succesful 	= sequencing_runs[ run_id ][ project_id ][ 'succesful' ],
 					pool_name			= run_id,
@@ -697,8 +751,8 @@ def getSeqFinance() :
 					billing_street		= sequencing_runs[ run_id ][ project_id ][ 'street' ],
 					billing_city		= sequencing_runs[ run_id ][ project_id ][ 'city' ],
 					billing_country		= sequencing_runs[ run_id ][ project_id ][ 'country' ]
-					)
 				)
+			)
 	return seq_finance
 
 
@@ -722,21 +776,21 @@ def main():
 	api.setVersion( VERSION )
 	api.setup( options.username, options.password )
 
+
 	## at this point, we have the parameters the EPP plugin passed, and we have network plumbing
 	## so let's get this show on the road!
 
 	#Determine run mode
 	mode = getStepWorkflow( options.stepURI + "/details" )
-	#print mode
+	# print mode
 
-	if mode == 'USEQ - Post Sequencing':
-		# print 'USEQ - Post Sequencing mode'
+	if mode == 'USF : Post Sequencing steps' or mode == 'USEQ - Post Sequencing':
 		seq_finance_table = getSeqFinance()
 		seq_finance = codecs.open(options.outname, 'w', 'utf-8')
 		seq_finance.write(u"errors\tsequencing_succesful\tpool_name\tproject_name\tproject_id\topen_date\tcontact_name\tcontact_email\trequested_runtype\tlims_runtype\trequested_libraryprep\tlims_libraryprep\tsample_type\tlims_isolation\trequested_analysis\tnr_samples\taccount\tproject_budget_number\tsequencing_costs\tlibraryprep_costs\tisolation_costs\ttotal_costs\tbilling_institute\tbilling_department\tbilling_postalcode\tbilling_street\tbilling_city\tbilling_country\n")
 		seq_finance.write( "\n".join( seq_finance_table ) )
 		seq_finance.close()
-	elif mode == 'USEQ : Post Fingerprinting':
+	elif mode == 'USF : Post Fingerprinting steps' or mode == 'USEQ - Post Fingerprinting ':
 		snpFinanceTable = getSnpFinance()
 		snp_finance = codecs.open(options.outname, 'w', 'utf-8')
 		snp_finance.write(u"errors\tcontainer_name\tdescription\tproject_name\tid\tsample_name\topen_date\tcontact_name\tcontact_email\tisolated\tsample_type\taccount\tproject_budget_number\tplate_costs\tisolation_costs\tbilling_institute\tbilling_postalcode\tbilling_city\tbilling_country\tbilling_department\tbilling_street\n")
