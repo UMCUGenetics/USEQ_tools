@@ -16,7 +16,14 @@ api = None
 options = None
 CACHE = {}
 
-RECIPIENTS = [ "s.w.boymans@umcutrecht.nl", "R.R.E.Janssen-10@umcutrecht.nl" ]
+RECIPIENTS = [
+	"s.w.boymans@umcutrecht.nl",
+	"R.R.E.Janssen-10@umcutrecht.nl",
+    "J.deLigt@umcutrecht.nl",
+    "R.Straver-2@umcutrecht.nl",
+    "T.Schafers@umcutrecht.nl"
+
+]
 
 def getObjectDOM( uri ):
 
@@ -33,7 +40,7 @@ def sendMessage( msgSubject, msgText ):
 
 	msg = MIMEText( msgText.encode('utf-8') , 'html')
 
-	me = "usf@umcutrecht.nl"
+	me = "useq@umcutrecht.nl"
 
 	msg[ "Subject" ] = msgSubject
 	msg[ "From" ] = me
@@ -95,7 +102,7 @@ def buildMessage():
 	## get the xml for the corresponding step / process
 	stepURI = options.stepURI + "/details"
 	stepXML = api.getResourceByURI( stepURI )
-	stepDOM = parseString( stepXML )	
+	stepDOM = parseString( stepXML )
 
 	## get the container name from the process UDF (Flow Cell ID)
 	cName = api.getUDF( stepDOM, "Flow Cell ID" )
@@ -105,7 +112,7 @@ def buildMessage():
 	for input in stepDOM.getElementsByTagName( "input" ):
 		iLUID = input.getAttribute( "limsid" )
 		if iLUID not in iLUIDS:
-			iLUIDS.append( iLUID ) 
+			iLUIDS.append( iLUID )
 
 	sLUIDS = []
 	## since the number of inputs will always be small, don't worry about batch
@@ -125,10 +132,11 @@ def buildMessage():
 	#print bsXML
 	bsDOM = parseString( bsXML )
 	pNames = []
+	pIDs = []
 	rUserName = ""
 	rEmail = ""
 
-	TABLE.append( "<table> <thead > <tr> <th><b>Sample</b></th> <th><b>Project</b></th> <th><b>Analysis</b></th> <th><b>Reference Genome</b></th></tr> </thead>" ) 
+	TABLE.append( "<table> <thead > <tr> <th><b>Sample</b></th> <th><b>Project</b></th> <th><b>Project ID</b></th> <th><b>Analysis</b></th> <th><b>Reference Genome</b></th></tr> </thead>" )
 	TABLE.append( "<tbody>" )
 	for sample in bsDOM.getElementsByTagName( "smp:sample" ):
 
@@ -138,7 +146,7 @@ def buildMessage():
 		analysis = api.getUDF( sample, "Analysis" )
 		sName = sample.getElementsByTagName( "name" )[0].firstChild.data
 		pName = ""
-		
+		pLUID = ""
 		## get the corresponding project??
 		try:
 			pLUID = sample.getElementsByTagName( "project" )[0].getAttribute( "limsid" )
@@ -151,7 +159,7 @@ def buildMessage():
 			pURI = BASE_URI + "projects/" + pLUID
 			pDOM = getObjectDOM( pURI )
 			pName = pDOM.getElementsByTagName( "name" )[0].firstChild.data
-			
+
 			rURI = pDOM.getElementsByTagName( "researcher" )[0].getAttribute( "uri" )
 			rURI = rURI.replace( ":8443" , "" )
 			#rURI = rURI.replace( "http://" , "")
@@ -159,22 +167,24 @@ def buildMessage():
 			rFirstName = rDOM.getElementsByTagName( "first-name" )[0].firstChild.data
 			rLastName = rDOM.getElementsByTagName( "last-name" )[0].firstChild.data
 			rEmail = rDOM.getElementsByTagName( "email" )[0].firstChild.data
-		
-		if pName not in pNames:
-			pNames.append(pName)		
 
+		if pName not in pNames:
+			pNames.append(pName)
+
+		if pLUID not in pIDs:
+			pIDs.append(pLUID)
 		## build a hyperlink for search purposes:
 		searchURI = HOSTNAME + "/clarity/search?scope=Sample&query=" + sLUID
 		searchURI = searchURI.replace( "http://", "https://" )
 		searchURI = searchURI.replace( ":8080", "" )
 
-		line = "<tr> <td><a href='%s'>%s</a></td> <td>%s</td> <td>%s</td> <td>%s</td> </tr>" % (searchURI, sName, pName, analysis, refGenome)
+		line = "<tr> <td><a href='%s'>%s</a></td> <td>%s</td> <td>%s</td> <td>%s</td> <td>%s</td> </tr>" % (searchURI, sName, pName, pLUID, analysis, refGenome)
 		#print line
 		TABLE.append( line )
 
 	TABLE.append( "</tbody></table>" )
 	TEXT.append( "<p>The responsible contact for this sequencing run is: %s %s (%s).</p>" % (rFirstName, rLastName, rEmail) )
-	SUBJECT = "A "+options.machine+" run for project(s) "+",".join(pNames)+" was just started on "+cName
+	SUBJECT = "A "+options.machine+" run for project(s) "+",".join(pNames)+" ("+ ",".join(pIDs)+") was just started on "+cName
 
 	sendMessage( SUBJECT, "\r\n".join( TEXT + TABLE ) )
 
@@ -188,7 +198,7 @@ def main():
 	parser.add_option( "-p", "--password", help = "password of the current user" )
 	parser.add_option( "-l", "--limsid", help = "the limsid of the process under investigation" )
 	parser.add_option( "-s", "--stepURI", help = "the URI of the step that launched this script" )
-	parser.add_option( "-m", "--machine", help = "machine used for sequencing") 
+	parser.add_option( "-m", "--machine", help = "machine used for sequencing")
 
 	(options, otherArgs) = parser.parse_args()
 
