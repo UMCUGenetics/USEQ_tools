@@ -640,14 +640,16 @@ def getSeqFinance() :
 				requested_machine = requested_runtypes.keys()[0].lower()
 				requested_machine = requested_machine.split()[0].strip()
 				requested_machine = ''.join([i for i in requested_machine if not i.isdigit()])
-				lims_machine = lims_runtypes.keys()[0].lower()
 
+				lims_machine = lims_runtypes.keys()[0].lower()
+				lims_machine = ''.join([i for i in lims_machine if not i.isdigit()])
 				if ':' in lims_machine:
 					lims_machine = lims_machine.split(':')[1].split()[0].strip()
 				else:
 					lims_machine = lims_machine.split('-')[1].split()[0].strip()
 
-				# print lims_machine,requested_machine
+				print lims_machine,'/',requested_machine,'/',requested_runtypes.keys()[0].lower()
+
 				if lims_machine == requested_machine and requested_runtypes.keys()[0].lower() in all_costs:
 
 					for date in sorted( all_costs[ requested_runtypes.keys()[0].lower() ][ 'date_costs'].keys() ):
@@ -666,7 +668,7 @@ def getSeqFinance() :
 				else:
 					errors.append("Requested runtype '"+requested_runtypes.keys()[0]+"' doesn't match runtype in LIMS")
 
-
+			print errors
 			#determine library prep costs
 			if len(requested_librarypreps.keys()) > 1 or len(lims_librarypreps.keys()) > 1:
 				errors.append("Multiple library prep types found, please check cost calculation")
@@ -688,7 +690,7 @@ def getSeqFinance() :
 					if lims_libraryprep_ori is not None:
 
 						if lims_libraryprep_ori in all_costs:
-
+							print lims_libraryprep_ori, billing_date,lims_libraryprep
 							prep_costs += int(all_costs[ lims_libraryprep_ori ][ 'date_costs' ][ billing_date ]) * lims_librarypreps[ lims_libraryprep ]
 						else:
 							errors.append("Could not find library prep kit '"+lims_libraryprep_ori+"' in billing database")

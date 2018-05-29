@@ -1,5 +1,6 @@
 NEXT_STEPS = {
     'Truseq DNA nano' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/1931',
+    'Truseq DNA amplicon' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/1931',
     'Truseq RNA stranded ribo-zero' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/1944',
     'Truseq RNA stranded polyA' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/1937',
     'Illumina NextSeq' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/2003',
