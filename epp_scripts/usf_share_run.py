@@ -364,14 +364,15 @@ def shareWorker(project_name, project_id, researcher_email, researcher_user_name
 
     run_zip = zipRun( project_id,run_dir )
 
-    if options.encrypt == 'yes':
-        print "{0} : Running encryption of {1}".format(name, run_zip)
-        run_zip = encryptRun( run_zip, researcher_email,researcher_user_name )
+    if options.shareonly != 'yes':
+        if options.encrypt == 'yes':
+            print "{0} : Running encryption of {1}".format(name, run_zip)
+            run_zip = encryptRun( run_zip, researcher_email,researcher_user_name )
 
-    upload_response = nc_util.upload(run_zip)
-    if "ERROR" in upload_response:
-        print "{0} : Uploading of {1} failed with message:\n '{2}'".format(name, run_zip, upload_response["ERROR"])
-        return
+        upload_response = nc_util.upload(run_zip)
+        if "ERROR" in upload_response:
+            print "{0} : Uploading of {1} failed with message:\n '{2}'".format(name, run_zip, upload_response["ERROR"])
+            return
 
     share_response = nc_util.share(run_zip, researcher_email)
     if "ERROR" in share_response:
@@ -476,6 +477,7 @@ def main():
     parser.add_option( "-i", "--projectids", help="The projectid(s) of the run you want to share. If multiple separate by comma." )
     parser.add_option( "-d", "--dataDir", help = "Root directory for sequencing runs ")
     parser.add_option( "-e", "--encrypt", help = "GPG encrypt data (yes/no)")
+    parser.add_option( "-so","--shareonly", help = "Run sharing only (yes/no)")
 
 
 
