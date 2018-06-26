@@ -4,7 +4,8 @@ import xml.etree.cElementTree as ET
 import datetime
 import subprocess
 #Full path to config slicer
-CONFIG_SLICER='/opt/gls/clarity/tools/config-slicer/config-slicer-3.0.24.jar'
+# CONFIG_SLICER='/opt/gls/clarity/tools/config-slicer/config-slicer-3.0.24.jar'
+CONFIG_SLICER='/opt/gls/clarity/tools/config-slicer/config-slicer-3.1.14.6.jar'
 #URI for LIMS api
 API_URI='https://usf-lims-test.op.umcutrecht.nl/api'
 #Used for writing temporary XML file to
@@ -27,15 +28,15 @@ def createConfigXML(barcodes):
     tree = ET.ElementTree(config)
 
     xml_name = "{0}add_bc-{1}.xml".format(TMP_DIR,datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))
-    tree.write(xml_name, xml_declaration=True, encoding='utf-8', method="xml")
+    tree.write(xml_name, encoding='utf-8')
 
     return xml_name
 
 def addBarcodes(barcode_xml, pw):
-
-    print subprocess.check_output(
-        "java -jar {0} -o importAndOverwrite -a {1} -u sboymans -p '{2} -k ".format(CONFIG_SLICER, API_URI, pw)
-    )
+    print "java -jar {0} -o importAndOverwrite -a {1} -u sboymans -p '{2}' -k {3}".format(CONFIG_SLICER, API_URI, pw, barcode_xml)
+    # print subprocess.check_call(
+    #     "java -jar {0} -o importAndOverwrite -a {1} -u sboymans -p '{2}' -k {3}".format(CONFIG_SLICER, API_URI, pw, barcode_xml)
+    # )
 
 
 def main():
