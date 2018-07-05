@@ -129,7 +129,7 @@ def getAllCosts( uri ):
 	costJSON = api.getResourceByURI( uri )
 	costs = json.loads( costJSON )
 
-	print costs
+	# print costs
 
 	costs_lower = dict( (k.lower(), v) for k,v in costs.iteritems())
 
