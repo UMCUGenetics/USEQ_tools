@@ -1,5 +1,8 @@
 import argparse
+# from optparse import OptionParser
 import glsapiutil
+import sys
+from xml.dom.minidom import parseString, parse
 
 HOSTNAME = ''
 VERSION = ''
@@ -7,19 +10,21 @@ BASE_URI = ''
 
 DEBUG = True
 api = None
+args = None
+CACHE = {}
 
 def getObjectDOM( uri ):
 
-    global CACHE
-    #global api
-    if uri not in CACHE.keys():
-        #print uri
-        thisXML = api.getResourceByURI( uri )
-        # print thisXML
-        thisDOM = parseString( thisXML )
-        CACHE[ uri ] = thisDOM
+	global CACHE
+	#global api
+	if uri not in CACHE.keys():
 
-    return CACHE[ uri ]
+		thisXML = api.getResourceByURI( uri )
+
+		thisDOM = parseString( thisXML )
+		CACHE[ uri ] = thisDOM
+
+	return CACHE[ uri ]
 
 
 def setupGlobalsFromURI( uri ):
@@ -37,11 +42,39 @@ def setupGlobalsFromURI( uri ):
 		print HOSTNAME
 		print BASE_URI
 
-def revcom(step, aid, out):
+def revcom(step, aid, output_file):
+
+    revcompl = lambda x: ''.join([{'A':'T','C':'G','G':'C','T':'A'}[B] for B in x][::-1])
+    samplesheet_artifact = getObjectDOM(BASE_URI + 'artifacts/' + aid)
+    samplesheet_uri = samplesheet_artifact.getElementsByTagName("file:file")[0].getAttribute("uri")
+    header = ''
+    for line in api.getResourceByURI(samplesheet_uri + '/download').rstrip().split('\n'):
+        if line.startswith('Sample_ID'):
+            header = line.rstrip().split(',')
+            output_file.write('{line}\n'.format(line=line))
+            # print '{line}\n'.format(line=line)
+        elif header:
+            data = line.rstrip().split(',')
+
+            i7_index = None
+            i5_index = None
+            if 'index2' in header:
+                i5_index =header.index('index2')
+                data[i5_index] = revcompl(data[i5_index])
+            else:
+                i7_index = header.index('index')
+                data[i7_index] = revcompl(data[i7_index])
+
+            output_file.write('{line}\n'.format(line=','.join(data)))
+
+        else:
+            output_file.write('{line}\n'.format(line=line))
 
 
 def main():
+
     global args
+    global api
 
     parser = argparse.ArgumentParser(prog='useq_modify_samplesheet', description='''
     This script is used to modify a samplesheet to work with either NextSeq or MiSeq/HiSeq. Currently
@@ -53,20 +86,21 @@ def main():
 
     parser.add_argument('-s','--step', help='Step URI', required=True)
     parser.add_argument('-a','--aid', help='Artifact ID', required=True)
-    parser.add_argument('-o', '--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
+    parser.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
 
     args = parser.parse_args()
 
+
+    setupGlobalsFromURI( args.step )
     api = glsapiutil.glsapiutil()
     api.setHostname( HOSTNAME )
     api.setVersion( VERSION )
     api.setup( args.user, args.password )
 
-    setupGlobalsFromURI( args.step )
 
-    
+    revcom(args.step, args.aid, args.output_file)
+
 if __name__ == "__main__":
-
     main()
 
 
