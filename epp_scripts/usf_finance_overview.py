@@ -129,9 +129,10 @@ def getAllCosts( uri ):
 	costJSON = api.getResourceByURI( uri )
 	costs = json.loads( costJSON )
 
-
+	# print costs
 
 	costs_lower = dict( (k.lower(), v) for k,v in costs.iteritems())
+
 	#Do some (unfortunately) neccessary name conversions
 	costs_lower['libprep dna'] = costs_lower['truseq dna nano']
 	costs_lower['truseq dna nano (manual)'] = costs_lower['truseq dna nano']
@@ -141,6 +142,7 @@ def getAllCosts( uri ):
 	costs_lower['libprep rna stranded polya'] = costs_lower['truseq rna stranded polya']
 	costs_lower['truseq rna stranded ribo-zero'] = costs_lower['truseq rna stranded ribozero (human, mouse, rat)']
 	costs_lower['libprep rna stranded ribo-zero'] = costs_lower['truseq rna stranded ribozero (human, mouse, rat)']
+	costs_lower['open snp array'] = costs_lower['snp open array (60 snps)']
 
 	return costs_lower
 def getProcesses( uri ):
