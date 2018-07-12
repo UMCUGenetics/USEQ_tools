@@ -29,6 +29,13 @@ class NextcloudUtil(object):
         self.password = password
         self.webdav = easywebdav.connect(self.hostname , username=user, password=password, protocol='https')
 
+    def file_overview(self):
+        remote_path = 'remote.php/webdav/sequencing_runs/'
+        files = []
+        for file in self.webdav.ls(remote_path):
+            if not file.contenttype: continue #directories
+            files.append(file)
+        return files
 
     def upload(self, file_path):
         if not os.path.isfile(file_path): sys.exit("File path '{0}' is not a file".format(file_path))
@@ -39,7 +46,7 @@ class NextcloudUtil(object):
 
             return {"ERROR" : "File path '{0}' already exists on server".format(file_basename)}
         else:
-        #upload file
+            #upload file
             self.webdav.upload(file_path, remote_path)
 
         #check if file upload succeeded
