@@ -48,12 +48,12 @@ def main():
 	for file in files:
 		total_size += file.size
 		date_diff = datetime.now() - datetime.strptime(file.mtime.split(",")[1], ' %d %b %Y %H:%M:%S GMT')
-		if date_diff.days > 1:
+		if date_diff.days > 7:
 			files_to_delete.append(file)
 
 	# print total_size
 	usage = (total_size / float(max_size)) * 100
-	if usage >= 10:
+	if usage >= 90:
 		sendMail(files_to_delete)
 
 if __name__ == "__main__":
