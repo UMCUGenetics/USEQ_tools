@@ -1,0 +1,23 @@
+<lab:lab xmlns:udf="http://genologics.com/ri/userdefined" xmlns:ri="http://genologics.com/ri" xmlns:lab="http://genologics.com/ri/lab">
+  <name>{{account_name}}</name>
+  <billing-address>
+    <street>{{billing_street}}</street>
+    <city>{{billing_city}}</city>
+    <state>{{billing_state}}</state>
+    <country>{{billing_country}}</country>
+    <postalCode>{{billing_postalCode}}</postalCode>
+    <institution>{{billing_institution}}</institution>
+    <department>{{billing_department}}</department>
+  </billing-address>
+  <shipping-address>
+    <street>{{shipping_street}}</street>
+    <city>{{shipping_city}}</city>
+    <state>{{shipping_state}}</state>
+    <country>{{shipping_country}}</country>
+    <postalCode>{{shipping_postalCode}}</postalCode>
+    <institution>{{shipping_institution}}</institution>
+    <department>{{shipping_department}}</department>
+  </shipping-address>
+  <udf:field type="Text" name="BudgetNrs">{{account_BudgetNrs}}</udf:field>
+  <website>{{account_website}}</website>
+</lab:lab>
