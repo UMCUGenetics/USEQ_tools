@@ -7,7 +7,10 @@ import sys
 from optparse import OptionParser
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
+from email import encoders
+import mimetypes
 import re
 #from genologics.lims import *
 from genologics.config import BASEURI, USERNAME, PASSWORD
@@ -88,6 +91,34 @@ def sendMails ( mailInfo, emailAddresses ):
 
     contents = MIMEText( contents, 'html')
     outer.attach( contents )
+
+
+
+    if options.attachment:
+        attachment = options.attachment
+        file_name = attachment.split('/')[-1]
+        ctype, encoding = mimetypes.guess_type(attachment)
+        if ctype is None or encoding is not None:
+            # No guess could be made, or the file is encoded (compressed), so
+            # use a generic bag-of-bits type.
+            ctype = 'application/octet-stream'
+        maintype, subtype = ctype.split('/', 1)
+        if maintype == 'image':
+            fp = open(attachment, 'rb')
+            msg = MIMEImage(fp.read(), _subtype=subtype)
+            fp.close()
+        else:
+            fp = open(attachment, 'rb')
+            msg = MIMEBase(maintype, subtype)
+            msg.set_payload(fp.read())
+            fp.close()
+                # Encode the payload using Base64
+            encoders.encode_base64(msg)
+
+        msg.add_header('Content-Disposition', 'attachment', filename=file_name)
+        msg.add_header('Content-ID', '<{}>'.format(file_name))
+        outer.attach(msg)
+
 
     #read the logo and add it to the email
     fp = open(logo, 'rb')
@@ -222,6 +253,7 @@ def main():
     parser.add_option( "-a", "--all", help = "Send email to all USF users. Overrides options -g and -u.", action='store_true')
     parser.add_option( "-g", "--group", help = "Send email to all USF users belonging to 1 account name. Create a comma separated list for multiple groups. Can be used together with -u.")
     parser.add_option( "-u", "--user", help = "Send email to USF user(s). (e.g. -u j.doe@email.com). Can be used together with -g.")
+    parser.add_option( "-t", "--attachment", help = "Optional attachment.")
 
     ( options, otherArgs ) = parser.parse_args()
 
