@@ -122,17 +122,19 @@ def getSamples( ids ):
 def getRunInfo( project_name ):
 
     processes_DOM = getObjectDOM("{0}processes/?projectname={1}&type={2}".format(BASE_URI, project_name, "&type=".join([urllib2.quote(x) for x in RUN_TYPES])))
+    
     process_nodes = processes_DOM.getElementsByTagName("process")
-
+    print project_name
     runs = {}
     for process in process_nodes:
-        process.getAttribute("uri")
+        #print process.getAttribute("uri")
         process_DOM = getObjectDOM( process.getAttribute("uri") )
         run_date = process_DOM.getElementsByTagName("date-run")[0].firstChild.data
         run_id = api.getUDF(process_DOM, "Run ID")
         run_flowcell = api.getUDF(process_DOM, "Flow Cell ID")
+        
         runs[run_date] = [run_id, run_flowcell]
-
+	print 'id',run_id
 
     run_dates = [datetime.datetime.strptime(ts, "%Y-%m-%d") for ts in runs.keys()]
     run_dates.sort()
@@ -236,19 +238,21 @@ def getRunDirectory( run_name=None, run_flowcell=None ):
         for root,dirs,files in os.walk(options.dataDir, topdown=True):
             for d in dirs:
                 path = os.path.join(root,d)
-                if path.count("/") == 7:
-                    if path.endswith(run_flowcell):
-                        run_dir = path
-                        break
+                
+                #if path.count("/") == 7:
+                if path.endswith("_000000000-"+run_flowcell):
+                    run_dir = path
+                    break
     return run_dir
 
 def zipRun( project_id, run_dir ):
+    
     run_name = os.path.basename(run_dir)
     run_zip = "{0}/{1}.tar.gz".format(run_dir,project_id)
-
+    
     with tarfile.open(run_zip, "w:gz") as tar:
         tar.add(run_dir, arcname=run_name)
-
+    
     return run_zip
 
 def encryptRun( run_zip, researcher_email, researcher_user_name):
@@ -258,6 +262,8 @@ def encryptRun( run_zip, researcher_email, researcher_user_name):
         sys.exit("Encryption failed with message : {0}".format(return_code))
     else:
         os.remove(run_zip)
+
+
     return run_zip+".gpg"
 
 
@@ -283,15 +289,16 @@ def sendMail(project_id, researcher_email, share_id, conversion_stats, expected_
     contents += "<p>You can download your data using <a href='https://ncie01.op.umcutrecht.nl/index.php/s/{0}'>this</a> link.</p>".format(share_id)
     contents += "<p>This link will remain active for 7 days. If you're unable to download your data within this period, please let us know. "
     contents += "Please also be aware that we're able to store your sequencing data for a maximum of two months, after which it is automatically deleted from our servers.</p>"
-    contents += "<p><b><u>Run Report</u></b></p>"
+    contents += "<h3>Summary</h3>"
     contents += \
-    "<table> \
-        <tr><td><b>Expected Raw Reads:</b></td><td>{0}</td></tr> \
-        <tr><td><b>Raw Reads:</b></td><td>{1}</td></tr> \
-        <tr><td><b>Filtered Reads:</b></td><td>{2}</td></tr> \
+    "<table>\
+        <tr><td><b>Expected Raw Reads:</b></td><td>{0}</td></tr>\
+        <tr><td><b>Raw Reads:</b></td><td>{1}</td></tr>\
+        <tr><td><b>Filtered Reads:</b></td><td>{2}</td></tr>\
     </table>".format(expected_reads,conversion_stats['total_reads_raw'],conversion_stats['total_reads'])
+    contents += "<h3>Details</h3>"
     contents += \
-    "<table border='1'> \
+    "<table border='1'>\
         <tr>\
             <th><b>Sample</b></th>\
             <th><b>Barcode Sequence</b></th>\
@@ -323,6 +330,7 @@ def sendMail(project_id, researcher_email, share_id, conversion_stats, expected_
     contents += "Hubrecht Institute and Utrecht University Center for Molecular Medicine | UMC Utrecht | room STR2.207 | "
     contents += "Heidelberglaan 100 | 3584 CX Utrecht | The Netherlands | Tel: +31 (0)88 75 55164 | "
     contents += "<a href='mailto:USEQ@umcutrecht.nl'>USEQ@umcutrecht.nl</a> | <a href='www.USEQ.nl'>www.USEQ.nl</a></i></p>"
+    #print contents
 
     contents = MIMEText( contents, 'html')
     outer.attach( contents )
@@ -336,6 +344,7 @@ def sendMail(project_id, researcher_email, share_id, conversion_stats, expected_
 
     s = smtplib.SMTP( "localhost" )
     recipients = [researcher_email, 'useq@umcutrecht.nl']
+    #recipients = ['s.w.boymans@gmail.com', 'useq@umcutrecht.nl']
     s.sendmail( 'useq@umcutrecht.nl', recipients, outer.as_string() )
 
     s.quit()
@@ -347,7 +356,7 @@ def shareWorker(project_name, project_id, researcher_email, researcher_user_name
     run_info = getRunInfo(project_name)
     run_name = run_info[0]
     run_flowcell = run_info[1]
-
+    print run_info
     if run_name:
         run_dir = getRunDirectory( run_name = run_name )
     elif run_flowcell:
@@ -355,6 +364,8 @@ def shareWorker(project_name, project_id, researcher_email, researcher_user_name
     else:
         print "{0} : No run name found for {1}".format(name,project_name)
         return
+    
+    #print run_dir
     if not run_dir:
          print "{0} : Could not find {1} in {2}".format(name, run_dir, options.dataDir)
          return
@@ -397,15 +408,18 @@ def shareFromProjectId():
 
         project_name = p_DOM.getElementsByTagName( "name" )[0].firstChild.data
         researcher_uri = p_DOM.getElementsByTagName( "researcher" )[0].getAttribute( "uri" )
-
+	#print "Project name",project_name
+	
         researcher = getResearcher( researcher_uri )
         researcher_email = researcher['email']
         researcher_user_name = researcher['user_name']
+	#print "Researcher",researcher
 
         run_info = getRunInfo(project_name)
         run_name = run_info[0]
         run_flowcell = run_info[1]
 
+	#print "Run info",run_info
         share_worker = multiprocessing.Process(name="Worker_{0}".format(project_name), target=shareWorker, args=(project_name,project_id, researcher_email,researcher_user_name))
 
         share_workers.append( share_worker)
@@ -477,7 +491,7 @@ def main():
     parser.add_option( "-i", "--projectids", help="The projectid(s) of the run you want to share. If multiple separate by comma." )
     parser.add_option( "-d", "--dataDir", help = "Root directory for sequencing runs ")
     parser.add_option( "-e", "--encrypt", help = "GPG encrypt data (yes/no)")
-    parser.add_option( "-so","--shareonly", help = "Run sharing only (yes/no)")
+    parser.add_option( "-o","--shareonly", help = "Run sharing only (yes/no)")
 
 
 
