@@ -3,10 +3,13 @@ from jinja2 import Environment, FileSystemLoader
 import argparse
 from xml.dom.minidom import parseString, parse
 import os
+import urllib
+import urllib2
+import getpass
 
-HOSTNAME = 'https://usf-lims-test.op.umcutrecht.nl'
-VERSION = 'v2'
-BASE_URI = 'https://usf-lims-test.op.umcutrecht.nl/api/v2/'
+HOSTNAME = ''
+VERSION = ''
+BASE_URI = ''
 api = None
 args = None
 PATH = os.path.dirname(os.path.abspath(__file__))
@@ -18,6 +21,17 @@ CACHE={}
 def renderTemplate(template_filename, data):
     """Render Jinja template."""
     return TEMPLATE_ENVIRONMENT.get_template(template_filename).render(data)
+
+def setupGlobalsFromURI( uri ):
+
+	global HOSTNAME
+	global VERSION
+	global BASE_URI
+
+	tokens = uri.split( "/" )
+	HOSTNAME = "/".join(tokens[0:3])
+	VERSION = tokens[4]
+	BASE_URI = "/".join(tokens[0:5]) + "/"
 
 def getObjectDOM( uri ):
 
@@ -86,9 +100,23 @@ def csvToDOM(csv):
 
 #Returns account info in csv format
 def getAccount(account_id):
+    account_csv = ''
+    try:
+        account_id = int(account_id)
+        account_DOM = getObjectDOM("{0}labs/{1}".format(BASE_URI,account_id))
+        account_csv = DOMToCsv(account_DOM)
+    except ValueError:
+        account_DOM = getObjectDOM("{0}labs/?name={1}".format(BASE_URI,urllib.quote(account_id)))
+        labs = account_DOM.getElementsByTagName("lab")
+        if len(labs) > 1:
+            print "Warning : More than one hits found for '{0}', using the first one.".format(account_id)
+            account_uri = account_DOM.getElementsByTagName("lab")[0].getAttribute("uri")
+        else:
+            account_uri = account_DOM.getElementsByTagName("lab")[0].getAttribute("uri")
 
-    account_DOM = getObjectDOM(BASE_URI + 'labs/' + account_id)
-    account_csv = DOMToCsv(account_DOM)
+        account_DOM = getObjectDOM(account_uri)
+        account_csv = DOMToCsv(account_DOM)
+
     return  account_csv
 
 
@@ -141,18 +169,21 @@ def main():
     parser = argparse.ArgumentParser(prog='useq_manage_accounts', description='''
     Workaround script to manage accounts in LIMS 5.*''')
     parser.add_argument('-u','--user', help='User name', required=True)
-    parser.add_argument('-p','--password', help='Password', required=True)
-    parser.add_argument('-w', '--work_dir', help='Used for reading / writing files from/to', required=True)
-    parser.add_argument('-g','--get', help='Get account by name (Creates a <account_id>.csv file in work_dir)')
+    parser.add_argument('-w','--work_dir', help='Used for reading / writing files from/to', required=True)
+    parser.add_argument('-g','--get', help='Get account by id or name)')
     parser.add_argument('-c','--create', help='Create an account. Requires a csv file as input.', nargs='?', type=argparse.FileType('r'))
     parser.add_argument('-m','--modify', help='Modify and account. Requires a csv file as input. User the account LIMSID as file name (e.g. 45.csv)', nargs='?', type=argparse.FileType('r'))
+    parser.add_argument('-a','--api', help='LIMS API URI (e.g. https://usf-lims-test.op.umcutrecht.nl/api/v2/ )', required=True)
     args = parser.parse_args()
 
+    pw = getpass.getpass("Please enter the password for account {0}:\n".format(args.user))
     #Set up handy functions
+    setupGlobalsFromURI( args.api )
     api = glsapiutil.glsapiutil()
     api.setHostname( HOSTNAME )
     api.setVersion( VERSION )
-    api.setup( args.user, args.password )
+    api.setup( args.user, pw )
+
 
     if args.get:
         print "{0}".format(getAccount(args.get))
