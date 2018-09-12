@@ -1,4 +1,4 @@
-
+import re
 import sys
 from optparse import OptionParser
 import logging
@@ -63,6 +63,7 @@ def getArtifacts( ids ):
         response = ""
 
     return response
+
 def routeAnalytes(  ):
 
     ## Step 1: Get the step XML
@@ -74,10 +75,10 @@ def routeAnalytes(  ):
     for io in process_DOM.getElementsByTagName( 'input-output-map' ):
         input_art = io.getElementsByTagName("input")[0].getAttribute("limsid")
         if options.input:
-            print 'using input'
+            # print 'using input'
             analytes.add( input_art )
         else:
-            print 'using output'
+            # print 'using output'
             output_art_type = io.getElementsByTagName("output")[0].getAttribute("type")
             if output_art_type == "Analyte":    # only analytes can be routed to different queues
                 output_art = io.getElementsByTagName("output")[0].getAttribute("limsid")
@@ -93,12 +94,19 @@ def routeAnalytes(  ):
         artifact_URI = artifact.getAttribute("uri").split('?')[0]
         samples = artifact.getElementsByTagName("sample")
         sample_uri = samples[0].getAttribute("uri")
+        # sample_id =
         sample = getObjectDOM(sample_uri)
+        project_uri = sample.getElementsByTagName('project')[0].getAttribute('uri')
+        project = getObjectDOM(project_uri)
+        project_application = api.getUDF(project, 'Application')
         next_step = None
-        print current_step
+
         if current_step in STEP_NAMES['ISOLATION']:
-            sample_libprep = api.getUDF(sample, 'Library prep kit')
-            next_step = NEXT_STEPS[sample_libprep]
+            if project_application == 'USF - SNP genotyping':
+                next_step = NEXT_STEPS['USEQ - Quant Studio Fingerprinting']
+            else:
+                sample_libprep = api.getUDF(sample, 'Library prep kit')
+                next_step = NEXT_STEPS[sample_libprep]
 
         elif current_step in STEP_NAMES['LIBPREP']:
             next_step = NEXT_STEPS['USEQ - Library Pooling']
