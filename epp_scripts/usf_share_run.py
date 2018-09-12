@@ -122,9 +122,9 @@ def getSamples( ids ):
 def getRunInfo( project_name ):
 
     processes_DOM = getObjectDOM("{0}processes/?projectname={1}&type={2}".format(BASE_URI, project_name, "&type=".join([urllib2.quote(x) for x in RUN_TYPES])))
-    
+
     process_nodes = processes_DOM.getElementsByTagName("process")
-    print project_name
+    # print project_name
     runs = {}
     for process in process_nodes:
         #print process.getAttribute("uri")
@@ -132,9 +132,9 @@ def getRunInfo( project_name ):
         run_date = process_DOM.getElementsByTagName("date-run")[0].firstChild.data
         run_id = api.getUDF(process_DOM, "Run ID")
         run_flowcell = api.getUDF(process_DOM, "Flow Cell ID")
-        
+
         runs[run_date] = [run_id, run_flowcell]
-	print 'id',run_id
+	# print 'id',run_id
 
     run_dates = [datetime.datetime.strptime(ts, "%Y-%m-%d") for ts in runs.keys()]
     run_dates.sort()
@@ -228,6 +228,7 @@ def parseConversionStats( conversion_stats) :
 
 def getRunDirectory( run_name=None, run_flowcell=None ):
     run_dir = None
+    
     if run_name:
         for item in os.listdir(options.dataDir):
         #print os.path.join( options.dataDir, item, run_name )
@@ -238,21 +239,29 @@ def getRunDirectory( run_name=None, run_flowcell=None ):
         for root,dirs,files in os.walk(options.dataDir, topdown=True):
             for d in dirs:
                 path = os.path.join(root,d)
-                
+
                 #if path.count("/") == 7:
-                if path.endswith("_000000000-"+run_flowcell):
+                if path.endswith("_000000000-"+run_flowcell): #MiSeq
                     run_dir = path
                     break
+                elif path.endswith("_"+run_flowcell): #NextSeq
+                    run_dir = path
+                    # print run_dir
+                    break
+                elif path.endswith("A"+run_flowcell) or path.endswith("B"+run_flowcell): #HiSeq
+                    run_dir = path
+                    break
+
     return run_dir
 
 def zipRun( project_id, run_dir ):
-    
+
     run_name = os.path.basename(run_dir)
     run_zip = "{0}/{1}.tar.gz".format(run_dir,project_id)
-    
+
     with tarfile.open(run_zip, "w:gz") as tar:
         tar.add(run_dir, arcname=run_name)
-    
+
     return run_zip
 
 def encryptRun( run_zip, researcher_email, researcher_user_name):
@@ -356,7 +365,7 @@ def shareWorker(project_name, project_id, researcher_email, researcher_user_name
     run_info = getRunInfo(project_name)
     run_name = run_info[0]
     run_flowcell = run_info[1]
-    print run_info
+    # print run_info
     if run_name:
         run_dir = getRunDirectory( run_name = run_name )
     elif run_flowcell:
@@ -364,7 +373,7 @@ def shareWorker(project_name, project_id, researcher_email, researcher_user_name
     else:
         print "{0} : No run name found for {1}".format(name,project_name)
         return
-    
+
     #print run_dir
     if not run_dir:
          print "{0} : Could not find {1} in {2}".format(name, run_dir, options.dataDir)
@@ -409,7 +418,7 @@ def shareFromProjectId():
         project_name = p_DOM.getElementsByTagName( "name" )[0].firstChild.data
         researcher_uri = p_DOM.getElementsByTagName( "researcher" )[0].getAttribute( "uri" )
 	#print "Project name",project_name
-	
+
         researcher = getResearcher( researcher_uri )
         researcher_email = researcher['email']
         researcher_user_name = researcher['user_name']
