@@ -266,7 +266,7 @@ def getSnpFinance() :
 
 	snpFinance = []
 
-	allCosts = getAllCosts( 'http://www.useq.nl/useq_getfinance.php?type=all&mode=json' )
+	allCosts = getAllCosts( 'http://wgs11.op.umcutrecht.nl/useq/useq_getfinance.php?type=all&mode=json' )
 
 	stepURI = options.stepURI + "/details"
 	stepXML = api.getResourceByURI( stepURI )
@@ -391,7 +391,7 @@ def getSnpFinance() :
 def getSeqFinance() :
 
 	seq_finance = []
-	all_costs = getAllCosts( 'http://www.useq.nl/useq_getfinance.php?type=all&mode=json' )
+	all_costs = getAllCosts( 'http://wgs11.op.umcutrecht.nl/useq/useq_getfinance.php?type=all&mode=json' )
 	sequencing_runs = {}
 
 	stepURI = options.stepURI + "/details"
