@@ -29,11 +29,19 @@ def archiveRuns(data, archive):
 
             try :
                 os.system("rsync -rahm --exclude '*fastq.gz' --exclude '*fq.gz' {0} {1}".format(path, archive))
+
             except Exception as e:
                 print "Failed running rsync of {0} to {1} with error {2}".format(path, archive, e)
 
             os.remove(os.path.join(path,'ArchiveRunning.txt'))
             open(os.path.join(path,'ArchiveDone.txt'),'a').close()
+            try :
+                for runroot,subdir,runfiles in os.walk(os.path.join(path,'Data/Intensities/BaseCalls')):
+                    for file in runfiles:
+                        if file.endswith('.fastq.gz') or file.endswith('.fq.gz'):
+                            os.remove(os.path.join(runroot,file))
+            except Exception as e:
+                print "Failed cleaning up FastQ files for run {0} with error {1}".format(path,e)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
