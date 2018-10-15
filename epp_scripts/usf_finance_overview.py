@@ -129,8 +129,6 @@ def getAllCosts( uri ):
 	costJSON = api.getResourceByURI( uri )
 	costs = json.loads( costJSON )
 
-	# print costs
-
 	costs_lower = dict( (k.lower(), v) for k,v in costs.iteritems())
 
 	#Do some (unfortunately) neccessary name conversions
@@ -266,8 +264,8 @@ def getSnpFinance() :
 
 	snpFinance = []
 
-	allCosts = getAllCosts( 'http://www.useq.nl/useq_getfinance.php?type=all&mode=json' )
-
+	allCosts = getAllCosts( 'http://wgs11.op.umcutrecht.nl/useq/useq_getfinance.php?type=all&mode=json' )
+	# print allCosts
 	stepURI = options.stepURI + "/details"
 	stepXML = api.getResourceByURI( stepURI )
 	stepDOM = parseString( stepXML )
@@ -391,7 +389,7 @@ def getSnpFinance() :
 def getSeqFinance() :
 
 	seq_finance = []
-	all_costs = getAllCosts( 'http://www.useq.nl/useq_getfinance.php?type=all&mode=json' )
+	all_costs = getAllCosts( 'http://wgs11.op.umcutrecht.nl/useq/useq_getfinance.php?type=all&mode=json' )
 	sequencing_runs = {}
 
 	stepURI = options.stepURI + "/details"
@@ -582,7 +580,7 @@ def getSeqFinance() :
 				sample_count += 1
 
 				requested_runtype = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'requested_runtype' ]
-				# print requested_runtype
+
 				if requested_runtype in requested_runtypes :
 					requested_runtypes[ requested_runtype ] += 1
 				else :
@@ -613,6 +611,7 @@ def getSeqFinance() :
 					lims_runtypes[ lims_runtype ] = 1
 
 				lims_libraryprep = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'lims_library_prep' ]
+
 				if lims_libraryprep in lims_librarypreps :
 					lims_librarypreps[ lims_libraryprep ] +=1
 				else :
@@ -630,6 +629,7 @@ def getSeqFinance() :
 			sample_type = prepareForPrint(sample_types)
 			lims_runtype = prepareForPrint(lims_runtypes)
 			lims_libraryprep = prepareForPrint(lims_librarypreps)
+
 			lims_isolation = prepareForPrint(lims_isolations)
 
 			#determine sequencing costs
@@ -650,7 +650,7 @@ def getSeqFinance() :
 				else:
 					lims_machine = lims_machine.split('-')[1].split()[0].strip()
 
-				print lims_machine,'/',requested_machine,'/',requested_runtypes.keys()[0].lower()
+
 
 				if lims_machine == requested_machine and requested_runtypes.keys()[0].lower() in all_costs:
 
@@ -670,29 +670,34 @@ def getSeqFinance() :
 				else:
 					errors.append("Requested runtype '"+requested_runtypes.keys()[0]+"' doesn't match runtype in LIMS")
 
-			print errors
+
 			#determine library prep costs
 			if len(requested_librarypreps.keys()) > 1 or len(lims_librarypreps.keys()) > 1:
 				errors.append("Multiple library prep types found, please check cost calculation")
 
+			requested_librarypreps_conversion = {}
+			requested_librarypreps_conversion['libprep dna'] = 'truseq dna nano'
+			requested_librarypreps_conversion['libprep rna stranded polya'] = 'truseq rna stranded polya'
+			requested_librarypreps_conversion['libprep rna stranded ribo-zero'] = 'truseq rna stranded ribo-zero'
+
 			if lims_librarypreps.keys() :
 				for lims_libraryprep in lims_librarypreps:
+
 					if lims_libraryprep is None : continue
 					lims_libraryprep_ori = None
 					if ":" in lims_libraryprep: #OLD WORKFLOW
-						lims_libraryprep_ori = lims_libraryprep.split(':')[1].lower().strip()
+						lims_libraryprep_ori = lims_libraryprep.split(':',1)[1].lower().strip()
 					else:#NEW WORKFLOW
-						lims_libraryprep_ori = lims_libraryprep.split('-')[1].lower().strip()
+						lims_libraryprep_ori = lims_libraryprep.split('-',1)[1].lower().strip()
 
+					if requested_librarypreps_conversion[lims_libraryprep_ori] not in requested_librarypreps.keys():
 
-					if lims_libraryprep_ori not in requested_librarypreps.keys():
-
-						errors.append("Library prep '"+lims_libraryprep_ori+"' in LIMS different from requested, please check cost calculation")
+						errors.append("Library prep '"+requested_librarypreps_conversion[lims_libraryprep_ori]+"' in LIMS different from requested, please check cost calculation")
 
 					if lims_libraryprep_ori is not None:
 
 						if lims_libraryprep_ori in all_costs:
-							print lims_libraryprep_ori, billing_date,lims_libraryprep
+
 							prep_costs += int(all_costs[ lims_libraryprep_ori ][ 'date_costs' ][ billing_date ]) * lims_librarypreps[ lims_libraryprep ]
 						else:
 							errors.append("Could not find library prep kit '"+lims_libraryprep_ori+"' in billing database")
@@ -713,8 +718,10 @@ def getSeqFinance() :
 					iso_type = ''
 					if lims_isolation_ori == 'rna isolation':
 						iso_type = 'RNA unisolated'
+						lims_isolation_ori = 'rna isolation'
 					else:
 						iso_type = 'DNA unisolated'
+						lims_isolation_ori = 'dna isolation'
 
 					if iso_type not in sample_types:
 						errors.append("Isolation step '"+iso_type+"' in LIMS doesn't match sample type")
@@ -724,7 +731,6 @@ def getSeqFinance() :
 							iso_costs += int(all_costs[ lims_isolation_ori ][ 'date_costs' ][ billing_date ]) * lims_isolations[ lims_isolation ]
 						else:
 							errors.append("Could not find isolation type '" +lims_isolation_ori +"' in billing database")
-			# print errors
 			seq_finance.append(
 				u"{errors}\t{sequencing_succesful}\t{pool_name}\t{project_name}\t{project_id}\t{open_date}\t{contact_name}\t{contact_email}\t{requested_runtype}\t{lims_runtype}\t{requested_libraryprep}\t{lims_libraryprep}\t{sample_type}\t{lims_isolation}\t{requested_analysis}\t{nr_samples}\t{account}\t{project_budget_number}\t{sequencing_costs}\t{libraryprep_costs}\t{isolation_costs}\t{total_costs}\t{billing_institute}\t{billing_department}\t{billing_postalcode}\t{billing_street}\t{billing_city}\t{billing_country}".format(
 					errors 			= ','.join( set(errors) ),
@@ -786,7 +792,7 @@ def main():
 
 	#Determine run mode
 	mode = getStepWorkflow( options.stepURI + "/details" )
-	# print mode
+
 
 	if mode == 'USF : Post Sequencing steps' or mode == 'USEQ - Post Sequencing':
 		seq_finance_table = getSeqFinance()
@@ -794,7 +800,7 @@ def main():
 		seq_finance.write(u"errors\tsequencing_succesful\tpool_name\tproject_name\tproject_id\topen_date\tcontact_name\tcontact_email\trequested_runtype\tlims_runtype\trequested_libraryprep\tlims_libraryprep\tsample_type\tlims_isolation\trequested_analysis\tnr_samples\taccount\tproject_budget_number\tsequencing_costs\tlibraryprep_costs\tisolation_costs\ttotal_costs\tbilling_institute\tbilling_department\tbilling_postalcode\tbilling_street\tbilling_city\tbilling_country\n")
 		seq_finance.write( "\n".join( seq_finance_table ) )
 		seq_finance.close()
-	elif mode == 'USF : Post Fingerprinting steps' or mode == 'USEQ - Post Fingerprinting ':
+	elif mode == 'USF : Post Fingerprinting steps' or mode == 'USEQ - Post Fingerprinting':
 		snpFinanceTable = getSnpFinance()
 		snp_finance = codecs.open(options.outname, 'w', 'utf-8')
 		snp_finance.write(u"errors\tcontainer_name\tdescription\tproject_name\tid\tsample_name\topen_date\tcontact_name\tcontact_email\tisolated\tsample_type\taccount\tproject_budget_number\tplate_costs\tisolation_costs\tbilling_institute\tbilling_postalcode\tbilling_city\tbilling_country\tbilling_department\tbilling_street\n")
