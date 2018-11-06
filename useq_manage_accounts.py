@@ -158,7 +158,7 @@ def modifyAccount(csv):
         account_id = response_DOM.getElementsByTagName('lab:lab')[0].getAttribute('uri').split("/")[-1]
         print "Succesfully update account {0} with id {1}".format(account_DOM.getElementsByTagName('name')[0].firstChild.data, account_id)
     else:
-        print "Failed to updated account with id {0}".format(account_id)
+        print "Failed to update account with id {0}".format(account_id)
 
 def main():
 
