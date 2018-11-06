@@ -228,7 +228,7 @@ def parseConversionStats( conversion_stats) :
 
 def getRunDirectory( run_name=None, run_flowcell=None ):
     run_dir = None
-    
+
     if run_name:
         for item in os.listdir(options.dataDir):
         #print os.path.join( options.dataDir, item, run_name )
@@ -296,7 +296,7 @@ def sendMail(project_id, researcher_email, share_id, conversion_stats, expected_
     contents += "<p>Dear USEQ user,</p>"
     contents += "<p>Sequencing-run ID {0} has succesfully been sequenced. You can find a short run report below.</p>".format(project_id)
     contents += "<p>You can download your data using <a href='https://ncie01.op.umcutrecht.nl/index.php/s/{0}'>this</a> link.</p>".format(share_id)
-    contents += "<p>This link will remain active for 7 days. If you're unable to download your data within this period, please let us know. "
+    contents += "<p>This link will remain active for 14 days. If you're unable to download your data within this period, please let us know. "
     contents += "Please also be aware that we're able to store your sequencing data for a maximum of two months, after which it is automatically deleted from our servers.</p>"
     contents += "<h3>Summary</h3>"
     contents += \

@@ -119,7 +119,15 @@ def routeAnalytes(  ):
 
             next_step = NEXT_STEPS['USEQ - Post Sequencing']
 
+        elif current_step in STEP_NAMES['POST SEQUENCING']:
+            # print 'post sequencing'
+            sample_analyses = api.getUDF(sample,'Analysis').split(",")
 
+            if len(sample_analyses) == 1 and 'Raw data (FastQ)' in sample_analyses:
+                next_step = NEXT_STEPS['USEQ - Encrypt & Send']
+            else:
+                next_step = NEXT_STEPS['USEQ - Analysis']
+                # print sample_analyses
         if next_step not in artifacts_to_route:
             artifacts_to_route[ next_step ] = []
         artifacts_to_route[ next_step ].append(artifact_URI)
@@ -144,16 +152,17 @@ def routeAnalytes(  ):
 
         response = api.createObject( rXML, BASE_URI + "route/artifacts/")
         return response
-
+    msg = ''
     # Step 3: Send separate routing messages for each destination stage
     for stage, artifacts in artifacts_to_route.items():
         r = pack_and_send( stage, artifacts )
+        # print r
         if len( parseString( r ).getElementsByTagName( "rt:routing" ) ) > 0:
             msg = str( len(artifacts) ) + " samples were added to the " + stage + " step. "
         else:
             msg = r
         logging.debug( msg )
-    print msg
+    # print msg
     return msg
 def main():
 
