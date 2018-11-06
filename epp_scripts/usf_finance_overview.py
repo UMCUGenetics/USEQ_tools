@@ -112,6 +112,9 @@ def getSamples( ids ):
 
 	return response
 
+def getProcess( processID):
+	return getObjectDOM( BASE_URI + "processes/" + processID )
+
 def getProject( projectID ):
 	return getObjectDOM( BASE_URI + "projects/" + projectID )
 
@@ -128,6 +131,12 @@ def getAllCosts( uri ):
 
 	costJSON = api.getResourceByURI( uri )
 	costs = json.loads( costJSON )
+	costs['Mapping'] = {'type_name' : 'Analysis', 'step_input' : 'Sample', 'date_costs' : {'2018-04-15' : 50} }
+	costs['Germline SNV/InDel calling'] = {'type_name' : 'Analysis', 'step_input' : 'Sample', 'date_costs' : {'2018-04-15' : 0} }
+	costs['CNV + SV calling'] = {'type_name' : 'Analysis', 'step_input' : 'Sample', 'date_costs' : {'2018-04-15' : 15} }
+	costs['Somatic calling (tumor/normal pair)'] = {'type_name' : 'Analysis', 'step_input' : 'Sample', 'date_costs' : {'2018-04-15' : 10} }
+	costs['Read count analysis (mRNA)'] = {'type_name' : 'Analysis', 'step_input' : 'Sample', 'date_costs' : {'2018-04-15' : 5} }
+	costs['Differential expression analysis + figures (mRNA)'] = {'type_name' : 'Analysis', 'step_input' : 'Sample', 'date_costs' : {'2018-04-15' : 5} }
 
 	costs_lower = dict( (k.lower(), v) for k,v in costs.iteritems())
 
@@ -141,10 +150,10 @@ def getAllCosts( uri ):
 	costs_lower['truseq rna stranded ribo-zero'] = costs_lower['truseq rna stranded ribozero (human, mouse, rat)']
 	costs_lower['libprep rna stranded ribo-zero'] = costs_lower['truseq rna stranded ribozero (human, mouse, rat)']
 	costs_lower['open snp array'] = costs_lower['snp open array (60 snps)']
-
+	# print costs_lower
 	return costs_lower
-def getProcesses( uri ):
-	return getObjectDOM( uri)
+# def getProcesses( uri ):
+# 	return getObjectDOM( uri)
 
 def getRunTypes( project_name ):
 
@@ -204,6 +213,10 @@ def getSampleLibraryprepArtID( sample_id ):
 
 	return response_text
 
+
+
+
+
 def getSampleIsolationArtID( sample_id ):
 
 	sample_artifacts = api.getResourceByURI(
@@ -243,6 +256,25 @@ def getSampleRunTypeArtID( sample_id ):
 	)
 	response_text = None
 
+	try:
+		sample_artifacts_DOM = parseString( sample_artifacts )
+		if sample_artifacts_DOM.getElementsByTagName( "artifact"):
+			response_text = sample_artifacts_DOM.getElementsByTagName( "artifact" )[0].getAttribute( "limsid" )
+	except ExpatError:
+		response_text = None
+
+	return response_text
+
+def getSampleAnalysisArtID( sample_id ):
+
+	sample_artifacts = api.getResourceByURI(
+		"{0}artifacts?samplelimsid={1}&process-type={2}".format(
+			BASE_URI,
+			sample_id,
+			urllib2.quote('USEQ - Analysis')
+		)
+	)
+	response_text = None
 	try:
 		sample_artifacts_DOM = parseString( sample_artifacts )
 		if sample_artifacts_DOM.getElementsByTagName( "artifact"):
@@ -423,6 +455,7 @@ def getSeqFinance() :
 		isolation_artifact_IDs = []
 		library_prep_artifact_IDs = []
 		runtype_artifact_IDs = []
+		analysis_artifact_IDs = []
 
 		for sample in sample_metadata:
 
@@ -433,6 +466,7 @@ def getSeqFinance() :
 			requested_runtype = api.getUDF( sample, 'Sequencing Runtype')
 			received_date = sample.getElementsByTagName( "date-received" )[0].firstChild.data
 			requested_analysis = api.getUDF( sample,'Analysis')
+			requested_analysis = ",".join(sorted(requested_analysis.split(",")))
 			budget_number = api.getUDF( sample,'Budget Number')
 			rootartifact_id = sample.getElementsByTagName( "artifact" )[0].getAttribute( "limsid" )
 			project_id = sample.getElementsByTagName( "project" )[0].getAttribute( "limsid" )
@@ -440,6 +474,7 @@ def getSeqFinance() :
 			si_artid = getSampleIsolationArtID( sample_id )
 			sl_artid = getSampleLibraryprepArtID( sample_id )
 			sr_artid = getSampleRunTypeArtID( sample_id )
+			sa_artid = getSampleAnalysisArtID( sample_id )
 
 			if si_artid is not None:
 				isolation_artifact_IDs.append( si_artid )
@@ -447,6 +482,8 @@ def getSeqFinance() :
 				library_prep_artifact_IDs.append( sl_artid )
 			if sr_artid is not None:
 				runtype_artifact_IDs.append( sr_artid )
+			if sa_artid is not None:
+				analysis_artifact_IDs.append( sa_artid )
 
 			if project_id not in sequencing_runs[ pool_id ] :
 				sequencing_runs[ pool_id ][ project_id ] = {
@@ -460,7 +497,8 @@ def getSeqFinance() :
 				'requested_analysis' : requested_analysis,
 				'lims_isolation' : None,
 				'lims_library_prep' : None,
-				'lims_runtype' : None
+				'lims_runtype' : None,
+				'lims_analysis' : None
 			}
 
 			if 'name' not in sequencing_runs[ pool_id ][ project_id ] :
@@ -552,11 +590,49 @@ def getSeqFinance() :
 				project_id = match.group(1)
 				sequencing_runs[ pool_id ][ project_id ][ 'samples' ][ sample_id ]['lims_runtype'] = runtype
 
+
+		analysis_artifacts = getArtifacts( analysis_artifact_IDs )
+		for artifact in analysis_artifacts:
+			process_limsid = artifact.getElementsByTagName( "parent-process" )[0].getAttribute( "limsid" )
+			process = getProcess(process_limsid)
+			analysis_steps = []
+
+			mapping = api.getUDF( process, 'Mapping' )
+			snv_indel = api.getUDF( process, 'Germline SNV/InDel calling' )
+			read_count = api.getUDF( process, 'Read count analysis (mRNA)' )
+			diff_expression = api.getUDF( process, 'Differential expression analysis + figures (mRNA)' )
+			cnv_sv = api.getUDF( process, 'CNV + SV calling' )
+			somatic = api.getUDF( process, 'Somatic calling (tumor/normal pair)' )
+
+
+
+
+			if mapping == 'true': analysis_steps.append('Mapping')
+			if snv_indel == 'true': analysis_steps.append('Germline SNV/InDel calling')
+			if read_count == 'true': analysis_steps.append('Read count analysis (mRNA)')
+			if diff_expression == 'true': analysis_steps.append('Differential expression analysis + figures (mRNA)')
+			if cnv_sv == 'true': analysis_steps.append('CNV + SV calling')
+			if somatic == 'true':analysis_steps.append('Somatic calling (tumor/normal pair)')
+			analysis_steps.append('Raw data (FastQ)')
+			analysis_steps = ",".join(sorted(analysis_steps))
+
+			for sample in artifact.getElementsByTagName( "sample" ):
+				sample_id = sample.getAttribute( "limsid" )
+				# print sample_id
+				match = re.search("([A-Z]+\d+)[A-Z]+", sample_id)
+				project_id = match.group(1)
+				# print sequencing_runs[ pool_id ]
+				if project_id in sequencing_runs[ pool_id ]:
+					sequencing_runs[ pool_id ][ project_id ][ 'samples' ][ sample_id ]['lims_analysis'] = analysis_steps
+
+		# print sequencing_runs
+
 	for run_id in sequencing_runs:
 		for project_id in sequencing_runs[ run_id ]:
 			seq_costs = 0
 			prep_costs = 0
 			iso_costs = 0
+			anal_costs = 0 #hehe
 			t_costs = 0
 			errors = []
 			t_fail = 0
@@ -575,6 +651,7 @@ def getSeqFinance() :
 			lims_runtypes = {}
 			lims_librarypreps = {}
 			lims_isolations = {}
+			lims_analyses = {}
 
 			for sample_id in sequencing_runs[ run_id ][ project_id ][ 'samples' ]:
 				sample_count += 1
@@ -593,6 +670,7 @@ def getSeqFinance() :
 					requested_librarypreps[ requested_libraryprep] = 1
 
 				requested_analysis = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'requested_analysis' ]
+				# print requested_analysis
 				if requested_analysis in requested_analyses :
 					requested_analyses[ requested_analysis ] +=1
 				else :
@@ -623,17 +701,22 @@ def getSeqFinance() :
 				else :
 					lims_isolations[ lims_isolation ] = 1
 
+				lims_analysis = sequencing_runs[ run_id ][ project_id ][ 'samples' ][ sample_id ][ 'lims_analysis' ]
+				if lims_analysis in lims_analyses :
+					lims_analyses[ lims_analysis ] +=1
+				else :
+					lims_analyses[ lims_analysis ] = 1
+
 			requested_runtype = prepareForPrint(requested_runtypes)
 			requested_libraryprep = prepareForPrint(requested_librarypreps)
 			requested_analysis = prepareForPrint(requested_analyses)
 			sample_type = prepareForPrint(sample_types)
 			lims_runtype = prepareForPrint(lims_runtypes)
 			lims_libraryprep = prepareForPrint(lims_librarypreps)
-
+			lims_analysis = prepareForPrint(lims_analyses)
 			lims_isolation = prepareForPrint(lims_isolations)
 
 			#determine sequencing costs
-
 			if len(requested_runtypes.keys()) != 1 or len(lims_runtypes.keys()) != 1 or not requested_runtypes.keys()[0]:
 
 				errors.append("Multiple runtypes found, can't calculate costs")
@@ -650,15 +733,13 @@ def getSeqFinance() :
 				else:
 					lims_machine = lims_machine.split('-')[1].split()[0].strip()
 
-
-
+				# print lims_machine,requested_machine,requested_runtypes.keys()[0].lower()
 				if lims_machine == requested_machine and requested_runtypes.keys()[0].lower() in all_costs:
 
 					for date in sorted( all_costs[ requested_runtypes.keys()[0].lower() ][ 'date_costs'].keys() ):
-
+						# print date
 						if date <= first_submission_date:
 							billing_date = date
-
 
 					#Contingency for if samples were recieved before implementation of cost database
 					if billing_date is None:
@@ -669,7 +750,6 @@ def getSeqFinance() :
 
 				else:
 					errors.append("Requested runtype '"+requested_runtypes.keys()[0]+"' doesn't match runtype in LIMS")
-
 
 			#determine library prep costs
 			if len(requested_librarypreps.keys()) > 1 or len(lims_librarypreps.keys()) > 1:
@@ -731,8 +811,30 @@ def getSeqFinance() :
 							iso_costs += int(all_costs[ lims_isolation_ori ][ 'date_costs' ][ billing_date ]) * lims_isolations[ lims_isolation ]
 						else:
 							errors.append("Could not find isolation type '" +lims_isolation_ori +"' in billing database")
+
+			#determine analysis costs
+			if lims_analyses.keys() :
+				if len(lims_analyses.keys()) > 1 or len(requested_analyses.keys()) > 1:
+					errors.append("Multiple different analysis steps found, please check cost calculation")
+
+				for an in lims_analyses:
+					if 'Mapping' in an:
+						print an, billing_date
+						anal_costs += int(all_costs['mapping']['date_costs'][ billing_date ]) * lims_analyses[an]
+					if 'Germline SNV/InDel calling' in an:
+						anal_costs += int(all_costs['germline snv/indel calling']['date_costs'][ billing_date ]) * lims_analyses[an]
+					if 'CNV + SV calling' in an:
+						anal_costs += int(all_costs['cnv + sv calling']['date_costs'][ billing_date ]) * lims_analyses[an]
+					if 'Somatic calling (tumor/normal pair)' in an:
+						anal_costs += int(all_costs['somatic calling (tumor/normal pair)']['date_costs'][ billing_date ]) * lims_analyses[an]
+					if 'Read count analysis (mRNA)' in an:
+						anal_costs += int(all_costs['read count analysis (mrna)']['date_costs'][ billing_date ]) * lims_analyses[an]
+					if 'Differential expression analysis + figures (mRNA)' in an:
+						anal_costs += int(all_costs['differential expression analysis + figures (mrna)']['date_costs'][ billing_date ]) * lims_analyses[an]
+					# print an
+
 			seq_finance.append(
-				u"{errors}\t{sequencing_succesful}\t{pool_name}\t{project_name}\t{project_id}\t{open_date}\t{contact_name}\t{contact_email}\t{requested_runtype}\t{lims_runtype}\t{requested_libraryprep}\t{lims_libraryprep}\t{sample_type}\t{lims_isolation}\t{requested_analysis}\t{nr_samples}\t{account}\t{project_budget_number}\t{sequencing_costs}\t{libraryprep_costs}\t{isolation_costs}\t{total_costs}\t{billing_institute}\t{billing_department}\t{billing_postalcode}\t{billing_street}\t{billing_city}\t{billing_country}".format(
+				u"{errors}\t{sequencing_succesful}\t{pool_name}\t{project_name}\t{project_id}\t{open_date}\t{contact_name}\t{contact_email}\t{requested_runtype}\t{lims_runtype}\t{requested_libraryprep}\t{lims_libraryprep}\t{sample_type}\t{lims_isolation}\t{requested_analysis}\t{lims_analysis}\t{nr_samples}\t{account}\t{project_budget_number}\t{sequencing_costs}\t{libraryprep_costs}\t{isolation_costs}\t{analysis_costs}\t{total_costs}\t{billing_institute}\t{billing_department}\t{billing_postalcode}\t{billing_street}\t{billing_city}\t{billing_country}".format(
 					errors 			= ','.join( set(errors) ),
 					sequencing_succesful 	= sequencing_runs[ run_id ][ project_id ][ 'succesful' ],
 					pool_name			= run_id,
@@ -748,13 +850,15 @@ def getSeqFinance() :
 					sample_type			= sample_type,
 					lims_isolation		= lims_isolation,
 					requested_analysis		= requested_analysis,
+					lims_analysis		= lims_analysis,
 					nr_samples			= sample_count,
 					account			= sequencing_runs[ run_id ][ project_id ][ 'lab_name' ],
 					project_budget_number	= sequencing_runs[ run_id ][ project_id ][ 'budget_nr' ],
 					sequencing_costs		= seq_costs,
 					libraryprep_costs		= prep_costs,
 					isolation_costs		= iso_costs,
-					total_costs			= (int(seq_costs) + int(prep_costs) + int(iso_costs)),
+					analysis_costs      = anal_costs,
+					total_costs			= (int(seq_costs) + int(prep_costs) + int(iso_costs)) + int(anal_costs),
 					billing_institute		= sequencing_runs[ run_id ][ project_id ][ 'institute' ],
 					billing_department		= sequencing_runs[ run_id ][ project_id ][ 'department' ],
 					billing_postalcode		= sequencing_runs[ run_id ][ project_id ][ 'postalcode' ],
@@ -792,15 +896,15 @@ def main():
 
 	#Determine run mode
 	mode = getStepWorkflow( options.stepURI + "/details" )
+	print mode
 
-
-	if mode == 'USF : Post Sequencing steps' or mode == 'USEQ - Post Sequencing':
+	if mode == 'USF : Post Sequencing steps' or mode.startswith('USEQ - Post Sequencing'):
 		seq_finance_table = getSeqFinance()
 		seq_finance = codecs.open(options.outname, 'w', 'utf-8')
-		seq_finance.write(u"errors\tsequencing_succesful\tpool_name\tproject_name\tproject_id\topen_date\tcontact_name\tcontact_email\trequested_runtype\tlims_runtype\trequested_libraryprep\tlims_libraryprep\tsample_type\tlims_isolation\trequested_analysis\tnr_samples\taccount\tproject_budget_number\tsequencing_costs\tlibraryprep_costs\tisolation_costs\ttotal_costs\tbilling_institute\tbilling_department\tbilling_postalcode\tbilling_street\tbilling_city\tbilling_country\n")
+		seq_finance.write(u"errors\tsequencing_succesful\tpool_name\tproject_name\tproject_id\topen_date\tcontact_name\tcontact_email\trequested_runtype\tlims_runtype\trequested_libraryprep\tlims_libraryprep\tsample_type\tlims_isolation\trequested_analysis\tlims_analysis\tnr_samples\taccount\tproject_budget_number\tsequencing_costs\tlibraryprep_costs\tisolation_costs\tanalysis_costs\ttotal_costs\tbilling_institute\tbilling_department\tbilling_postalcode\tbilling_street\tbilling_city\tbilling_country\n")
 		seq_finance.write( "\n".join( seq_finance_table ) )
 		seq_finance.close()
-	elif mode == 'USF : Post Fingerprinting steps' or mode == 'USEQ - Post Fingerprinting':
+	elif mode == 'USF : Post Fingerprinting steps' or mode.startswith('USEQ - Post Fingerprinting'):
 		snpFinanceTable = getSnpFinance()
 		snp_finance = codecs.open(options.outname, 'w', 'utf-8')
 		snp_finance.write(u"errors\tcontainer_name\tdescription\tproject_name\tid\tsample_name\topen_date\tcontact_name\tcontact_email\tisolated\tsample_type\taccount\tproject_budget_number\tplate_costs\tisolation_costs\tbilling_institute\tbilling_postalcode\tbilling_city\tbilling_country\tbilling_department\tbilling_street\n")

@@ -8,8 +8,9 @@ NEXT_STEPS = {
     'Illumina HiSeq' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/2009',
     'USEQ - Library Pooling' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/2001',
     'USEQ - Post Sequencing' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/2012',
-    'USEQ - Pool QC' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/2002'
-
+    'USEQ - Pool QC' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/2002',
+    'USEQ - Analysis' : 'https://usf-lims-test.op.umcutrecht.nl/api/v2/configuration/workflows/705/stages/2832',
+    'USEQ - Encrypt & Send' : 'https://usf-lims-test.op.umcutrecht.nl/api/v2/configuration/workflows/705/stages/2833'
 }
 
 STEP_NAMES = {
@@ -17,6 +18,6 @@ STEP_NAMES = {
     'LIBPREP' : ['USEQ - Bioanalyzer QC DNA'],
     'POOLING' : ['USEQ - Library Pooling'],
     'POOL QC' : ['USEQ - Aggregate QC (Library Pooling)'],
-    'SEQUENCING' : ['USEQ - MiSeq Run','USEQ - NextSeq Run','USEQ - HiSeq Run']
-
+    'SEQUENCING' : ['USEQ - MiSeq Run','USEQ - NextSeq Run','USEQ - HiSeq Run'],
+    'POST SEQUENCING' : ['USEQ - BCL to FastQ']
 }
