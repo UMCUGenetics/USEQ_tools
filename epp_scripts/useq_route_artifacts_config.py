@@ -11,6 +11,10 @@ NEXT_STEPS = {
     'USEQ - Pool QC' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/602/stages/2002',
     'USEQ - Quant Studio Fingerprinting' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/652/stages/2054'
 
+
+    # 'USEQ - Analysis' : 'https://usf-lims-test.op.umcutrecht.nl/api/v2/configuration/workflows/705/stages/2832',
+    # 'USEQ - Encrypt & Send' : 'https://usf-lims-test.op.umcutrecht.nl/api/v2/configuration/workflows/705/stages/2833'
+
 }
 
 STEP_NAMES = {
@@ -20,4 +24,6 @@ STEP_NAMES = {
     'POOL QC' : ['USEQ - Aggregate QC (Library Pooling)'],
     'SEQUENCING' : ['USEQ - MiSeq Run','USEQ - NextSeq Run','USEQ - HiSeq Run'],
     'FINGERPRINTING' :['USEQ - Quant Studio Fingerprinting']
+    'POST SEQUENCING' : ['USEQ - BCL to FastQ']
+
 }

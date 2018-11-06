@@ -3,8 +3,8 @@ Utility scripts to work with Genologics Clarity LIMS
 
 ## Install
 ```bash
-git clone git@github.com:CuppenResearch/clarity_utils.git
-cd clarity_utils
+git clone git@github.com:UMCUGenetics/clarity_utils_usf.git
+cd clarity_utils_usf
 virtualenv env
 . env/bin/activate
 pip install https://github.com/SciLifeLab/genologics/tarball/master
@@ -20,11 +20,3 @@ PASSWORD=<password>
 MAIN_LOG=/path/to/log/file.txt
 ```
 
-### report_projects.py
-```bash
-python report_projects.py > projects_table.txt
-```
-### usf_overview.py
-```bash
-python usf_overview.py > usf_run_overview.txt
-```

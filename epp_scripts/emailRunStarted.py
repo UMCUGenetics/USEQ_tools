@@ -17,11 +17,11 @@ options = None
 CACHE = {}
 
 RECIPIENTS = [
-	"s.w.boymans@umcutrecht.nl",
-	"R.R.E.Janssen-10@umcutrecht.nl",
-    "J.deLigt@umcutrecht.nl",
-    "R.Straver-2@umcutrecht.nl",
-    "T.Schafers@umcutrecht.nl"
+	"s.w.boymans@umcutrecht.nl"
+#	"R.R.E.Janssen-10@umcutrecht.nl",
+#    "J.deLigt@umcutrecht.nl",
+#    "R.Straver-2@umcutrecht.nl",
+#    "T.Schafers@umcutrecht.nl"
 
 ]
 
