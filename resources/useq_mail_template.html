@@ -1,0 +1,131 @@
+<html>
+<head>
+  <title>USEQ Mail</title>
+  <style type="text/css">
+    body{
+      font-family: "Open Sans", sans-serif;
+    }
+
+    h3{
+      color: rgb(0,113,169);
+      text-align: center;
+    }
+    .useq_table {
+      font-family: "Open Sans", sans-serif;
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    .useq_table td, .useq_table th {
+      border: 1px solid #ddd;
+      padding: 8px;
+    }
+
+    .useq_table tr:nth-child(even){background-color: #f2f2f2;}
+
+    .useq_table tr:hover {background-color: #ddd;}
+
+    .useq_table th {
+      padding-top: 12px;
+      padding-bottom: 12px;
+      text-align: center;
+      background-color: rgb(0,113,169);
+      color: white;
+    }
+
+
+    a {
+      color: #f77a1e;
+    }
+  </style>
+</head>
+<body >
+    <p>Dear USEQ user,</p>
+    {% block content %}{% endblock %}
+    <p>Kind regards,</p>
+    <br>
+    <table cellspacing="0" cellpadding="0" border="0">
+      <tbody>
+        <tr>
+          <td
+            valign="top"
+            style="padding-left: 0px; padding-top: 0px; padding-bottom: 0px; padding-right: 0px;"
+          >
+            <span
+              style="text-align: left; color: #000000; font-family: Open Sans, sans-serif; font-size: 10pt; font-weight: bold"
+              >Utrecht Sequencing Facility (USEQ)</span
+            ><br />
+            <span
+              style="text-align: left; margin-top: 0px; margin-bottom: 0px; color: grey; font-family: Open Sans, sans-serif; font-weight: normal; font-size: 9pt;"
+              >Joint initiative of the Utrect Medical Center Utrecht, Hubrecht Institute and Utrecht University Center for Molecular Medicine</span
+            ><br />
+          </td>
+        </tr>
+        <tr>
+          <td
+            valign="top"
+            style="padding-left: 0px; padding-top: 7px; padding-bottom: 4px; padding-right: 0px;"
+          >
+            <a href="http://www.useq.nl"
+              ><img
+                src="cid:logo_image"
+                nosend="1"
+                border="0"
+                width="148"
+                height="50"
+                alt="USEQ"
+                title="USEQ"
+            /></a>
+          </td>
+        </tr>
+        <tr>
+          <td
+            valign="top"
+            style="padding-left: 0px; padding-top: 0px; padding-bottom: 0px; padding-right: 0px;"
+          >
+            <span
+              style="text-align: left; color: #000000; font-family: Open Sans, sans-serif; font-size: 9pt; font-style: normal; font-weight: normal;"
+              >Heidelberglaan 100 <font size="1" color="#B9B9B9">|</font> UMC Utrecht office : STR2.207 <font size="1" color="#B9B9B9">|</font> 3584 CX Utrecht <font size="1" color="#B9B9B9">|</font> The Netherlands<br />
+              Tel: +31 (0)88 75 55164
+            </span>
+          </td>
+        </tr>
+        <tr>
+          <td
+            valign="top"
+            style="padding-left: 0px; padding-top: 5px; padding-bottom: 0px; padding-right: 0px;"
+          >
+            <span
+              style="text-align: left; margin-top: 0px; color: #F77A1E; font-size: 8pt; font-weight: bold; font-family: 'Calibri', sans-serif;"
+            >
+              <a
+                style="text-decoration: none; color: #F77A1E"
+                href="http://www.useq.nl/"
+                ><font color="#F77A1E">website</font></a
+              >
+              <font size="1" color="#F77A1E">|</font>
+
+              <a
+                style="text-decoration: none; color: #F77A1E"
+                href="https://www.google.com/maps/place/Stratenum/@52.086438,5.17752,17z/data=!4m5!3m4!1s0x47c668850fc084a5:0x614e862b70b4be53!8m2!3d52.086451!4d5.1775209?hl=en-US"
+                ><font color="#F77A1E">map</font></a
+              >
+              <font size="1" color="#F77A1E">|</font>
+              <a
+                style="text-decoration: none; color: #F77A1E"
+                href="mailto:USEQ@umcutrecht.nl"
+                ><font color="#F77A1E">email</font></a
+              >
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+</body>
+
+
+
+
+
+
+</html>

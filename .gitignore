@@ -58,3 +58,6 @@ target/
 
 # Genologics Clarity LIMS Config
 genologics.conf
+
+#
+config.py
