@@ -1,1 +1,5 @@
-#TODO
+genologics
+jinja2
+easywebdav
+texttable
+gnupg

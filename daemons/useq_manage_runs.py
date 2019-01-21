@@ -310,7 +310,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                     transfer_error = open(os.path.join(run_dir, 'illumina_transfer.err'), 'w')
 
                     rsync_command = '/usr/bin/rsync -rah --update --stats --verbose --prune-empty-dirs'
-                    rsync_command += " --include '*/' --include 'Data/Intensities/BaseCalls/*/*.fq.gz' --include 'Data/Intensities/BaseCalls/*/*.fastq.gz' --include 'Data/Intensities/BaseCalls/{0}*/**/*.fq.gz' --include 'Data/Intensities/BaseCalls/{0}*/**/*.fastq.gz' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/*/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/*' --include '*.[pP][eE][dD]'"
+                    rsync_command += " --include '*/' --include '*.fq.gz' --include '*.fastq.gz' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/*/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/*' --include '*.[pP][eE][dD]'"
                     rsync_command += " --exclude '*'"
                     rsync_command += " {0}".format(run_dir)
                     rsync_command += " {0}/{1}".format(DATA_DIR_HPC, machine)
@@ -327,12 +327,13 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                     transfer_error.close()
                 #Archive run
                 if os.path.isfile(transfer_done) and not os.path.isfile(archive_running)  and not os.path.isfile(archive_done) and not os.path.isfile(archive_failed):
+                    machine = run_dir.split('/')[-2]
                     archive_log = open(os.path.join(run_dir, 'illumina_archive.log'), 'w')
                     archive_error = open(os.path.join(run_dir, 'illumina_archive.err'), 'w')
 
                     try:
                         os.system('touch {}'.format(archive_running))
-                        rsync_command = "rsync -rahm --exclude '*fastq.gz' --exclude '*fq.gz' {0} {1}".format(run_dir, ARCHIVE_DIR)
+                        rsync_command = "rsync -rahm --exclude '*fastq.gz' --exclude '*fq.gz' {0} {1}/{2}".format(run_dir, ARCHIVE_DIR, machine)
                         archive_process = subprocess.Popen( rsync_command, stdout=archive_log, stderr=archive_error, shell=True )
                         archive_transfers[run_dir] = archive_process
 
