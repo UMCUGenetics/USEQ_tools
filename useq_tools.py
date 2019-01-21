@@ -1,5 +1,5 @@
 #!/env/bin/python
-"""USEQ Clarity tools"""
+"""USEQ tools"""
 
 import sys
 import argparse
