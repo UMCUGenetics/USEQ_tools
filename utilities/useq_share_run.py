@@ -53,33 +53,17 @@ def shareProcess(project_name, project_id, run_dir,client_mail):
     if not expected_yield:
         print "{0}\tError : No RunParameters.xml file could be found in {1}!".format(name,run_dir)
         return
-    ##################################################
 
-    template_data = {
-        'project_id' : project_id,
-        'nextcloud_host' : NEXTCLOUD_HOST,
-        'share_id' : 'aYIWKTDlJulDEBo',
-        'expected_reads' : expected_yield,
-        'raw_reads' : conversion_stats['total_reads_raw'],
-        'filtered_reads' : conversion_stats['total_reads'],
-        'conversion_stats' : conversion_stats
-    }
-
-    mail_content = renderTemplate('run_share_template.html', template_data)
-    mail_subject = "USEQ sequencing of sequencing-run ID {0} finished".format(project_id)
-    sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-    sys.exit()
-    #############################################
     print "{0}\tRunning compression".format(name)
-    # run_zip = zipRun( project_id, run_dir )
-    run_zip = "{0}/{1}.tar.gz".format(run_dir,project_id)
+    run_zip = zipRun( project_id, run_dir )
+    # run_zip = "{0}/{1}.tar.gz".format(run_dir,project_id)
     if not os.path.isfile(run_zip):
         print "{0}\tError : {1}/{2}.tar.gz was not properly created!".format(name,run_dir,project_id)
         return
 
     print "{0}\tRunning encryption".format(name)
-    # run_encrypted = encryptRun(run_zip, client_mail)
-    run_encrypted = "{0}/{1}.tar.gz.gpg".format(run_dir,project_id)
+    run_encrypted = encryptRun(run_zip, client_mail)
+    # run_encrypted = "{0}/{1}.tar.gz.gpg".format(run_dir,project_id)
     if not os.path.isfile(run_encrypted):
         print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar.gz with error message:\n\t{3}".format(name,run_dir,project_id, run_encrypted)
         return
@@ -109,17 +93,20 @@ def shareProcess(project_name, project_id, run_dir,client_mail):
 
         mail_content = renderTemplate('run_share_template.html', template_data)
         mail_subject = "USEQ sequencing of sequencing-run ID {0} finished".format(project_id)
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-# aYIWKTDlJulDEBo
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,client_mail)
+
+        os.remove(run_zip)
+        os.remove(run_encrypted)
+
     return
 
 def check( run_info):
 
-    print "\nAre you sure you want to send the following runs (yes/no): "
+    print "\nAre you sure you want to send the following run(s) (yes/no): "
     table = Texttable(max_width=0)
-    table.add_rows([['Project ID','Project Name','Run Name','Client Email']])
+    table.add_rows([['Project ID','Project Name','Run Dir','Client Email']])
     for project in run_info:
-        table.add_row( [ project['project_id'],project['project_name'],project['run_name'],project['researcher_email'] ])
+        table.add_row( [ project['project_id'],project['project_name'],project['run_dir'],project['researcher_email'] ])
     print table.draw()
 
     yes = set(['yes','y', 'ye', ''])
@@ -144,7 +131,11 @@ def getRunInfo( lims, project_name ):
     )
 
     for process in project_processes:
-        runs[ process.date_run ] = [  process.udf['Run ID'], process.udf['Flow Cell ID'] ]
+        run_id = None
+        flowcell_id = None
+        if 'Run ID' in process.udf: run_id = process.udf['Run ID']
+        if 'Flow Cell ID' in process.udf: flowcell_id = process.udf['Flow Cell ID']
+        runs[ process.date_run ] = [  run_id, flowcell_id ]
 
     if not runs:
         return None
@@ -172,6 +163,7 @@ def getRunInfo( lims, project_name ):
                 elif path.endswith("A"+recent_run[1]) or path.endswith("B"+recent_run[1]): #HiSeq
                     recent_run.append( path )
                     break
+
     return recent_run
 
 def sendRuns(lims, ids):
@@ -191,7 +183,7 @@ def sendRuns(lims, ids):
 
         researcher = project.researcher
         #Check if client has a gpg-key
-        if not researcher.email in gpg_key_list:
+        if not researcher.email.lower() in gpg_key_list:
             print "Error : User ID {0} ({1}) for project ID {2} has not provided a public key yet!".format(researcher.username,researcher.email, project_id)
             continue
 
@@ -235,7 +227,7 @@ def run(lims, ids):
     gpg = gnupg.GPG(homedir=GPG_DIR)
     gpg_key_list = {}
     for key in gpg.list_keys():
-        gpg_key_list [ key['uids'][0].split("<")[1][:-1] ] = key
+        gpg_key_list [ key['uids'][0].split("<")[1][:-1].lower() ] = key
 
     #Set up nextcloud
     nextcloud_util = NextcloudUtil()

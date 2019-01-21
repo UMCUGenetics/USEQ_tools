@@ -62,7 +62,8 @@ def parseConversionStats( conversion_stats ):
 
             conversion_stats['samples'][ sample_name ]['cluster_count'] = "{0:,}".format( conversion_stats['samples'][ sample_name]['cluster_count'] )
 
-    for top_unknown in tree.findall("TopUnknownBarcodes"):
+    # for top_unknown in tree.findall("TopUnknownBarcodes"):
+    for top_unknown in tree.iter(tag='TopUnknownBarcodes'):
         for barcode in top_unknown.findall("Barcode"):
             bc_count = int(barcode.attrib["count"])
             bc_seq = barcode.attrib["sequence"]
@@ -72,8 +73,9 @@ def parseConversionStats( conversion_stats ):
                 conversion_stats['unknown'][bc_seq] = bc_count
 
     for bc in conversion_stats['unknown']:
-        conversion_stats['unknown'][bc] = "{0:,}".format(conversion_stats['unknown'][bc])
 
+        conversion_stats['unknown'][bc] = "{0:,}".format(conversion_stats['unknown'][bc])
+    
     return conversion_stats
 
 

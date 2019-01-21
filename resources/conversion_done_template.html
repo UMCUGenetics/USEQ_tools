@@ -1,0 +1,61 @@
+{% extends "useq_mail_template.html" %}
+{% block content %}
+<table class='useq_table'>
+  <tr> <td><b>Experiment Name</b></td>  <td>{{experiment_name}}</td> </tr>
+  <tr> <td><b>Run Name</b></td>  <td>{{run_dir}}</td> </tr>
+  <tr valign="top"> <td><b>Rsync location</b></td>  <td>{{rsync_location}}</td> </tr>
+  <tr> <td><b>Output (filtered) / Output (raw)/ Output (expected)</b></td> <td>{{nr_reads}}</td> </tr>
+</table>
+<br>
+<!-- CONVERSION STATS -->
+<h2>Demultiplexing Stats</h2>
+<h3>Samples</h3>
+<table class='useq_table'>
+  <tr>
+    <th><b>Sample</b></th>
+    <th><b>Barcode Sequence</b></th>
+    <th><b>Clusters</b></th>
+    <th><b>% >= Q30</b></th>
+    <th><b>Mean Quality Score</b></th>
+  </tr>
+  {% for sample in stats_summary.samples|sort %}
+  <tr>
+    <td>{{ sample }}</td>
+    <td>{{ stats_summary.samples[sample].barcode }}</td>
+    <td>{{ stats_summary.samples[sample].cluster_count }}</td>
+    <td>{{ stats_summary.samples[sample].percent_Q30 }}</td>
+    <td>{{ stats_summary.samples[sample].mean_quality }}</td>
+  </tr>
+  {% endfor %}
+</table>
+<br>
+<h3>Top Unknown Barcodes</h3>
+<table class='useq_table'>
+  <tr>
+    <th><b>Sequence</b></th>
+    <th><b>Count</b></th>
+  </tr>
+  {% for unk in stats_summary.unknown|sort %}
+  <tr>
+    <td>{{ unk }}</td>
+    <td>{{ stats_summary.unknown[unk] }} </td>
+  </tr>
+  {% endfor %}
+</table>
+<br>
+<!-- PRETTY(ISH) PLOTS -->
+<table>
+  <tr>
+    <td><img src='cid:flowcell_intensity_plot'></td>
+    <td><img src='cid:clusterdensity_by_lane_plot'></td>
+  </tr>
+  <tr>
+    <td><img src='cid:q_histogram_plot'></td>
+    <td><img src='cid:q_heatmap_plot'></td>
+  </tr>
+  <tr>
+    <td><img src='cid:basepercent_by_cycle_plot'></td>
+    <td><img src='cid:intensity_by_cycle_plot'></td>
+  </tr>
+</table>
+{% endblock %}

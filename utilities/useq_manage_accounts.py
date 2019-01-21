@@ -119,9 +119,9 @@ def retrieve(lims, csv, acc):
     account = getAccount(lims,acc)
 
     print "Writing results to {0}".format(csv)
-
+    # unicode(, "utf8")
     with open(csv, 'w') as csv_file:
-        csv_file.write(getAccountCSV(account))
+        csv_file.write(  getAccountCSV(account).encode('utf-8') )
 
 def run(lims, mode, csv, lab=None):
     """Run create,edit or retrieve function based on mode"""

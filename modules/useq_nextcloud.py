@@ -67,10 +67,10 @@ class NextcloudUtil(object):
         }
 
         response = requests.post("https://{0}/ocs/v1.php/apps/files_sharing/api/v1/shares".format(self.hostname), auth=(self.user, self.password), headers={'OCS-APIRequest':'true','Content-Type': 'application/json'},data=json.dumps(data))
-        # print response.text
+
         if not response.ok:
             return {"ERROR" : response.raise_for_status()}
-            # sys.exit()
+
 
         share_id = None
         if not self.webdav.exists(remote_path):
@@ -78,6 +78,4 @@ class NextcloudUtil(object):
 
         response_DOM = parseString( response.text )
         share_id = response_DOM.getElementsByTagName( "token" )[0].firstChild.data
-
-        # os.remove(file_path)
         return {"SUCCES": share_id}
