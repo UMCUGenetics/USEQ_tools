@@ -120,7 +120,7 @@ def getSampleSheet(lims, container_name, sample_sheet_path):
     for reagent_kit_artifact in lims.get_artifacts(containername=container_name):
         process = reagent_kit_artifact.parent_process
         for artifact in process.result_files():
-            if artifact.name == 'Sample Sheet' and artifact.files:
+            if artifact.name == 'SampleSheet csv' and artifact.files:
                 file_id = artifact.files[0].id
                 sample_sheet = lims.get_file_contents(id=file_id)
                 sample_sheet_file = open(sample_sheet_path, 'w')
@@ -334,7 +334,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
 
                     try:
                         os.system('touch {}'.format(archive_running))
-                        rsync_command = "rsync -rahm --exclude '*fastq.gz' --exclude '*fq.gz' {0} {1}/{2}".format(run_dir, ARCHIVE_DIR, machine)
+                        rsync_command = "rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {0} {1}/{2}".format(run_dir, ARCHIVE_DIR, machine)
                         archive_process = subprocess.Popen( rsync_command, stdout=archive_log, stderr=archive_error, shell=True )
                         archive_transfers[run_dir] = archive_process
 
