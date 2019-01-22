@@ -247,7 +247,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                     flowcell_id = run_name.split("_")[-1]
                     conversion_log = os.path.join(run_dir, 'conversionLog.txt')
                     conversion_error = os.path.join(run_dir, 'conversionError.txt')
-                    project_name = getProjectName(sample_sheet)
+
 
                     # Copy runParameters.xml to RunParameters.xml, needed for hiseq/miseq conversion.
                     if os.path.isfile(os.path.join(run_dir, 'runParameters.xml')):
@@ -267,6 +267,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                     if not os.path.isfile(sample_sheet):
                         getSampleSheet(lims, lims_container_name, sample_sheet)
 
+                    project_name = getProjectName(sample_sheet)
                     if os.path.isfile(sample_sheet):
                         # Lock run folder for conversion
                         os.system('touch {}'.format(conversion_running))
