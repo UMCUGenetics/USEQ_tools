@@ -3,7 +3,7 @@ from config import RUN_PROCESSES,RUN_DIR,NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NE
 from os.path import expanduser
 from texttable import Texttable
 import datetime
-import gnupg
+
 import os
 import multiprocessing
 import subprocess
@@ -219,6 +219,7 @@ def sendRuns(lims, ids):
 
 def run(lims, ids):
     """Runs sendRuns function and not much else"""
+    import gnupg
     global gpg
     global gpg_key_list
     global nextcloud_util
