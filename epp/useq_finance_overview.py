@@ -91,7 +91,7 @@ def getSeqFinance(lims, step_uri):
 			runs[pool.id]['type'].add(sample.udf['Sample Type'])
 			runs[pool.id]['requested_library_prep'].add(sample.udf['Library prep kit'])
 			runs[pool.id]['requested_runtype'].add(sample.udf['Sequencing Runtype'])
-			runs[pool.id]['requested_analysis'].add(sample.udf['Analysis'])
+			# runs[pool.id]['requested_analysis'].add(sample.udf['Analysis'])
 
 			sample_artifacts = lims.get_artifacts(samplelimsid=sample.id)
 			for sample_artifact in sample_artifacts:
@@ -143,13 +143,16 @@ def getSeqFinance(lims, step_uri):
 					if runs[pool.id]['lims_runtype'].split(" ")[0] not in ",".join(runs[pool.id]['requested_runtype']).lower():
 						runs[pool.id]['errors'].add("Run type {0} in LIMS doesn't match run type {1}".format(runs[pool.id]['lims_runtype'],",".join(runs[pool.id]['requested_runtype'])))
 				elif process_name in ANALYSIS_PROCESSES:
-					billing_date = getNearestBillingDate(all_costs, 'mapping' , sample_artifact.parent_process.date_run)
+					billing_date = getNearestBillingDate(all_costs, 'mapping wgs' , sample_artifact.parent_process.date_run)
 					runs[pool.id]['analysis_date'].add(sample_artifact.parent_process.date_run)
 					analysis_steps =['Raw data (FastQ)']
 					analysis_costs = 0
 					if sample_artifact.parent_process.udf['Mapping']:
 						analysis_steps.append('Mapping')
-						analysis_costs += float(all_costs['mapping']['date_costs'][ billing_date ])
+						if sample.udf['Sample Type'].startswith('RNA'):
+							analysis_costs += float(all_costs['mapping rna']['date_costs'][ billing_date ])
+						else:
+							analysis_costs += float(all_costs['mapping wgs']['date_costs'][ billing_date ])
 					if sample_artifact.parent_process.udf['Germline SNV/InDel calling']:
 						analysis_steps.append('Germline SNV/InDel calling')
 						analysis_costs += float(all_costs['germline snv/indel calling']['date_costs'][ billing_date ])
@@ -166,12 +169,12 @@ def getSeqFinance(lims, step_uri):
 						analysis_steps.append('Somatic calling (tumor/normal pair)')
 						analysis_costs += float(all_costs['somatic calling (tumor/normal pair)']['date_costs'][ billing_date ])
 
-					runs[pool.id]['requested_analysis'].add(join(sorted(sample.udf['Analysis'].split(","))))
+					runs[pool.id]['requested_analysis'].add(",".join(sorted(sample.udf['Analysis'].split(","))))
 					runs[pool.id]['lims_analysis'].add(",".join( sorted( analysis_steps) ))
 					runs[pool.id]['analysis_costs'] += analysis_costs
 					runs[pool.id]['total_costs'] += analysis_costs
 					if runs[pool.id]['requested_analysis'] != runs[pool.id]['lims_analysis']:
-						errors.append("Analysis type {0} in LIMS doesn't match analysis {1}".format(runs[pool.id]['lims_analysis'], runs[pool.id]['requested_analysis']))
+						runs[pool.id]['errors'].add("Analysis type {0} in LIMS doesn't match analysis {1}".format(runs[pool.id]['lims_analysis'], runs[pool.id]['requested_analysis']))
 
 			#Get billing specific info
 			if not runs[pool.id]['name'] :
