@@ -169,8 +169,8 @@ def getSeqFinance(lims, step_uri):
 						analysis_steps.append('Somatic calling (tumor/normal pair)')
 						analysis_costs += float(all_costs['somatic calling (tumor/normal pair)']['date_costs'][ billing_date ])
 
-					runs[pool.id]['requested_analysis'].add(",".join(sorted(sample.udf['Analysis'].split(","))))
-					runs[pool.id]['lims_analysis'].add(",".join( sorted( analysis_steps) ))
+					runs[pool.id]['requested_analysis'].add("|".join(sorted(sample.udf['Analysis'].split(","))))
+					runs[pool.id]['lims_analysis'].add("|".join( sorted( analysis_steps) ))
 					runs[pool.id]['analysis_costs'] += analysis_costs
 					runs[pool.id]['total_costs'] += analysis_costs
 					if runs[pool.id]['requested_analysis'] != runs[pool.id]['lims_analysis']:
@@ -179,6 +179,7 @@ def getSeqFinance(lims, step_uri):
 			#Get billing specific info
 			if not runs[pool.id]['name'] :
 				runs[pool.id]['first_submission_date'] = sample.date_received
+				print pool.id
 				if 'Sequencing Succesful' in pool.udf : runs[pool.id]['succesful'] = pool.udf['Sequencing Succesful']
 				runs[pool.id]['name'] = sample.project.name
 				runs[pool.id]['id'] = sample.project.id

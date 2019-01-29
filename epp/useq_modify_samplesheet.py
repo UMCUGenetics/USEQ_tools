@@ -4,6 +4,7 @@ def reverseComplement(lims, step_uri, aid, output_file):
 	"""Reverse complements the i5 index for dual-barcodes index sequences and the i7 index for single index sequences"""
 	revcompl = lambda x: ''.join([{'A':'T','C':'G','G':'C','T':'A'}[B] for B in x][::-1])
 	samplesheet_artifact = Artifact(lims, id=aid)
+
 	sample_sheet_id = samplesheet_artifact.files[0].id
 	header = ''
 	for line in lims.get_file_contents(id=sample_sheet_id).rstrip().split('\n'):
