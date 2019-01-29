@@ -6,7 +6,7 @@ def run_started(lims, sender, receivers, step_uri):
     """Sends a run started mail"""
 
     #Get the flow cell id
-    step_details = StepDetails(lims, uri=step_uri)
+    step_details = StepDetails(lims, uri=step_uri+'/details')
     flow_cell_id = step_details.udf['Flow Cell ID']
 
     #Get all input artifacts
