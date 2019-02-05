@@ -1,0 +1,10 @@
+{% extends "useq_mail_template.html" %}
+{% block content %}
+<p>The following runs are eligible for removal:</p>
+<table class='useq_table'>
+  <tr><th>File name</th><th>Upload date</th></tr>
+  {% for file in files %}
+  <tr><td>{{ file.name }}</td> <td>{{ file.mtime }}</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

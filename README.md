@@ -1,3 +1,4 @@
+
 # Clarity Utils
 Utility scripts to work with Genologics Clarity LIMS
 
@@ -18,5 +19,5 @@ USERNAME=<username>
 PASSWORD=<password>
 [logging]
 MAIN_LOG=/path/to/log/file.txt
-```
+
 

@@ -1,0 +1,6 @@
+{% extends "useq_mail_template.html" %}
+{% block content %}
+  {% for line in lines %}
+  <p>{{ line }}</p>
+  {% endfor %}
+{% endblock %}

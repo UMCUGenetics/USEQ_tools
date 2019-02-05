@@ -1,0 +1,18 @@
+{% extends "useq_mail_template.html" %}
+{% block content %}
+<table class='useq_table' >
+  <tr> <td><b>Experiment Name</b></td>  <td>{{experiment_name}}</td> </tr>
+  <tr> <td><b>Run Name</b></td>  <td>{{run_dir}}</td> </tr>
+</table>
+<br>
+<!-- CONVERSION STATS -->
+<table class='useq_table' >
+  <tr><th><b>Transfer Error</b></th><tr>
+  <tr><td>{{transfer_error | replace('\n', '<br>')}}</td></tr>
+</table>
+<br>
+<table class='useq_table' >
+  <tr><th><b>Transfer Log</b></th><tr>
+  <tr><td>{{transfer_log | replace('\n', '<br>')}}</td></tr>
+</table>
+{% endblock %}

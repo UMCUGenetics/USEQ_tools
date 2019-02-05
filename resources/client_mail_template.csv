@@ -1,0 +1,4 @@
+subject,This is the subject of my email
+
+content,This is the content of my email and is allowed to contain html tags
+content,<b>This is line 2</b>

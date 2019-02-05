@@ -1,0 +1,4 @@
+errors,project_name,id,open_date,contact_name,contact_email,sample_type,account,project_budget_number,nr_samples,isolation_costs,plate_costs,total_costs,billing_institute,billing_postalcode,billing_city,billing_country,billing_department,billing_street,description
+{%- for run in runs %}
+{{ runs[run]['errors'] }},{{ runs[run]['name'] }},{{ runs[run]['id'] }},{{ runs[run]['open_date'] }},{{ runs[run]['contact_name'] }},{{ runs[run]['contact_email'] }},{{ runs[run]['type'] }},{{ runs[run]['lab_name'] }},{{ runs[run]['budget_nr'] }},{{runs[run]['nr_samples']}},{{ runs[run]['isolation_costs'] }},{{ runs[run]['plate_costs'] }},{{ runs[run]['total_costs'] }},{{ runs[run]['institute'] }},{{ runs[run]['postalcode'] }},{{ runs[run]['city'] }},{{ runs[run]['country'] }},{{ runs[run]['department'] }},{{ runs[run]['street'] }},{{ runs[run]['description'] }}
+{%- endfor %}

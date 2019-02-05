@@ -1,0 +1,32 @@
+{% extends "useq_mail_template.html" %}
+{% block content %}
+<p>The responsible contact for this sequencing run is: {{client.first_name}} {{client.last_name}} ({{client.email}}).</p>
+<table class='useq_table'>
+    <tr>
+      <th>
+        <b>Sample</b>
+      </th>
+      <th>
+        <b>Project</b>
+      </th>
+      <th>
+        <b>Project ID</b>
+      </th>
+      <th>
+        <b>Analysis</b>
+      </th>
+      <th>
+        <b>Reference Genome</b>
+      </th>
+    </tr>
+    {% for sample in samples %}
+    <tr>
+      <td>{{ sample.name }}</td>
+      <td>{{ sample.project_name }}</td>
+      <td>{{ sample.project_id }}</td>
+      <td>{{ sample.analysis }}</td>
+      <td>{{ sample.reference }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
