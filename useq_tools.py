@@ -94,7 +94,7 @@ if __name__ == "__main__":
     parser_share_run.set_defaults(func=share_run)
 
     #epp parsers
-    parser_epp = subparser.add_parser('epp',help='Clarity epp functions: run_started, modify_samplesheet, group_permissions')
+    parser_epp = subparser.add_parser('epp',help='Clarity epp functions: run_status_mail, modify_samplesheet, group_permissions, finance_overview, route_artifacts, close_projects ')
     subparser_epp = parser_epp.add_subparsers()
 
     parser_run_status_mail = subparser_epp.add_parser('run_status', help='Sends a status email about a run depending on the mode, mail type depends on mode')
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     parser_close_projects.set_defaults(func=close_projects)
 
     #Daemon parsers
-    parser_daemons = subparser.add_parser('daemons', help='USEQ daemon scripts: check_nextcloud_storage, ')
+    parser_daemons = subparser.add_parser('daemons', help='USEQ daemon scripts: check_nextcloud_storage,manage_runs ')
     subparser_daemons = parser_daemons.add_subparsers()
 
     parser_check_nextcloud_storage = subparser_daemons.add_parser('check_nextcloud_storage', help='Daemon that monitors the NextCloud storage and sends a mail when the threshold has been reached.')
