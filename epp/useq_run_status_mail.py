@@ -35,29 +35,39 @@ def run_started(lims, sender, receivers, step_uri):
 
 def run_finished(lims, sender, receivers, step_uri):
     """Sends a run finished mail formatted for Trello"""
-    pass
-    # step_details = StepDetails(lims, uri=step_uri+'/details')
-    #
-    # input_artifacts = []
-    # run_samples = []
-    # client = ''
-    # platform = ''
-    # #Get all input artifacts
-    # for input_output in step_details.input_output_maps:
-    #     artifact = input_output[0]['uri'] #input artifact
-    #     if artifact not in input_artifacts:
-    #         input_artifacts.append(artifact)
-    #         for sample in artifact.samples:
-    #             run_samples.append({
-    #                 'name' : sample.name,
-    #                 'project_name' : sample.project.name,
-    #                 'project_id' : sample.project.id,
-    #                 'analysis' : sample.udf['Analysis'],
-    #                 'reference' : sample.udf['Reference Genome']
-    #             })
-    #             client = sample.project.researcher
-    #             platform = sample.udf['Platform']
 
+    step_details = StepDetails(lims, uri=step_uri+'/details')
+
+    input_artifacts = []
+    run_samples = []
+    client = ''
+    platform = ''
+    #Get all input artifacts
+    for input_output in step_details.input_output_maps:
+        artifact = input_output[0]['uri'] #input artifact
+        if artifact not in input_artifacts:
+            input_artifacts.append(artifact)
+            for sample in artifact.samples:
+                run_samples.append({
+                    'name' : sample.name,
+                    'project_name' : sample.project.name,
+                    'project_id' : sample.project.id,
+                    'analysis' : sample.udf['Analysis'],
+                    'reference' : sample.udf['Reference Genome']
+                })
+                client = sample.project.researcher
+                platform = sample.udf['Platform']
+
+    content = renderTemplate('run_finished_template.html',
+        { 'nr_samples' : len(run_samples),
+            'project_name': run_samples[0]['project_name'],
+            'project_id' : run_samples[0]['project_id'],
+            'analysis' : run_samples[0]['analysis'],
+            'reference' : run_samples[0]['reference'],
+            'client' : client}
+    )
+    subject = "{0} queued for analysis #Please_analyse @tschafers1 @swboymans".format(run_samples[0]['project_id'])
+    sendMail(subject, content, sender, receivers, None, False)
 
 def run(lims, sender, receivers, mode, step_uri=None):
     """Sends a run status mail, type is determined by mode"""

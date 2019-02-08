@@ -31,7 +31,7 @@ def share_run(args):
 #Clarity epp scripts
 def run_status_mail(args):
     """Send run started mail"""
-    epp.useq_run_status_mail.run(lims, config.MAIL_SENDER, config.MAIL_ADMINS, args.mode ,args.step_uri)
+    epp.useq_run_status_mail.run(lims, config.MAIL_SENDER, config.MAIL_ANALYSIS, args.mode ,args.step_uri)
 
 def modify_samplesheet(args):
     """Reverse complements the barcodes in a samplesheet"""
@@ -98,8 +98,8 @@ if __name__ == "__main__":
     subparser_epp = parser_epp.add_subparsers()
 
     parser_run_status_mail = subparser_epp.add_parser('run_status', help='Sends a status email about a run depending on the mode, mail type depends on mode')
-    parser_run_status_mail.add_argument('-m', '--mode' ,choices=['run_started'])
-    parser_run_status_mail.add_argument('-s', '--step_uri', help="The URI of the step that launched this script. Needed for modes: 'run_status'", default=None)
+    parser_run_status_mail.add_argument('-m', '--mode' ,choices=['run_started','run_finished'])
+    parser_run_status_mail.add_argument('-s', '--step_uri', help="The URI of the step that launched this script. Needed for modes: 'run_status', 'run_finished'", default=None)
     parser_run_status_mail.set_defaults(func=run_status_mail)
 
     parser_modify_samplesheet = subparser_epp.add_parser('modify_samplesheet', help='This script is used to modify a samplesheet to work with either NextSeq or MiSeq/HiSeq. Currently all it does is reverse complement the barcodes when needed')
