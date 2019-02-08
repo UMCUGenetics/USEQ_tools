@@ -1,5 +1,7 @@
 from genologics.entities import Step
-from config import STEP_URIS,STEP_NAMES
+from config import STEP_URIS,STEP_NAMES,MAIL_SENDER,MAIL_ANALYSIS
+
+from epp.useq_run_status_mail import run_finished
 
 def routeArtifacts(lims, step_uri, input):
     step = Step(lims, uri=step_uri)
@@ -42,6 +44,7 @@ def routeArtifacts(lims, step_uri, input):
                 next_step = STEP_URIS['USEQ - Encrypt & Send']
             else:
                 next_step = STEP_URIS['USEQ - Analysis']
+                run_finished(lims,MAIL_SENDER, MAIL_ANALYSIS, step_uri )
             # print 'Post sequencing, next step:',next_step
 
         if next_step not in to_route:
