@@ -67,7 +67,7 @@ def run_finished(lims, sender, receivers, step_uri):
             'client' : client}
     )
     subject = "{0} queued for analysis #Please_analyse @tschafers1 @swboymans".format(run_samples[0]['project_id'])
-    sendMail(subject, content, sender, receivers, None, False)
+    sendMail(subject, content, sender, receivers, attachments=None, logo=False)
 
 def run(lims, sender, receivers, mode, step_uri=None):
     """Sends a run status mail, type is determined by mode"""
