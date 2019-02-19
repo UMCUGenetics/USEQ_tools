@@ -41,7 +41,7 @@ def parseConversionStats( conversion_stats ):
 
                     for read in pf_counts.findall("Read"):
                         read_number = read.attrib["number"]
-                        if read_number > 2: continue
+                        if int(read_number) > 2: continue
                         lane_counts['pf']['r'+str(read_number)]['yield'] += int(read.find("Yield").text)
                         lane_counts['pf']['r'+str(read_number)]['yield_Q30'] += int(read.find("YieldQ30").text)
                         lane_counts['pf']['r'+str(read_number)]['qscore_sum'] += int(read.find("QualityScoreSum").text)
