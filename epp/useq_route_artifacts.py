@@ -7,6 +7,7 @@ def routeArtifacts(lims, step_uri, input):
     step = Step(lims, uri=step_uri)
 
     current_step = step.configuration.name
+
     to_route = {}
     for io_map in step.details.input_output_maps:
         artifact = None
@@ -20,8 +21,11 @@ def routeArtifacts(lims, step_uri, input):
         first_sample = artifact.samples[0]
 
         if current_step in STEP_NAMES['ISOLATION']:
-            next_step = STEP_URIS[ first_sample.udf['Library prep kit'] ]
-            # print 'Isolation, next step:',next_step
+            if 'Library prep kit' in first_sample.udf:
+                next_step = STEP_URIS[ first_sample.udf['Library prep kit'] ]
+            else:
+                next_step = STEP_URIS[ 'USEQ - Fingerprinting' ]
+            
         elif current_step in STEP_NAMES['LIBPREP']:
             next_step = STEP_URIS[ 'USEQ - Library Pooling' ]
             # print 'Libprep, next step:',next_step
@@ -51,8 +55,8 @@ def routeArtifacts(lims, step_uri, input):
             to_route[ next_step ] = []
         to_route[ next_step ].append( artifact)
 
-        for step, artifact_list in to_route.items():
-            lims.route_artifacts(artifact_list,stage_uri=step)
+    for step, artifact_list in to_route.items():
+        lims.route_artifacts(artifact_list,stage_uri=step)
 
 def run(lims, step_uri, input):
     """Runs the routeArtifacts function"""
