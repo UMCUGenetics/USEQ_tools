@@ -31,7 +31,7 @@ def share_run(args):
 #Clarity epp scripts
 def run_status_mail(args):
     """Send run started mail"""
-    epp.useq_run_status_mail.run(lims, config.MAIL_SENDER, config.MAIL_ANALYSIS, args.mode ,args.step_uri)
+    epp.useq_run_status_mail.run(lims, config.MAIL_SENDER, config.MAIL_ADMINS, args.mode ,args.step_uri)
 
 def modify_samplesheet(args):
     """Reverse complements the barcodes in a samplesheet"""
