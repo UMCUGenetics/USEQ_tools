@@ -240,7 +240,9 @@ def getSnpFinance(lims, step_uri):
 			runs[sample.project.id + budget_nr]['type'].add(sample.udf['Sample Type'])
 			runs[sample.project.id + budget_nr]['description'].add(sample.udf['Description'])
 			billing_date = getNearestBillingDate(all_costs, 'open snp array' , sample.date_received)
+			# plate_costs = float(all_costs['open snp array']['date_costs'][ billing_date ]) / 4
 			runs[sample.project.id + budget_nr]['plate_costs'] = float(all_costs['open snp array']['date_costs'][ billing_date ])
+
 			if not runs[sample.project.id + budget_nr]['total_costs']:
 				runs[sample.project.id + budget_nr]['total_costs'] += runs[sample.project.id + budget_nr]['plate_costs']
 
@@ -250,6 +252,11 @@ def getSnpFinance(lims, step_uri):
 			elif sample.udf['Sample Type'] == 'RNA unisolated':
 				runs[sample.project.id + budget_nr]['isolation_costs'] += float( all_costs['rna isolation'][ 'date_costs' ][ billing_date ] )
 				runs[sample.project.id + budget_nr]['total_costs'] += float( all_costs['rna isolation'][ 'date_costs' ][ billing_date ] )
+
+	for id in runs:
+		plate_costs = runs[id]['plate_costs']
+		nr_samples = runs[id]['nr_samples']
+		runs[id]['plate_costs'] = (plate_costs / 45) * nr_samples
 
 	return renderTemplate('snp_finance_overview_template.csv', {'runs':runs})
 
