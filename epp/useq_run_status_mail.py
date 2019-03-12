@@ -33,30 +33,30 @@ def run_started(lims, sender, receivers, step_uri):
 
     sendMail(subject, content, sender, receivers, None)
 
-def run_finished(lims, sender, receivers, step_uri):
+def run_finished(lims, sender, receivers, artifact):
     """Sends a run finished mail formatted for Trello"""
 
-    step_details = StepDetails(lims, uri=step_uri+'/details')
+    # step_details = StepDetails(lims, uri=step_uri+'/details')
 
-    input_artifacts = []
+    # input_artifacts = []
     run_samples = []
     client = ''
     platform = ''
     #Get all input artifacts
-    for input_output in step_details.input_output_maps:
-        artifact = input_output[0]['uri'] #input artifact
-        if artifact not in input_artifacts:
-            input_artifacts.append(artifact)
-            for sample in artifact.samples:
-                run_samples.append({
-                    'name' : sample.name,
-                    'project_name' : sample.project.name,
-                    'project_id' : sample.project.id,
-                    'analysis' : sample.udf['Analysis'],
-                    'reference' : sample.udf['Reference Genome']
-                })
-                client = sample.project.researcher
-                platform = sample.udf['Platform']
+    # for input_output in step_details.input_output_maps:
+    #     artifact = input_output[0]['uri'] #input artifact
+    #     if artifact not in input_artifacts:
+    #         input_artifacts.append(artifact)
+    for sample in artifact.samples:
+        run_samples.append({
+            'name' : sample.name,
+            'project_name' : sample.project.name,
+            'project_id' : sample.project.id,
+            'analysis' : sample.udf['Analysis'],
+            'reference' : sample.udf['Reference Genome']
+        })
+        client = sample.project.researcher
+        platform = sample.udf['Platform']
 
     content = renderTemplate('run_finished_template.html',
         { 'nr_samples' : len(run_samples),

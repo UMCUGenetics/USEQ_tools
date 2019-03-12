@@ -25,7 +25,7 @@ def routeArtifacts(lims, step_uri, input):
                 next_step = STEP_URIS[ first_sample.udf['Library prep kit'] ]
             else:
                 next_step = STEP_URIS[ 'USEQ - Fingerprinting' ]
-            
+
         elif current_step in STEP_NAMES['LIBPREP']:
             next_step = STEP_URIS[ 'USEQ - Library Pooling' ]
             # print 'Libprep, next step:',next_step
@@ -48,7 +48,7 @@ def routeArtifacts(lims, step_uri, input):
                 next_step = STEP_URIS['USEQ - Encrypt & Send']
             else:
                 next_step = STEP_URIS['USEQ - Analysis']
-                run_finished(lims,MAIL_SENDER, MAIL_ANALYSIS, step_uri )
+                run_finished(lims,MAIL_SENDER, MAIL_ANALYSIS, artifact )
             # print 'Post sequencing, next step:',next_step
 
         if next_step not in to_route:
