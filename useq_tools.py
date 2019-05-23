@@ -23,9 +23,9 @@ def client_mail(args):
     """Send email to all specific USEQ clients, all clients belonging to an account or a single specific client."""
     utilities.useq_client_mail.run(lims, config.MAIL_SENDER, args.content, args.mode, args.attachment, args.name)
 
-def share_run(args):
-    """Encrypt and Share one or more sequencing runs"""
-    utilities.useq_share_run.run(lims, args.ids)
+def share_data(args):
+    """Encrypt and Share one or more datasets"""
+    utilities.useq_share_run.run(lims, args.mode, args.ids)
 
 
 #Clarity epp scripts
@@ -89,9 +89,10 @@ if __name__ == "__main__":
     parser_client_mail.add_argument('-a','--attachment', help='Path to attachment file')
     parser_client_mail.set_defaults(func=client_mail)
 
-    parser_share_run = subparser_utilities.add_parser('share_run', help='Encrypts and shares 1 or more sequencing runs to the appropriate client')
-    parser_share_run.add_argument('-i', '--ids', help='One or more Project ID(s) to share, separated by comma')
-    parser_share_run.set_defaults(func=share_run)
+    parser_share_data = subparser_utilities.add_parser('share_data', help='Share raw or processed data by project ID. Depending on the chosen mode, the script will attempt to find the most recent matching run in either the raw of processed data directory (defined in config). ')
+    parser_share_data.add_argument('-m', '--mode', choices=['raw','processed'])
+    parser_share_data.add_argument('-i', '--ids', help='One or more Project ID(s) to share, separated by comma.')
+    parser_share_data.set_defaults(func=share_data)
 
     #epp parsers
     parser_epp = subparser.add_parser('epp',help='Clarity epp functions: run_status_mail, modify_samplesheet, group_permissions, finance_overview, route_artifacts, close_projects ')
