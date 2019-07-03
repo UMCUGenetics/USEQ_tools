@@ -27,6 +27,8 @@ def share_data(args):
     """Encrypt and Share one or more datasets"""
     utilities.useq_share_run.run(lims, args.mode, args.ids)
 
+def budget_overview(args):
+    utilities.useq_budget_overview.run(lims, args.budgetnrs, args.output_file)
 
 #Clarity epp scripts
 def run_status_mail(args):
@@ -54,9 +56,9 @@ def close_projects(args):
     epp.useq_close_projects.run(lims, args.step)
 
 #Daemon scripts
-def check_nextcloud_storage(args):
+def nextcloud_monitor(args):
     """Is intended to run as a daemon to check the space remaining on the Nextcloud storage"""
-    daemons.useq_check_nextcloud_storage.run()
+    daemons.useq_nextcloud_monitor.run()
 
 def manage_runs(args):
     """Script responsible for starting conversion, transfer, cleanup and archiving of sequencing runs"""
@@ -93,6 +95,11 @@ if __name__ == "__main__":
     parser_share_data.add_argument('-m', '--mode', choices=['raw','processed'])
     parser_share_data.add_argument('-i', '--ids', help='One or more Project ID(s) to share, separated by comma.')
     parser_share_data.set_defaults(func=share_data)
+
+    parser_budget_ovw = subparser_utilities.add_parser('budget_overview', help='Get an overview of all costs booked to supplied budget numbers.')
+    parser_budget_ovw.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
+    parser_budget_ovw.add_argument('-b', '--budgetnrs', required=True)
+    parser_budget_ovw.set_defaults(func=budget_overview)
 
     #epp parsers
     parser_epp = subparser.add_parser('epp',help='Clarity epp functions: run_status_mail, modify_samplesheet, group_permissions, finance_overview, route_artifacts, close_projects ')
@@ -132,8 +139,8 @@ if __name__ == "__main__":
     parser_daemons = subparser.add_parser('daemons', help='USEQ daemon scripts: check_nextcloud_storage,manage_runs ')
     subparser_daemons = parser_daemons.add_subparsers()
 
-    parser_check_nextcloud_storage = subparser_daemons.add_parser('check_nextcloud_storage', help='Daemon that monitors the NextCloud storage and sends a mail when the threshold has been reached.')
-    parser_check_nextcloud_storage.set_defaults(func=check_nextcloud_storage)
+    parser_nextcloud_monitor = subparser_daemons.add_parser('nextcloud_monitor', help='Daemon that monitors the NextCloud storage and sends a mail when the threshold has been reached.')
+    parser_nextcloud_monitor.set_defaults(func=nextcloud_monitor)
 
     parser_manage_runs = subparser_daemons.add_parser('manage_runs', help='Daemon responsible for starting conversion, transfer, cleanup and archiving of sequencing runs')
     parser_manage_runs.add_argument('-m', '--missing_bcl', help='Run conversion with --ignore-missing-bcls flag', default=False)
