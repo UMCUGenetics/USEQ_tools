@@ -1,5 +1,5 @@
 from genologics.entities import Project
-from config import RUN_PROCESSES, RAW_DIR, PROCESSED_DIR, NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,NEXTCLOUD_PROCESSED_DIR,MAIL_SENDER, NEXTCLOUD_USER, NEXTCLOUD_PW
+from config import RUN_PROCESSES, RAW_DIR, PROCESSED_DIR, NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,NEXTCLOUD_PROCESSED_DIR,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER, NEXTCLOUD_USER, NEXTCLOUD_PW
 from os.path import expanduser, exists
 from texttable import Texttable
 import datetime
@@ -16,12 +16,16 @@ GPG_DIR = expanduser("~/.gnupg/")
 
 
 
-def zipRun( dir, dir_info):
+def zipRun( dir, dir_info=None):
     run_name = os.path.basename(dir)
-    zip_name = "-".join(dir_info['projects'].keys())
+    zip_name = None
+    if dir_info:
+        zip_name = "-".join(dir_info['projects'].keys())
+    else:
+        zip_name = os.path.basename(dir)
     run_zip = "{0}/{1}.tar.gz".format(dir,zip_name)
 
-    with tarfile.open(run_zip, "w:gz") as tar:
+    with tarfile.open(run_zip, "w:gz", dereference=True) as tar:
         tar.add(dir, arcname=run_name)
 
     return run_zip
@@ -39,6 +43,51 @@ def encryptRun( run_zip ,client_mail):
 
     return run_encrypted
 
+
+def shareManual(email,dir):
+    name = multiprocessing.current_process().name
+    print "{0}\tStarting".format(name)
+
+    print "{0}\tRunning compression".format(name)
+    run_zip = zipRun(dir)
+    if not os.path.isfile(run_zip):
+        print "{0}\tError : {1}/{2}.tar.gz was not properly created!".format(name,dir,os.path.basename(dir))
+        return
+
+    print "{0}\tRunning encryption".format(name)
+    run_encrypted = encryptRun(run_zip, email)
+    if not os.path.isfile(run_encrypted):
+        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar.gz with error message:\n\t{3}".format(name,dir,os.path.basename(dir), run_encrypted)
+        return
+
+    print "{0}\tRunning upload to NextCloud".format(name)
+    upload_response = nextcloud_util.upload(run_encrypted)
+    if "ERROR" in upload_response:
+        print "{0}\tError : Failed to upload {1} with message:\n\t{2}".format(name, run_encrypted, upload_response["ERROR"])
+        return
+
+    print "{0}\tSharing run {1} with {2}".format(name, dir, email)
+    share_response = nextcloud_util.share(run_encrypted, email)
+    if "ERROR" in share_response:
+        print "{0}\tError : Failed to share {1} with message:\n\t{2}".format(name, run_encrypted, share_response["ERROR"])
+        return
+    else:
+        share_id = share_response["SUCCES"]
+        template_data = {
+            'dir' : os.path.basename(dir),
+            'nextcloud_host' : NEXTCLOUD_HOST,
+            'share_id' : share_id
+
+        }
+
+        mail_content = renderTemplate('share_manual_template.html', template_data)
+        mail_subject = "USEQ has shared a file with you."
+
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+        os.remove(run_zip)
+        os.remove(run_encrypted)
+
+    return
 
 def shareProcessed(dir,dir_info):
     name = multiprocessing.current_process().name
@@ -250,8 +299,23 @@ def getRawData( lims, project_name ):
                 elif path.endswith("A"+recent_run[1]) or path.endswith("B"+recent_run[1]): #HiSeq
                     return path
 
+def shareDataByEmail(lims, email, dir):
+    if not email.lower() in gpg_key_list:
+        print "Error : No public key found for email {0}".format(email)
+        sys.exit()
+    if not exists(dir):
+        print "Error : Directory {0} not found".format(dir)
 
-def shareData(lims, mode,ids):
+    dir = dir.rstrip('/')
+    share_processes = []
+    share_process = multiprocessing.Process(name="Process_{0}".format(os.path.basename(dir)), target=shareManual, args=(email, dir) )
+    share_processes.append(share_process)
+    share_process.start()
+
+    for process in share_processes:
+        process.join()
+
+def shareDataById(lims, mode,ids):
     """Get's the run names, encrypts the run data and sends it to the appropriate client"""
     project_ids = ids.split(",")
     run_info = {}
@@ -309,8 +373,8 @@ def shareData(lims, mode,ids):
         for process in share_processes:
             process.join()
 
-def run(lims, mode, ids):
-    """Runs raw or processed function based on mode"""
+def run(lims, mode, ids, email, dir):
+    """Runs raw, processed or manual function based on mode"""
     import gnupg
     global gpg
     global gpg_key_list
@@ -327,6 +391,10 @@ def run(lims, mode, ids):
     nextcloud_util.setHostname( NEXTCLOUD_HOST )
     if mode == 'raw':
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,MAIL_SENDER )
-    else:
+        shareDataById(lims, mode, ids)
+    elif mode == 'processed':
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_PROCESSED_DIR,MAIL_SENDER )
-    shareData(lims, mode, ids)
+        shareDataById(lims, mode, ids)
+    else:
+        nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER )
+        shareDataByEmail(lims, email, dir)

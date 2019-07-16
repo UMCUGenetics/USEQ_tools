@@ -25,7 +25,7 @@ def client_mail(args):
 
 def share_data(args):
     """Encrypt and Share one or more datasets"""
-    utilities.useq_share_run.run(lims, args.mode, args.ids)
+    utilities.useq_share_run.run(lims, args.mode, args.ids, args.email, args.dir)
 
 def budget_overview(args):
     utilities.useq_budget_overview.run(lims, args.budgetnrs, args.output_file)
@@ -91,9 +91,11 @@ if __name__ == "__main__":
     parser_client_mail.add_argument('-a','--attachment', help='Path to attachment file')
     parser_client_mail.set_defaults(func=client_mail)
 
-    parser_share_data = subparser_utilities.add_parser('share_data', help='Share raw or processed data by project ID. Depending on the chosen mode, the script will attempt to find the most recent matching run in either the raw of processed data directory (defined in config). ')
-    parser_share_data.add_argument('-m', '--mode', choices=['raw','processed'])
+    parser_share_data = subparser_utilities.add_parser('share_data', help='Script support modes raw, processed & manual. For raw & processed the script will search for runs in the raw and processed data directories respectively. For manual the script expects an email and directory.')
+    parser_share_data.add_argument('-m', '--mode', choices=['raw','processed', 'manual'])
     parser_share_data.add_argument('-i', '--ids', help='One or more Project ID(s) to share, separated by comma.')
+    parser_share_data.add_argument('-e', '--email', help='Email to share data with, only used for manual mode.', default=None)
+    parser_share_data.add_argument('-d', '--dir', help='Directory containing data to share.', default=None)
     parser_share_data.set_defaults(func=share_data)
 
     parser_budget_ovw = subparser_utilities.add_parser('budget_overview', help='Get an overview of all costs booked to supplied budget numbers.')
