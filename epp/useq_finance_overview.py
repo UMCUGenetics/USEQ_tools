@@ -266,7 +266,8 @@ def getSnpFinance(lims, step_uri):
 			runs[sample.project.id + budget_nr]['nr_samples'] += 1
 			runs[sample.project.id + budget_nr]['received_date'].add(sample.date_received)
 			runs[sample.project.id + budget_nr]['type'].add(sample.udf['Sample Type'])
-			runs[sample.project.id + budget_nr]['description'].add(sample.udf['Description'])
+			if 'Description' in sample.udf:
+				runs[sample.project.id + budget_nr]['description'].add(sample.udf['Description'])
 			billing_date = getNearestBillingDate(all_costs, 'open snp array' , sample.date_received)
 			# plate_costs = float(all_costs['open snp array']['date_costs'][ billing_date ]) / 4
 			runs[sample.project.id + budget_nr]['plate_step_costs'] = float(all_costs['open snp array']['date_step_costs'][ billing_date ])
