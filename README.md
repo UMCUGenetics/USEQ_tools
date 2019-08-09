@@ -26,7 +26,7 @@ MAIL_ADMINS=[
 ]
 
 
-RUN_DIR = <WHERE TO FIND RAW DATA>
+RAW_DIR = <WHERE TO FIND RAW DATA>
 RUN_PROCESSES=['NextSeq Run (NextSeq) 1.0','USEQ - NextSeq Run', 'MiSeq Run (MiSeq) 4.0', 'USEQ - MiSeq Run','HiSeq Run (HiSeq) 5.0','USEQ - HiSeq Run']
 ISOLATION_PROCESSES=['Qiagen genomic tip DNA isolation','QiaSymphony RNA isolation','USEQ - Isolation']
 LIBPREP_PROCESSES=['Enrich DNA fragments (TruSeq Nano) 4.0','Enrich DNA fragments (TruSeq Stranded mRNA) 5.0','Enrich DNA fragments (TruSeq Stranded Total RNA) 5.0','USEQ - Enrich DNA fragments']
@@ -44,7 +44,7 @@ RUNTYPE_YIELDS={
 #Nextcloud settings
 NEXTCLOUD_HOST = <NEXTCLOUD URL>
 NEXTCLOUD_WEBDAV_ROOT = 'remote.php/webdav/'
-NEXTCLOUD_RUN_DIR = 'sequencing_runs/'
+NEXTCLOUD_RAW_DIR = 'sequencing_runs/'
 NEXTCLOUD_USER = <NEXTCLOUD USER>
 NEXTCLOUD_PW = <NEXTCLOUD PASSWORD>
 NEXTCLOUD_STORAGE = 1073741824000 #in bytes
