@@ -30,6 +30,9 @@ def share_data(args):
 def budget_overview(args):
     utilities.useq_budget_overview.run(lims, args.budgetnrs, args.output_file)
 
+def get_researchers(args):
+    utilities.useq_get_researchers.run(lims)
+
 #Clarity epp scripts
 def run_status_mail(args):
     """Send run started mail"""
@@ -102,6 +105,10 @@ if __name__ == "__main__":
     parser_budget_ovw.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
     parser_budget_ovw.add_argument('-b', '--budgetnrs', required=True)
     parser_budget_ovw.set_defaults(func=budget_overview)
+
+    parser_get_researchers = subparser_utilities.add_parser('get_researchers', help='Get all info for all researchers')
+    # parser_get_researchers.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
+    parser_get_researchers.set_defaults(func=get_researchers)
 
     #epp parsers
     parser_epp = subparser.add_parser('epp',help='Clarity epp functions: run_status_mail, modify_samplesheet, group_permissions, finance_overview, route_artifacts, close_projects ')

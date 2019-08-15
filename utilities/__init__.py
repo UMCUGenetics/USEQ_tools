@@ -2,3 +2,4 @@ import useq_manage_accounts
 import useq_client_mail
 import useq_share_run
 import useq_budget_overview
+import useq_get_researchers
