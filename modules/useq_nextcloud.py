@@ -5,7 +5,7 @@ import ntpath
 import requests
 import json
 from xml.dom.minidom import parseString
-from geoip import geolite2
+
 DEBUG = 0
 
 class NextcloudUtil(object):
@@ -43,6 +43,7 @@ class NextcloudUtil(object):
                 if 'download' not in columns[1] :continue
                 if not columns[2].startswith(' 200'):continue
                 ip = columns[0].split(" ")[0]
+                from geoip import geolite2
                 ip_match = geolite2.lookup(ip)
                 download_date = columns[0].split(" ")[3].lstrip('[')
 
