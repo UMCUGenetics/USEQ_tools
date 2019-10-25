@@ -83,7 +83,7 @@ def shareManual(email,dir):
         mail_content = renderTemplate('share_manual_template.html', template_data)
         mail_subject = "USEQ has shared a file with you."
 
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,email)
         os.remove(run_zip)
         os.remove(run_encrypted)
 
