@@ -23,9 +23,9 @@ def zipRun( dir, dir_info=None):
         zip_name = "-".join(dir_info['projects'].keys())
     else:
         zip_name = os.path.basename(dir)
-    run_zip = "{0}/{1}.tar.gz".format(dir,zip_name)
+    run_zip = "{0}/{1}.tar".format(dir,zip_name)
 
-    with tarfile.open(run_zip, "w:gz", dereference=True) as tar:
+    with tarfile.open(run_zip, "w", dereference=True) as tar:
         tar.add(dir, arcname=run_name)
 
     return run_zip
@@ -37,7 +37,7 @@ def encryptRun( run_zip ,client_mail):
 
     #Wanted to use gnupg module for this, but it doesn't support encrypting 'large' files
     try:
-        subprocess.check_output("gpg --encrypt --output {0} --recipient '{1}' {2}".format(run_encrypted,client_mail, run_zip), shell=True, stderr=subprocess.STDOUT)
+        subprocess.check_output("gpg --compress-algo none --encrypt --output {0} --recipient '{1}' {2}".format(run_encrypted,client_mail, run_zip), shell=True, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         return e.output
 
@@ -51,13 +51,13 @@ def shareManual(email,dir):
     print "{0}\tRunning compression".format(name)
     run_zip = zipRun(dir)
     if not os.path.isfile(run_zip):
-        print "{0}\tError : {1}/{2}.tar.gz was not properly created!".format(name,dir,os.path.basename(dir))
+        print "{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,os.path.basename(dir))
         return
 
     print "{0}\tRunning encryption".format(name)
     run_encrypted = encryptRun(run_zip, email)
     if not os.path.isfile(run_encrypted):
-        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar.gz with error message:\n\t{3}".format(name,dir,os.path.basename(dir), run_encrypted)
+        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,os.path.basename(dir), run_encrypted)
         return
 
     print "{0}\tRunning upload to NextCloud".format(name)
@@ -96,14 +96,14 @@ def shareProcessed(dir,dir_info):
     print "{0}\tRunning compression".format(name)
     run_zip = zipRun( dir, dir_info )
     if not os.path.isfile(run_zip):
-        print "{0}\tError : {1}/{2}.tar.gz was not properly created!".format(name,dir,dir_info['projects'].keys()[0])
+        print "{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,dir_info['projects'].keys()[0])
         return
 
     print "{0}\tRunning encryption".format(name)
     run_encrypted = encryptRun(run_zip, dir_info['researcher_email'])
 
     if not os.path.isfile(run_encrypted):
-        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar.gz with error message:\n\t{3}".format(name,dir,dir_info['projects'].keys()[0], run_encrypted)
+        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,dir_info['projects'].keys()[0], run_encrypted)
         return
 
     print "{0}\tRunning upload to NextCloud".format(name)
@@ -153,14 +153,14 @@ def shareRaw(dir,dir_info):
     print "{0}\tRunning compression".format(name)
     run_zip = zipRun( dir, dir_info )
     if not os.path.isfile(run_zip):
-        print "{0}\tError : {1}/{2}.tar.gz was not properly created!".format(name,dir,dir_info['projects'].keys()[0])
+        print "{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,dir_info['projects'].keys()[0])
         return
 
     print "{0}\tRunning encryption".format(name)
     run_encrypted = encryptRun(run_zip, dir_info['researcher_email'])
 
     if not os.path.isfile(run_encrypted):
-        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar.gz with error message:\n\t{3}".format(name,dir,dir_info['projects'].keys()[0], run_encrypted)
+        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,dir_info['projects'].keys()[0], run_encrypted)
         return
 
     print "{0}\tRunning upload to NextCloud".format(name)
@@ -189,7 +189,7 @@ def shareRaw(dir,dir_info):
         mail_content = renderTemplate('share_raw_template.html', template_data)
         mail_subject = "USEQ sequencing of sequencing-run ID {0} finished".format(dir_info['projects'].keys()[0])
         sendMail(mail_subject,mail_content, MAIL_SENDER ,dir_info['researcher_email'])
-
+        
         os.remove(run_zip)
         os.remove(run_encrypted)
 
