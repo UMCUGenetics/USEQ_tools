@@ -1,4 +1,4 @@
-from config import NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,NEXTCLOUD_PROCESSED_DIR,NEXTCLOUD_LOG_DIR,MAIL_SENDER, NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_STORAGE, NEXTCLOUD_MAX,MAIL_SENDER,MAIL_ADMINS
+from config import NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,NEXTCLOUD_PROCESSED_DIR,NEXTCLOUD_LOG_DIR,MAIL_SENDER, NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_STORAGE, NEXTCLOUD_MAX,MAIL_SENDER,MAIL_ADMINS,NEXTCLOUD_MANUAL_DIR
 from modules.useq_nextcloud import NextcloudUtil
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
 from modules.useq_mail import sendMail
@@ -34,13 +34,16 @@ def checkUsage():
 	sendMail(subject,content,MAIL_SENDER,MAIL_ADMINS)
 
 def run():
-	global nextcloud_util
-	#Set up nextcloud
-	nextcloud_util = NextcloudUtil()
-	nextcloud_util.setHostname( NEXTCLOUD_HOST )
+    global nextcloud_util
+    #Set up nextcloud
+    nextcloud_util = NextcloudUtil()
+    nextcloud_util.setHostname( NEXTCLOUD_HOST )
 
-	nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,MAIL_SENDER )
-	checkUsage()
+    nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,MAIL_SENDER )
+    checkUsage()
 
-	nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_PROCESSED_DIR,MAIL_SENDER )
-	checkUsage()
+    nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_PROCESSED_DIR,MAIL_SENDER )
+    checkUsage()
+
+    nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER )
+    checkUsage()
