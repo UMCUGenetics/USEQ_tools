@@ -7,7 +7,7 @@ def routeArtifacts(lims, step_uri, input):
     step = Step(lims, uri=step_uri)
 
     current_step = step.configuration.name
-
+    print current_step
     to_route = {}
     for io_map in step.details.input_output_maps:
         artifact = None
@@ -21,11 +21,17 @@ def routeArtifacts(lims, step_uri, input):
         first_sample = artifact.samples[0]
 
         if current_step in STEP_NAMES['ISOLATION']:
+
             if 'Library prep kit' in first_sample.udf:
                 next_step = STEP_URIS[ first_sample.udf['Library prep kit'] ]
             else:
-                next_step = STEP_URIS[ 'USEQ - Fingerprinting' ]
-
+                if first_sample.udf['Platform'] == 'Oxford Nanopore':
+                    if first_sample.udf['Sample Type'] == 'RNA total isolated':
+                        next_step = STEP_URIS['USEQ - LIBPREP-ONT-RNA']
+                    else:
+                        next_step = STEP_URIS['USEQ - LIBPREP-ONT-DNA']
+                else:
+                    next_step = STEP_URIS[ 'USEQ - Fingerprinting' ]
         elif current_step in STEP_NAMES['LIBPREP']:
             next_step = STEP_URIS[ 'USEQ - Library Pooling' ]
             # print 'Libprep, next step:',next_step
