@@ -49,8 +49,13 @@ def routeArtifacts(lims, step_uri, input):
             next_step = STEP_URIS['USEQ - Post Sequencing']
             # print 'Sequencing, next step:',next_step
         elif current_step in STEP_NAMES['POST SEQUENCING']:
-            sample_analyses = first_sample.udf['Analysis'].split(",")
-            if len(sample_analyses) == 1 and 'Raw data (FastQ)' in sample_analyses:
+            sample_analyses = None
+            if 'Analysis' in first_sample.udf:
+                sample_analyses = first_sample.udf['Analysis'].split(",")
+
+            if not sample_analyses:
+                next_step = STEP_URIS['USEQ - Encrypt & Send']
+            elif len(sample_analyses) == 1 and 'Raw data (FastQ)' in sample_analyses:
                 next_step = STEP_URIS['USEQ - Encrypt & Send']
             else:
                 next_step = STEP_URIS['USEQ - Analysis']
