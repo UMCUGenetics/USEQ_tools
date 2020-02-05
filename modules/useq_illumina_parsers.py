@@ -95,10 +95,18 @@ def parseRunParameters( run_parameters):
         run_version = run_parameters.getElementsByTagName('ReagentKitVersion')[0].firstChild.nodeValue
     except:
         run_version = ''
+
+    try:
+        flowcell_mode = run_parameters.getElementsByTagName('FlowCellMode')[0].firstChild.nodeValue
+    except:
+        flowcell_mode = ''
+
     if run_chem in RUNTYPE_YIELDS:
         expected_reads = RUNTYPE_YIELDS[run_chem]
     elif run_version in RUNTYPE_YIELDS:
         expected_reads = RUNTYPE_YIELDS[run_version]
+    elif flowcell_mode in RUNTYPE_YIELDS:
+        expected_reads = RUNTYPE_YIELDS[flowcell_mode]
     else:
         expected_reads = RUNTYPE_YIELDS['HiSeq rapid']
 
