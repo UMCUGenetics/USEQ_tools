@@ -33,6 +33,10 @@ def budget_overview(args):
 def get_researchers(args):
     utilities.useq_get_researchers.run(lims)
 
+
+def create_runids(args):
+    utilities.useq_create_runids.run(lims, args.userid, args.application, args.nr)
+
 #Clarity epp scripts
 def run_status_mail(args):
     """Send run started mail"""
@@ -105,6 +109,13 @@ if __name__ == "__main__":
     parser_budget_ovw.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
     parser_budget_ovw.add_argument('-b', '--budgetnrs', required=True)
     parser_budget_ovw.set_defaults(func=budget_overview)
+
+    parser_create_runids = subparser_utilities.add_parser('create_runids', help='Create one or multiple runIDs for a user.')
+    parser_create_runids.add_argument('-u', '--userid', required=True)
+    parser_create_runids.add_argument('-a', '--application', choices=['Sequencing','Fingerprinting'] ,required=True)
+    parser_create_runids.add_argument('-n', '--nr', type=int,required=True)
+    # parser_create_runids.add_argument('-e', '--email', required=True)
+    parser_create_runids.set_defaults(func=create_runids)
 
     parser_get_researchers = subparser_utilities.add_parser('get_researchers', help='Get all info for all researchers')
     # parser_get_researchers.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
