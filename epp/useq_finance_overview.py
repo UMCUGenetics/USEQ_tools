@@ -51,7 +51,7 @@ def getAllCosts():
 	costs_lower['s2 : 2 x 100 bp'] = costs_lower['novaseq 6000 s2 2 x 100 bp'  ]
 	costs_lower['s2 : 2 x 150 bp'] = costs_lower['novaseq 6000 s2 2 x 150 bp'  ]
 	costs_lower['s4 : 2 x 100 bp'] = costs_lower[ 'novaseq 6000 s4 2 x 100 bp' ]
-	costs_lower['wgs at hmf'] = 'novaseq 6000 wgs at hmf',
+	costs_lower['wgs at hmf'] = costs_lower['novaseq 6000 wgs at hmf']
 	costs_lower['sp : 2 x 50 bp'] = costs_lower[ 'novaseq 6000 sp 2 x 50 bp' ]
 	costs_lower['sp : 2 x 150 bp'] = costs_lower['novaseq 6000 sp 2 x 150 bp'  ]
 	costs_lower['sp : 2 x 250 bp'] = costs_lower[ 'novaseq 6000 sp 2 x 250 bp']
@@ -100,7 +100,7 @@ def getSeqFinance(lims, step_uri):
 		runs[pool.id] = {
 			'errors' : set(),
 			'platform' : None,
-			'name' : None,'id' : None,'open_date' : None,'nr_samples' : 0,'first_submission_date' : None,'received_date' : set(), #project fields
+			'name' : None,'id' : None,'open_date' : None,'nr_samples' : 0,'first_submission_date' : None,'received_date' : set(), 'project_comments' : None,#project fields
 			'pool' : pool.id,
 			'lims_runtype' : None,		'requested_runtype' : set(),		'run_personell_costs' : 0, 'run_step_costs':0,		'run_date' : None,			'succesful' : None, #run fields
 			'lims_isolation' : set(),	'type' : set(),						'isolation_personell_costs' : 0,	'isolation_step_costs':0, 'isolation_date' : set(), #isolation fields
@@ -115,7 +115,9 @@ def getSeqFinance(lims, step_uri):
 			runs[pool.id]['nr_samples'] += 1
 			runs[pool.id]['received_date'].add(sample.date_received)
 			runs[pool.id]['type'].add(sample.udf['Sample Type'])
-			runs[pool.id]['requested_library_prep'].add(sample.udf['Library prep kit'])
+			if 'Library prep kit' in sample.udf:
+				runs[pool.id]['requested_library_prep'].add(sample.udf['Library prep kit'])
+
 			runs[pool.id]['requested_runtype'].add(sample.udf['Sequencing Runtype'])
 			runs[pool.id]['platform'] = sample.udf['Platform']
 			# runs[pool.id]['requested_analysis'].add(sample.udf['Analysis'])
@@ -155,19 +157,20 @@ def getSeqFinance(lims, step_uri):
 					runs[pool.id]['total_personell_costs'] += float(all_costs[ lims_library_prep][ 'date_personell_costs' ][ billing_date ])
 					runs[pool.id]['libprep_date'].add(sample_artifact.parent_process.date_run)
 
-					if sample.udf['Library prep kit'] == 'Truseq RNA stranded polyA' and 'libprep rna stranded polya' not in runs[pool.id]['lims_library_prep']:
-						runs[pool.id]['errors'].add("Libprep type {0} in LIMS doesn't match libprep type {1}".format(runs[pool.id]['lims_library_prep'],sample.udf['Library prep kit']))
-
-					elif sample.udf['Library prep kit'] == 'Truseq RNA stranded ribo-zero' and 'libprep rna stranded ribo-zero' not in runs[pool.id]['lims_library_prep'] :
-						runs[pool.id]['errors'].add("Libprep type {0} in LIMS doesn't match libprep type {1}".format(runs[pool.id]['lims_library_prep'],sample.udf['Library prep kit']))
-
-					elif sample.udf['Library prep kit'] == 'Truseq DNA nano' and 'libprep dna' not in runs[pool.id]['lims_library_prep'] :
-						runs[pool.id]['errors'].add("Libprep type {0} in LIMS doesn't match libprep type {1}".format(runs[pool.id]['lims_library_prep'],sample.udf['Library prep kit']))
+					# if sample.udf['Library prep kit'] == 'Truseq RNA stranded polyA' and 'libprep rna stranded polya' not in runs[pool.id]['lims_library_prep']:
+					# 	runs[pool.id]['errors'].add("Libprep type {0} in LIMS doesn't match libprep type {1}".format(runs[pool.id]['lims_library_prep'],sample.udf['Library prep kit']))
+					#
+					# elif sample.udf['Library prep kit'] == 'Truseq RNA stranded ribo-zero' and 'libprep rna stranded ribo-zero' not in runs[pool.id]['lims_library_prep'] :
+					# 	runs[pool.id]['errors'].add("Libprep type {0} in LIMS doesn't match libprep type {1}".format(runs[pool.id]['lims_library_prep'],sample.udf['Library prep kit']))
+					#
+					# elif sample.udf['Library prep kit'] == 'Truseq DNA nano' and 'libprep dna' not in runs[pool.id]['lims_library_prep'] :
+					# 	runs[pool.id]['errors'].add("Libprep type {0} in LIMS doesn't match libprep type {1}".format(runs[pool.id]['lims_library_prep'],sample.udf['Library prep kit']))
 
 				elif process_name in RUN_PROCESSES and not runs[pool.id]['lims_runtype']:
 					protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 					runs[pool.id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 					requested_runtype = sample.udf['Sequencing Runtype'].lower()
+
 
 					billing_date = getNearestBillingDate(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
 					if requested_runtype == 'WGS at HMF':
@@ -236,6 +239,9 @@ def getSeqFinance(lims, step_uri):
 				runs[pool.id]['name'] = sample.project.name
 				runs[pool.id]['id'] = sample.project.id
 				runs[pool.id]['open_date'] = sample.project.open_date
+				if 'Comments and agreements' in sample.project.udf:
+					runs[pool.id]['project_comments'] = sample.project.udf['Comments and agreements']
+					runs[pool.id]['project_comments'] = runs[pool.id]['project_comments'].replace('\n', ' ').replace('\r', '')
 				runs[pool.id]['contact_name'] = sample.project.researcher.first_name + " " + sample.project.researcher.last_name
 				runs[pool.id]['contact_email'] = sample.project.researcher.email
 				runs[pool.id]['lab_name'] = sample.project.researcher.lab.name
