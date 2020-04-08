@@ -69,7 +69,7 @@ class NextcloudUtil(object):
                 'download_dates' : []
             }
         # Get file share ID
-        response = requests.get("https://{0}/ocs/v1.php/apps/files_sharing/api/v1/shares".format(self.hostname), auth=(self.user, self.password), headers={'OCS-APIRequest':'true'})
+        response = requests.get("https://{0}/ocs/v2.php/apps/files_sharing/api/v1/shares".format(self.hostname), auth=(self.user, self.password), headers={'OCS-APIRequest':'true'})
         response_DOM = parseString( response.text )
         for element in response_DOM.getElementsByTagName( "element" ):
             file_path = element.getElementsByTagName("path")[0].firstChild.data
@@ -87,8 +87,9 @@ class NextcloudUtil(object):
     def upload(self, file_path):
         if not os.path.isfile(file_path): return {"ERROR":"File path '{0}' is not a file".format(file_path)}
         file_basename = ntpath.basename(file_path)
+        
         remote_path = self.webdav_root+self.run_dir+file_basename
-
+        
         if self.webdav.exists(remote_path):
 
             return {"ERROR" : "File path '{0}' already exists on server".format(file_basename)}
@@ -113,7 +114,7 @@ class NextcloudUtil(object):
             'shareWith' : 'useq@umcutrecht.nl'
         }
 
-        response = requests.post("https://{0}/ocs/v1.php/apps/files_sharing/api/v1/shares".format(self.hostname), auth=(self.user, self.password), headers={'OCS-APIRequest':'true','Content-Type': 'application/json'},data=json.dumps(data))
+        response = requests.post("https://{0}/ocs/v2.php/apps/files_sharing/api/v1/shares".format(self.hostname), auth=(self.user, self.password), headers={'OCS-APIRequest':'true','Content-Type': 'application/json'},data=json.dumps(data))
 
         if not response.ok:
             return {"ERROR" : response.raise_for_status()}

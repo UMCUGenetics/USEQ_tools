@@ -188,8 +188,8 @@ def shareRaw(dir,dir_info):
 
         mail_content = renderTemplate('share_raw_template.html', template_data)
         mail_subject = "USEQ sequencing of sequencing-run ID {0} finished".format(dir_info['projects'].keys()[0])
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,dir_info['researcher_email'])
-        
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,dir_info['researcher_email'])
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
         os.remove(run_zip)
         os.remove(run_encrypted)
 
@@ -391,6 +391,7 @@ def run(lims, mode, ids, email, dir):
     nextcloud_util.setHostname( NEXTCLOUD_HOST )
     if mode == 'raw':
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,MAIL_SENDER )
+        
         shareDataById(lims, mode, ids)
     elif mode == 'processed':
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_PROCESSED_DIR,MAIL_SENDER )
