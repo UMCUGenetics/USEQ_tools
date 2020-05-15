@@ -23,10 +23,19 @@ def client_mail(args):
     """Send email to all specific USEQ clients, all clients belonging to an account or a single specific client."""
     utilities.useq_client_mail.run(lims, config.MAIL_SENDER, args.content, args.mode, args.attachment, args.name)
 
-def share_run(args):
-    """Encrypt and Share one or more sequencing runs"""
-    utilities.useq_share_run.run(lims, args.ids)
+def share_data(args):
+    """Encrypt and Share one or more datasets"""
+    utilities.useq_share_run.run(lims, args.mode, args.ids, args.email, args.dir)
 
+def budget_overview(args):
+    utilities.useq_budget_overview.run(lims, args.budgetnrs, args.output_file)
+
+def get_researchers(args):
+    utilities.useq_get_researchers.run(lims)
+
+
+def create_runids(args):
+    utilities.useq_create_runids.run(lims, args.userid, args.application, args.nr)
 
 #Clarity epp scripts
 def run_status_mail(args):
@@ -54,9 +63,9 @@ def close_projects(args):
     epp.useq_close_projects.run(lims, args.step)
 
 #Daemon scripts
-def check_nextcloud_storage(args):
+def nextcloud_monitor(args):
     """Is intended to run as a daemon to check the space remaining on the Nextcloud storage"""
-    daemons.useq_check_nextcloud_storage.run()
+    daemons.useq_nextcloud_monitor.run()
 
 def manage_runs(args):
     """Script responsible for starting conversion, transfer, cleanup and archiving of sequencing runs"""
@@ -89,17 +98,36 @@ if __name__ == "__main__":
     parser_client_mail.add_argument('-a','--attachment', help='Path to attachment file')
     parser_client_mail.set_defaults(func=client_mail)
 
-    parser_share_run = subparser_utilities.add_parser('share_run', help='Encrypts and shares 1 or more sequencing runs to the appropriate client')
-    parser_share_run.add_argument('-i', '--ids', help='One or more Project ID(s) to share, separated by comma')
-    parser_share_run.set_defaults(func=share_run)
+    parser_share_data = subparser_utilities.add_parser('share_data', help='Script support modes raw, processed & manual. For raw & processed the script will search for runs in the raw and processed data directories respectively. For manual the script expects an email and directory.')
+    parser_share_data.add_argument('-m', '--mode', choices=['raw','processed', 'manual'])
+    parser_share_data.add_argument('-i', '--ids', help='One or more Project ID(s) to share, separated by comma.')
+    parser_share_data.add_argument('-e', '--email', help='Email to share data with, only used for manual mode.', default=None)
+    parser_share_data.add_argument('-d', '--dir', help='Directory containing data to share.', default=None)
+    parser_share_data.set_defaults(func=share_data)
+
+    parser_budget_ovw = subparser_utilities.add_parser('budget_overview', help='Get an overview of all costs booked to supplied budget numbers.')
+    parser_budget_ovw.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
+    parser_budget_ovw.add_argument('-b', '--budgetnrs', required=True)
+    parser_budget_ovw.set_defaults(func=budget_overview)
+
+    parser_create_runids = subparser_utilities.add_parser('create_runids', help='Create one or multiple runIDs for a user.')
+    parser_create_runids.add_argument('-u', '--userid', required=True)
+    parser_create_runids.add_argument('-a', '--application', choices=['Sequencing','Fingerprinting'] ,required=True)
+    parser_create_runids.add_argument('-n', '--nr', type=int,required=True)
+    # parser_create_runids.add_argument('-e', '--email', required=True)
+    parser_create_runids.set_defaults(func=create_runids)
+
+    parser_get_researchers = subparser_utilities.add_parser('get_researchers', help='Get all info for all researchers')
+    # parser_get_researchers.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
+    parser_get_researchers.set_defaults(func=get_researchers)
 
     #epp parsers
     parser_epp = subparser.add_parser('epp',help='Clarity epp functions: run_status_mail, modify_samplesheet, group_permissions, finance_overview, route_artifacts, close_projects ')
     subparser_epp = parser_epp.add_subparsers()
 
     parser_run_status_mail = subparser_epp.add_parser('run_status', help='Sends a status email about a run depending on the mode, mail type depends on mode')
-    parser_run_status_mail.add_argument('-m', '--mode' ,choices=['run_started'])
-    parser_run_status_mail.add_argument('-s', '--step_uri', help="The URI of the step that launched this script. Needed for modes: 'run_status'", default=None)
+    parser_run_status_mail.add_argument('-m', '--mode' ,choices=['run_started','run_finished'])
+    parser_run_status_mail.add_argument('-s', '--step_uri', help="The URI of the step that launched this script. Needed for modes: 'run_status', 'run_finished'", default=None)
     parser_run_status_mail.set_defaults(func=run_status_mail)
 
     parser_modify_samplesheet = subparser_epp.add_parser('modify_samplesheet', help='This script is used to modify a samplesheet to work with either NextSeq or MiSeq/HiSeq. Currently all it does is reverse complement the barcodes when needed')
@@ -131,8 +159,8 @@ if __name__ == "__main__":
     parser_daemons = subparser.add_parser('daemons', help='USEQ daemon scripts: check_nextcloud_storage,manage_runs ')
     subparser_daemons = parser_daemons.add_subparsers()
 
-    parser_check_nextcloud_storage = subparser_daemons.add_parser('check_nextcloud_storage', help='Daemon that monitors the NextCloud storage and sends a mail when the threshold has been reached.')
-    parser_check_nextcloud_storage.set_defaults(func=check_nextcloud_storage)
+    parser_nextcloud_monitor = subparser_daemons.add_parser('nextcloud_monitor', help='Daemon that monitors the NextCloud storage and sends a mail when the threshold has been reached.')
+    parser_nextcloud_monitor.set_defaults(func=nextcloud_monitor)
 
     parser_manage_runs = subparser_daemons.add_parser('manage_runs', help='Daemon responsible for starting conversion, transfer, cleanup and archiving of sequencing runs')
     parser_manage_runs.add_argument('-m', '--missing_bcl', help='Run conversion with --ignore-missing-bcls flag', default=False)

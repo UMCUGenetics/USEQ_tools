@@ -7,7 +7,7 @@ from email import encoders
 import mimetypes
 import smtplib
 
-def sendMail(subject, content, sender ,receivers, attachments=None):
+def sendMail(subject, content, sender ,receivers, attachments=None, logo=True):
     """Send email to one or more email addresses, attachment is optional"""
     outer = MIMEMultipart()
     outer[ "Subject" ] = str(subject)
@@ -40,12 +40,13 @@ def sendMail(subject, content, sender ,receivers, attachments=None):
             msg.add_header('Content-ID', '<{}>'.format(attachment_name))
             outer.attach(msg)
 
-    #read the logo and add it to the email
-    fp = open(TEMPLATE_PATH+'/useq_logo.jpg', 'rb')
-    logo_image = MIMEImage(fp.read())
-    fp.close()
-    logo_image.add_header('Content-ID', '<logo_image>')
-    outer.attach(logo_image)
+    if logo:
+        #read the logo and add it to the email
+        fp = open(TEMPLATE_PATH+'/useq_logo.jpg', 'rb')
+        logo_image = MIMEImage(fp.read())
+        fp.close()
+        logo_image.add_header('Content-ID', '<logo_image>')
+        outer.attach(logo_image)
 
     s = smtplib.SMTP( "localhost" )
     s.sendmail( sender, receivers, outer.as_string() )

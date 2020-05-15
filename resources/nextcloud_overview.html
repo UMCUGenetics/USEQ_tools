@@ -1,0 +1,10 @@
+{% extends "useq_mail_template.html" %}
+{% block content %}
+<p>Current usage for directory {{ dir }}: {{total_usage}}</p>
+<table class='useq_table'>
+  <tr><th>File name</th><th>File size</th><th>Share ID</th><th>Upload date</th><th>Downloaded</th><th>Download date</th><th>Downloaded from</th></tr>
+  {% for file in files|sort %}
+  <tr><td>{{ file }}</td> <td>{{ files[file].size }}</td> <td>{{ files[file].share_id }}</td> <td>{{ files[file].mtime }}</td> <td>{{ files[file].downloaded }}</td> <td>{{ files[file].download_dates[-1] }}</td> <td>{{ files[file].downloaded_from[-1] }}</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

@@ -1,9 +1,8 @@
 from genologics.entities import Project
-from config import RUN_PROCESSES,RUN_DIR,NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RUN_DIR,MAIL_SENDER, NEXTCLOUD_USER, NEXTCLOUD_PW
-from os.path import expanduser
+from config import RUN_PROCESSES, RAW_DIR, PROCESSED_DIR, NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,NEXTCLOUD_PROCESSED_DIR,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER, NEXTCLOUD_USER, NEXTCLOUD_PW
+from os.path import expanduser, exists
 from texttable import Texttable
 import datetime
-
 import os
 import multiprocessing
 import subprocess
@@ -17,12 +16,17 @@ GPG_DIR = expanduser("~/.gnupg/")
 
 
 
-def zipRun( project_id, run_dir):
-    run_name = os.path.basename(run_dir)
-    run_zip = "{0}/{1}.tar.gz".format(run_dir,project_id)
+def zipRun( dir, dir_info=None):
+    run_name = os.path.basename(dir)
+    zip_name = None
+    if dir_info:
+        zip_name = "-".join(dir_info['projects'].keys())
+    else:
+        zip_name = os.path.basename(dir)
+    run_zip = "{0}/{1}.tar".format(dir,zip_name)
 
-    with tarfile.open(run_zip, "w:gz") as tar:
-        tar.add(run_dir, arcname=run_name)
+    with tarfile.open(run_zip, "w", dereference=True) as tar:
+        tar.add(dir, arcname=run_name)
 
     return run_zip
 
@@ -33,39 +37,27 @@ def encryptRun( run_zip ,client_mail):
 
     #Wanted to use gnupg module for this, but it doesn't support encrypting 'large' files
     try:
-        subprocess.check_output("gpg --encrypt --output {0} --recipient '{1}' {2}".format(run_encrypted,client_mail, run_zip), shell=True, stderr=subprocess.STDOUT)
+        subprocess.check_output("gpg --compress-algo none --encrypt --output {0} --recipient '{1}' {2}".format(run_encrypted,client_mail, run_zip), shell=True, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         return e.output
 
     return run_encrypted
 
-def shareProcess(project_name, project_id, run_dir,client_mail):
 
+def shareManual(email,dir):
     name = multiprocessing.current_process().name
     print "{0}\tStarting".format(name)
 
-    conversion_stats = parseConversionStats( "{0}/Data/Intensities/BaseCalls/Stats/ConversionStats.xml".format(run_dir) )
-    if not conversion_stats:
-        print "{0}\tError : No ConversionStats.xml file could be found in {1}/Data/Intensities/BaseCalls/Stats/!".format(name,run_dir)
-        return
-
-    expected_yield = parseRunParameters( "{0}/RunParameters.xml".format(run_dir) )
-    if not expected_yield:
-        print "{0}\tError : No RunParameters.xml file could be found in {1}!".format(name,run_dir)
-        return
-
     print "{0}\tRunning compression".format(name)
-    run_zip = zipRun( project_id, run_dir )
-    # run_zip = "{0}/{1}.tar.gz".format(run_dir,project_id)
+    run_zip = zipRun(dir)
     if not os.path.isfile(run_zip):
-        print "{0}\tError : {1}/{2}.tar.gz was not properly created!".format(name,run_dir,project_id)
+        print "{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,os.path.basename(dir))
         return
 
     print "{0}\tRunning encryption".format(name)
-    run_encrypted = encryptRun(run_zip, client_mail)
-    # run_encrypted = "{0}/{1}.tar.gz.gpg".format(run_dir,project_id)
+    run_encrypted = encryptRun(run_zip, email)
     if not os.path.isfile(run_encrypted):
-        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar.gz with error message:\n\t{3}".format(name,run_dir,project_id, run_encrypted)
+        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,os.path.basename(dir), run_encrypted)
         return
 
     print "{0}\tRunning upload to NextCloud".format(name)
@@ -74,15 +66,118 @@ def shareProcess(project_name, project_id, run_dir,client_mail):
         print "{0}\tError : Failed to upload {1} with message:\n\t{2}".format(name, run_encrypted, upload_response["ERROR"])
         return
 
-    print "{0}\tSharing run {1}({2}) with {3}".format(name, project_id, run_dir, client_mail)
-    share_response = nextcloud_util.share(run_encrypted, client_mail)
+    print "{0}\tSharing run {1} with {2}".format(name, dir, email)
+    share_response = nextcloud_util.share(run_encrypted, email)
     if "ERROR" in share_response:
         print "{0}\tError : Failed to share {1} with message:\n\t{2}".format(name, run_encrypted, share_response["ERROR"])
         return
     else:
         share_id = share_response["SUCCES"]
         template_data = {
-            'project_id' : project_id,
+            'dir' : os.path.basename(dir),
+            'nextcloud_host' : NEXTCLOUD_HOST,
+            'share_id' : share_id
+
+        }
+
+        mail_content = renderTemplate('share_manual_template.html', template_data)
+        mail_subject = "USEQ has shared a file with you."
+
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,email)
+        os.remove(run_zip)
+        os.remove(run_encrypted)
+
+    return
+
+def shareProcessed(dir,dir_info):
+    name = multiprocessing.current_process().name
+    print "{0}\tStarting".format(name)
+
+    print "{0}\tRunning compression".format(name)
+    run_zip = zipRun( dir, dir_info )
+    if not os.path.isfile(run_zip):
+        print "{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,dir_info['projects'].keys()[0])
+        return
+
+    print "{0}\tRunning encryption".format(name)
+    run_encrypted = encryptRun(run_zip, dir_info['researcher_email'])
+
+    if not os.path.isfile(run_encrypted):
+        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,dir_info['projects'].keys()[0], run_encrypted)
+        return
+
+    print "{0}\tRunning upload to NextCloud".format(name)
+    upload_response = nextcloud_util.upload(run_encrypted)
+    if "ERROR" in upload_response:
+        print "{0}\tError : Failed to upload {1} with message:\n\t{2}".format(name, run_encrypted, upload_response["ERROR"])
+        return
+
+    print "{0}\tSharing run {1} with {2}".format(name, dir, dir_info['researcher_email'])
+    share_response = nextcloud_util.share(run_encrypted, dir_info['researcher_email'])
+    if "ERROR" in share_response:
+        print "{0}\tError : Failed to share {1} with message:\n\t{2}".format(name, run_encrypted, share_response["ERROR"])
+        return
+    else:
+        share_id = share_response["SUCCES"]
+        template_data = {
+            'project_ids' : ",".join(dir_info['projects'].keys()),
+            'nextcloud_host' : NEXTCLOUD_HOST,
+            'share_id' : share_id
+
+        }
+
+        mail_content = renderTemplate('share_processed_template.html', template_data)
+        mail_subject = "UBEC analysis of sequencing-run ID(s) {0} finished".format(",".join(dir_info['projects'].keys()))
+
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,dir_info['researcher_email'])
+        os.remove(run_zip)
+        os.remove(run_encrypted)
+
+    return
+
+def shareRaw(dir,dir_info):
+
+    name = multiprocessing.current_process().name
+    print "{0}\tStarting".format(name)
+
+    conversion_stats = parseConversionStats( "{0}/Data/Intensities/BaseCalls/Stats/ConversionStats.xml".format(dir) )
+    if not conversion_stats:
+        print "{0}\tError : No ConversionStats.xml file could be found in {1}/Data/Intensities/BaseCalls/Stats/!".format(name,dir)
+        return
+
+    expected_yield = parseRunParameters( "{0}/RunParameters.xml".format(dir) )
+    if not expected_yield:
+        print "{0}\tError : No RunParameters.xml file could be found in {1}!".format(name,dir)
+        return
+
+    print "{0}\tRunning compression".format(name)
+    run_zip = zipRun( dir, dir_info )
+    if not os.path.isfile(run_zip):
+        print "{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,dir_info['projects'].keys()[0])
+        return
+
+    print "{0}\tRunning encryption".format(name)
+    run_encrypted = encryptRun(run_zip, dir_info['researcher_email'])
+
+    if not os.path.isfile(run_encrypted):
+        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,dir_info['projects'].keys()[0], run_encrypted)
+        return
+
+    print "{0}\tRunning upload to NextCloud".format(name)
+    upload_response = nextcloud_util.upload(run_encrypted)
+    if "ERROR" in upload_response:
+        print "{0}\tError : Failed to upload {1} with message:\n\t{2}".format(name, run_encrypted, upload_response["ERROR"])
+        return
+
+    print "{0}\tSharing run {1} with {2}".format(name, dir, dir_info['researcher_email'])
+    share_response = nextcloud_util.share(run_encrypted, dir_info['researcher_email'])
+    if "ERROR" in share_response:
+        print "{0}\tError : Failed to share {1} with message:\n\t{2}".format(name, run_encrypted, share_response["ERROR"])
+        return
+    else:
+        share_id = share_response["SUCCES"]
+        template_data = {
+            'project_id' : dir_info['projects'].keys()[0],
             'nextcloud_host' : NEXTCLOUD_HOST,
             'share_id' : share_id,
             'expected_reads' : expected_yield,
@@ -91,22 +186,24 @@ def shareProcess(project_name, project_id, run_dir,client_mail):
             'conversion_stats' : conversion_stats
         }
 
-        mail_content = renderTemplate('run_share_template.html', template_data)
-        mail_subject = "USEQ sequencing of sequencing-run ID {0} finished".format(project_id)
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,client_mail)
-
+        mail_content = renderTemplate('share_raw_template.html', template_data)
+        mail_subject = "USEQ sequencing of sequencing-run ID {0} finished".format(dir_info['projects'].keys()[0])
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,dir_info['researcher_email'])
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
         os.remove(run_zip)
         os.remove(run_encrypted)
 
     return
 
-def check( run_info):
+def check( run_info ):
 
-    print "\nAre you sure you want to send the following run(s) (yes/no): "
+    print "\nAre you sure you want to send the following datasets(s) (yes/no): "
     table = Texttable(max_width=0)
-    table.add_rows([['Project ID','Project Name','Run Dir','Client Email']])
-    for project in run_info:
-        table.add_row( [ project['project_id'],project['project_name'],project['run_dir'],project['researcher_email'] ])
+
+    table.add_rows([['Dir','Project(s) (ID:Name)','Client Email']])
+    for datadir in run_info:
+        projects = ",".join( ["{0}:{1}".format(id,name) for id,name in run_info[datadir]['projects'].iteritems() ] )
+        table.add_row( [ datadir, projects, run_info[datadir]['researcher_email'] ])
     print table.draw()
 
     yes = set(['yes','y', 'ye', ''])
@@ -120,9 +217,50 @@ def check( run_info):
        sys.stdout.write("Please respond with 'yes' or 'no'")
     return choice
 
+def getProcessedData( lims, project_name, project_id ):
+    """Get the most recent processed run info based on project name and allowed RUN_PROCESSES"""
+    runs = []
 
-def getRunInfo( lims, project_name ):
-    """Get the most recent run info based on project name and allowed RUN_PROCESSES"""
+    project_processes = lims.get_processes(
+        projectname=project_name,
+        type=RUN_PROCESSES
+    )
+
+    for process in project_processes:
+        run_id = None
+        flowcell_id = None
+        if 'Run ID' in process.udf:
+            run_id = process.udf['Run ID']
+            for path in os.listdir(PROCESSED_DIR):
+                if os.path.isdir( os.path.join( PROCESSED_DIR, path, run_id)):
+                    return os.path.join( PROCESSED_DIR, path, run_id)
+
+
+        if 'Flow Cell ID' in process.udf:
+            flowcell_id = process.udf['Flow Cell ID']
+            for root,dirs,files in os.walk(PROCESSED_DIR, topdown=True):
+                for dir in dirs:
+                    path = os.path.join(root,dir)
+                    if path.endswith("_000000000-"+flowcell_id): #MiSeq
+                        return path
+
+                    elif path.endswith("_"+flowcell_id): #NextSeq
+                        return path
+
+                    elif path.endswith("A"+flowcell_id) or path.endswith("B"+flowcell_id): #HiSeq
+                        return path
+
+        for root,dirs,files in os.walk(PROCESSED_DIR, topdown=True):
+            for dir in dirs:
+                path = os.path.join(root,dir)
+                if project_id in path:
+                    return path
+
+        return
+
+
+def getRawData( lims, project_name ):
+    """Get the most recent raw run info based on project name and allowed RUN_PROCESSES"""
     runs = {}
 
     project_processes = lims.get_processes(
@@ -146,30 +284,41 @@ def getRunInfo( lims, project_name ):
 
     #Try to determine run directory
     if recent_run[0]: #run name is known
-        for path in os.listdir(RUN_DIR):
-            if os.path.isdir( os.path.join( RUN_DIR, path, recent_run[0])):
-                recent_run.append( os.path.join( RUN_DIR, path, recent_run[0]) )
-                break
+        for path in os.listdir(RAW_DIR):
+            if os.path.isdir( os.path.join( RAW_DIR, path, recent_run[0])):
+                return os.path.join( RAW_DIR, path, recent_run[0])
+
     elif recent_run[1]: #run flowcell is known
-        for root,dirs,files in os.walk(RUN_DIR, topdown=True):
+        for root,dirs,files in os.walk(RAW_DIR, topdown=True):
             for dir in dirs:
                 path = os.path.join(root,dir)
                 if path.endswith("_000000000-"+recent_run[1]): #MiSeq
-                    recent_run.append( path )
-                    break
+                    return path
                 elif path.endswith("_"+recent_run[1]): #NextSeq
-                    recent_run.append( path )
-                    break
+                    return path
                 elif path.endswith("A"+recent_run[1]) or path.endswith("B"+recent_run[1]): #HiSeq
-                    recent_run.append( path )
-                    break
+                    return path
 
-    return recent_run
+def shareDataByEmail(lims, email, dir):
+    if not email.lower() in gpg_key_list:
+        print "Error : No public key found for email {0}".format(email)
+        sys.exit()
+    if not exists(dir):
+        print "Error : Directory {0} not found".format(dir)
 
-def sendRuns(lims, ids):
+    dir = dir.rstrip('/')
+    share_processes = []
+    share_process = multiprocessing.Process(name="Process_{0}".format(os.path.basename(dir)), target=shareManual, args=(email, dir) )
+    share_processes.append(share_process)
+    share_process.start()
+
+    for process in share_processes:
+        process.join()
+
+def shareDataById(lims, mode,ids):
     """Get's the run names, encrypts the run data and sends it to the appropriate client"""
     project_ids = ids.split(",")
-    run_info = []
+    run_info = {}
 
     for project_id in project_ids:
         project = None
@@ -188,37 +337,44 @@ def sendRuns(lims, ids):
             continue
 
         #Get run info
-        info = getRunInfo(lims, project_name)
-        if not info:
-            print "Error : No run dir could be found for project ID {0}!".format(project_id)
+        info = None
+        if mode == 'raw' :
+            datadir = getRawData(lims, project_name)
+        else :
+            datadir = getProcessedData(lims, project_name, project_id)
+
+        if not datadir:
+            print "Error : No dir could be found for project ID {0}!".format(project_id)
             continue
 
         #Got all the info we need
-        run_info.append({
-            'project_id' : project_id,
-            'project_name' : project_name,
-            'run_name' : info[0],
-            'run_flowcell' : info[1],
-            'run_dir' : info[2],
-            'researcher_email' : researcher.email
+        if datadir not in run_info:
+            run_info[datadir] = {
+                'researcher_email' : researcher.email,
+                'projects' : {}
+            }
 
-        })
+        run_info[datadir]['projects'][project_id] = project_name
+
     if not run_info:
         print "Error : None of the provided project IDs are able to be processed!"
     elif check(run_info):
         #Start sharing threads
-        share_processes = []
-        for project in run_info:
-            share_process = multiprocessing.Process(name="Process_{0}".format(project['project_id']), target=shareProcess, args=(project['project_name'], project['project_id'], project['run_dir'],project['researcher_email']) )
+        share_processes =[]
+        for datadir in run_info:
+            share_process = None
+            if mode == 'raw':
+                share_process = multiprocessing.Process(name="Process_{0}".format(os.path.basename(datadir)), target=shareRaw, args=(datadir, run_info[datadir]) )
+            else:
+                share_process = multiprocessing.Process(name="Process_{0}".format(os.path.basename(datadir)), target=shareProcessed, args=(datadir, run_info[datadir]) )
             share_processes.append(share_process)
             share_process.start()
 
         for process in share_processes:
             process.join()
 
-
-def run(lims, ids):
-    """Runs sendRuns function and not much else"""
+def run(lims, mode, ids, email, dir):
+    """Runs raw, processed or manual function based on mode"""
     import gnupg
     global gpg
     global gpg_key_list
@@ -233,6 +389,13 @@ def run(lims, ids):
     #Set up nextcloud
     nextcloud_util = NextcloudUtil()
     nextcloud_util.setHostname( NEXTCLOUD_HOST )
-    nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RUN_DIR,MAIL_SENDER )
-
-    sendRuns(lims,ids)
+    if mode == 'raw':
+        nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,MAIL_SENDER )
+        
+        shareDataById(lims, mode, ids)
+    elif mode == 'processed':
+        nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_PROCESSED_DIR,MAIL_SENDER )
+        shareDataById(lims, mode, ids)
+    else:
+        nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER )
+        shareDataByEmail(lims, email, dir)
