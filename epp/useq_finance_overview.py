@@ -57,6 +57,7 @@ def getAllCosts():
 	costs_lower['sp : 2 x 250 bp'] = costs_lower[ 'novaseq 6000 sp 2 x 250 bp']
 	costs_lower['1 x minion flowcell' ] = costs_lower[ 'nanopore minion 1 x flowcell']
 	costs_lower['1 x promethion flowcell' ] = costs_lower[ 'nanopore promethion 1 x flowcell']
+	costs_lower['1 x flongle flowcell'] = costs_lower[ 'nanopore flongle 1 x flowcell']
 	costs_lower['snp open array (60 snps)' ] = costs_lower[ 'snp open array (60 snps)']
 	# print costs_lower
 	return costs_lower
@@ -120,13 +121,16 @@ def getSeqFinance(lims, step_uri):
 
 			runs[pool.id]['requested_runtype'].add(sample.udf['Sequencing Runtype'])
 			runs[pool.id]['platform'] = sample.udf['Platform']
-			# runs[pool.id]['requested_analysis'].add(sample.udf['Analysis'])
 
 			sample_artifacts = lims.get_artifacts(samplelimsid=sample.id)
+
 			for sample_artifact in sample_artifacts:
+
+
 
 				if not sample_artifact.parent_process: continue
 				process_name = sample_artifact.parent_process.type.name
+
 
 				if process_name in ISOLATION_PROCESSES and runs[pool.id]['requested_runtype'] != 'WGS at HMF':
 					isolation_type = "{0} isolation".format(sample_artifact.udf['US Isolation Type'].split(" ")[0].lower())
@@ -157,20 +161,12 @@ def getSeqFinance(lims, step_uri):
 					runs[pool.id]['total_personell_costs'] += float(all_costs[ lims_library_prep][ 'date_personell_costs' ][ billing_date ])
 					runs[pool.id]['libprep_date'].add(sample_artifact.parent_process.date_run)
 
-					# if sample.udf['Library prep kit'] == 'Truseq RNA stranded polyA' and 'libprep rna stranded polya' not in runs[pool.id]['lims_library_prep']:
-					# 	runs[pool.id]['errors'].add("Libprep type {0} in LIMS doesn't match libprep type {1}".format(runs[pool.id]['lims_library_prep'],sample.udf['Library prep kit']))
-					#
-					# elif sample.udf['Library prep kit'] == 'Truseq RNA stranded ribo-zero' and 'libprep rna stranded ribo-zero' not in runs[pool.id]['lims_library_prep'] :
-					# 	runs[pool.id]['errors'].add("Libprep type {0} in LIMS doesn't match libprep type {1}".format(runs[pool.id]['lims_library_prep'],sample.udf['Library prep kit']))
-					#
-					# elif sample.udf['Library prep kit'] == 'Truseq DNA nano' and 'libprep dna' not in runs[pool.id]['lims_library_prep'] :
-					# 	runs[pool.id]['errors'].add("Libprep type {0} in LIMS doesn't match libprep type {1}".format(runs[pool.id]['lims_library_prep'],sample.udf['Library prep kit']))
 
 				elif process_name in RUN_PROCESSES and not runs[pool.id]['lims_runtype']:
 					protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 					runs[pool.id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
+					# print runs[pool.id]['requested_runtype'],runs[pool.id]['lims_runtype']
 					requested_runtype = sample.udf['Sequencing Runtype'].lower()
-
 
 					billing_date = getNearestBillingDate(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
 					if requested_runtype == 'WGS at HMF':
@@ -230,6 +226,18 @@ def getSeqFinance(lims, step_uri):
 					runs[pool.id]['total_personell_costs'] += analysis_personell_costs
 					if runs[pool.id]['requested_analysis'] != runs[pool.id]['lims_analysis']:
 						runs[pool.id]['errors'].add("Analysis type {0} in LIMS doesn't match analysis {1}".format(runs[pool.id]['lims_analysis'], runs[pool.id]['requested_analysis']))
+
+
+				elif runs[pool.id]['platform'] == 'Oxford Nanopore' and not runs[pool.id]['lims_runtype'] and process_name == 'USEQ - Library Pooling':
+					#Nanopore fix, since sequencing step does not produce derived samples
+					runs[pool.id]['lims_runtype'] = sample.udf['Sequencing Runtype'].lower()
+					requested_runtype = sample.udf['Sequencing Runtype'].lower()
+					billing_date = getNearestBillingDate(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
+					runs[pool.id]['run_step_costs'] = float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ])
+					runs[pool.id]['run_personell_costs'] = float(all_costs[ requested_runtype ][ 'date_personell_costs' ][ billing_date ])
+					runs[pool.id]['total_step_costs'] += float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ])
+					runs[pool.id]['total_personell_costs'] += float(all_costs[ requested_runtype ][ 'date_personell_costs' ][ billing_date ])
+					runs[pool.id]['run_date'] = sample_artifact.parent_process.date_run
 
 			#Get billing specific info
 			if not runs[pool.id]['name'] :
