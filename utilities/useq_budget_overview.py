@@ -4,30 +4,21 @@ from config import COST_DB,RUN_PROCESSES,ISOLATION_PROCESSES,LIBPREP_PROCESSES,A
 import re
 import sys
 import json
-import urllib2
+import urllib
 
 def getAllCosts():
 	"""Retrieves costs from cost db"""
 	costs_json = ""
 	try:
-		costs_json = urllib2.urlopen( COST_DB ).read()
-	except urllib2.HTTPError, e:
+		costs_json = urllib.urlopen( COST_DB ).read()
+	except urllib.error.HTTPError as e:
 		sys.exit(e.msg)
-	except urllib2.URLError, e:
+	except urllib.error.URLError as e:
 		sys.exit(e.read())
 	except:
 		sys.exit( str(sys.exc_type) + str(sys.exc_value) )
 
 	costs = json.loads(costs_json)
-
-	#Add costs that are not yet in the cost db
-	# costs['Mapping WGS'] = {'type_name' : 'Analysis', 'step_input' : 'Sample', 'date_costs' : {'2018-04-15' : 50} }
-	# costs['Mapping RNA'] = {'type_name' : 'Analysis', 'step_input' : 'Sample', 'date_costs' : {'2018-04-15' : 5} }
-	# costs['Germline SNV/InDel calling'] = {'type_name' : 'Analysis', 'step_input' : 'Sample', 'date_costs' : {'2018-04-15' : 0} }
-	# costs['CNV + SV calling'] = {'type_name' : 'Analysis', 'step_input' : 'Sample', 'date_costs' : {'2018-04-15' : 15} }
-	# costs['Somatic calling (tumor/normal pair)'] = {'type_name' : 'Analysis', 'step_input' : 'Sample', 'date_costs' : {'2018-04-15' : 10} }
-	# costs['Read count analysis (mRNA)'] = {'type_name' : 'Analysis', 'step_input' : 'Sample', 'date_costs' : {'2018-04-15' : 5} }
-	# costs['Differential expression analysis + figures (mRNA)'] = {'type_name' : 'Analysis', 'step_input' : 'Sample', 'date_costs' : {'2018-04-15' : 5} }
 
 	costs_lower = dict( (k.lower(), v) for k,v in costs.iteritems())
 	#Do some (unfortunately) neccessary name conversions
@@ -40,12 +31,12 @@ def getAllCosts():
 	costs_lower['truseq rna stranded ribo-zero'] = costs_lower['truseq rna stranded ribozero (human, mouse, rat)']
 	costs_lower['libprep rna stranded ribo-zero'] = costs_lower['truseq rna stranded ribozero (human, mouse, rat)']
 	costs_lower['open snp array'] = costs_lower['snp open array (60 snps)']
-	# print costs_lower
+
 	return costs_lower
 
 def getNearestBillingDate(all_costs, step ,step_date):
 	billing_date = ''
-	# print step
+
 	for date in sorted(all_costs[ step ][ 'date_step_costs'].keys() ):
 
 		if date <= step_date:
@@ -58,17 +49,17 @@ def getNearestBillingDate(all_costs, step ,step_date):
 
 def getStepProtocol(lims, step_id=None, step_uri=None):
 	protocol_name = None
-	# print step_id,step_uri
+
 	if step_uri:
 		step_config = Step(lims, uri=step_uri).configuration
 		protocol_uri = re.sub("\/steps\/\d+","",step_config.uri)
 		protocol_name = ProtocolStep(lims, uri=protocol_uri).name
 	else:
 		step_config = Step(lims, id=step_id).configuration
-		# print step_config.uri
+
 		protocol_uri = re.sub("\/steps\/\d+","",step_config.uri)
 		protocol_name = ProtocolStep(lims, uri=protocol_uri).name
-		# print protocol_name
+
 	return protocol_name
 
 
@@ -144,8 +135,7 @@ def getOverview(lims,bnr):
 					lims_library_prep = protocol_name.split(":",1)[1].lower().strip()
 
 				ovw_seq[project.id]['lims_library_prep'].add(lims_library_prep)
-# print protocol_name, lims_library_prep
-# lims_library_prep
+
 				billing_date = getNearestBillingDate(all_costs, lims_library_prep , sample_artifact.parent_process.date_run)
 				ovw_seq[project.id]['libprep_step_costs'] += float(all_costs[ lims_library_prep][ 'date_step_costs' ][ billing_date ])
 				ovw_seq[project.id]['libprep_personell_costs'] += float(all_costs[ lims_library_prep][ 'date_personell_costs' ][ billing_date ])
@@ -305,16 +295,16 @@ def getOverview(lims,bnr):
 		ovw_snp[id]['plate_personell_costs'] = (plate_personell_costs / 45) * nr_samples
 
 
-	print"Sequencing for {0}:".format(bnr)
-	print renderTemplate('seq_finance_overview_template.csv', {'runs':ovw_seq})
+	print ("Sequencing for {0}:".format(bnr))
+	print (renderTemplate('seq_finance_overview_template.csv', {'runs':ovw_seq}))
 
-	print"Fingerprinting for {0}:".format(bnr)
-	print renderTemplate('snp_finance_overview_template.csv', {'runs':ovw_snp})
+	print ("Fingerprinting for {0}:".format(bnr))
+	print (renderTemplate('snp_finance_overview_template.csv', {'runs':ovw_snp}))
 
 
 def run(lims, budget_numbers, output_file):
 
 
     for bnr in budget_numbers.split(','):
-        # print bnr
+
         getOverview(lims, bnr)

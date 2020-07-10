@@ -14,17 +14,17 @@ def renderTemplate(template_filename, data):
     def stringsToUnicode(data):
         """Convert strings to utf8 encoding"""
         if isinstance(data, dict):
-            for k,v in data.iteritems():
+            for k,v in data.items():
                 if isinstance(v, dict):
                     stringsToUnicode(v)
                 elif isinstance(v, list):
                     for i in range(len(v)):
                         stringsToUnicode(v[i])
                 elif isinstance(v, set):
-                    data[k] = unicode(",".join(v), "utf8")
+                    data[k] = ",".join(v)
                 elif isinstance(v, str):
-                    data[k] = unicode(v, "utf8")
-        
+                    data[k] = v
+
 
     stringsToUnicode(data)
 

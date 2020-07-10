@@ -4,16 +4,16 @@ from config import COST_DB,RUN_PROCESSES,ISOLATION_PROCESSES,LIBPREP_PROCESSES,A
 import re
 import sys
 import json
-import urllib2
+import urllib
 
 def getAllCosts():
 	"""Retrieves costs from cost db"""
 	costs_json = ""
 	try:
 		costs_json = urllib2.urlopen( COST_DB ).read()
-	except urllib2.HTTPError, e:
+	except urllib.error.HTTPError as e:
 		sys.exit(e.msg)
-	except urllib2.URLError, e:
+	except urllib.error.URLError as e:
 		sys.exit(e.read())
 	except:
 		sys.exit( str(sys.exc_type) + str(sys.exc_value) )
@@ -59,7 +59,7 @@ def getAllCosts():
 	costs_lower['1 x promethion flowcell' ] = costs_lower[ 'nanopore promethion 1 x flowcell']
 	costs_lower['1 x flongle flowcell'] = costs_lower[ 'nanopore flongle 1 x flowcell']
 	costs_lower['snp open array (60 snps)' ] = costs_lower[ 'snp open array (60 snps)']
-	# print costs_lower
+
 	return costs_lower
 
 def getNearestBillingDate(all_costs, step ,step_date):
@@ -165,7 +165,7 @@ def getSeqFinance(lims, step_uri):
 				elif process_name in RUN_PROCESSES and not runs[pool.id]['lims_runtype']:
 					protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 					runs[pool.id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
-					# print runs[pool.id]['requested_runtype'],runs[pool.id]['lims_runtype']
+
 					requested_runtype = sample.udf['Sequencing Runtype'].lower()
 
 					billing_date = getNearestBillingDate(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
@@ -242,7 +242,7 @@ def getSeqFinance(lims, step_uri):
 			#Get billing specific info
 			if not runs[pool.id]['name'] :
 				runs[pool.id]['first_submission_date'] = sample.date_received
-				# print pool.id
+
 				if 'Sequencing Succesful' in pool.udf : runs[pool.id]['succesful'] = pool.udf['Sequencing Succesful']
 				runs[pool.id]['name'] = sample.project.name
 				runs[pool.id]['id'] = sample.project.id
@@ -256,7 +256,7 @@ def getSeqFinance(lims, step_uri):
 				if 'Budget Number' in sample.udf:
 					runs[pool.id]['budget_nr'] = sample.udf['Budget Number']
 				else:
-					print "No Budgetnumber:", sample.project.id
+					print ("No Budgetnumber:", sample.project.id)
 				runs[pool.id]['institute'] = sample.project.researcher.lab.billing_address['institution']
 				runs[pool.id]['postalcode'] = sample.project.researcher.lab.billing_address['postalCode']
 				runs[pool.id]['city'] = sample.project.researcher.lab.billing_address['city']

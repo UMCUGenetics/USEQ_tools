@@ -1,4 +1,4 @@
-from useq_template import TEMPLATE_PATH
+from modules.useq_template import TEMPLATE_PATH
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from email.mime.base import MIMEBase
@@ -13,7 +13,7 @@ def sendMail(subject, content, sender ,receivers, attachments=None, logo=True):
     outer[ "Subject" ] = str(subject)
     outer[ "From" ] = sender
     outer[ "BCC" ] = ", ".join(receivers)
-    outer.attach( MIMEText(content.encode('utf-8'), 'html') )
+    outer.attach( MIMEText(content, 'html') )
 
     if attachments:
         for attachment_name, attachment in attachments.iteritems():
