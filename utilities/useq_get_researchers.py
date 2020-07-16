@@ -27,11 +27,8 @@ def getResearchers(lims):
         except:
             line.append(u'{}'.format('NA'))
 
-        # print ",".join(line)
 
-        # output.write( "" )
-        # print u'\t'.join(line).encode('utf-8').strip()
-        print '\t'.join( (v) for v in line)
+        print ('\t'.join( (v) for v in line))
 
         # line = ",".join(line)
 

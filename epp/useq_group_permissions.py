@@ -8,7 +8,7 @@ def checkUser(lims, step_uri, groups):
 	lab_name = user.lab.name
 	groups = groups.split(",")
 	if lab_name not in groups:
-		print "User %s %s in %s has not been approved to run steps in this protocol." % ( user.first_name, user.last_name, lab_name )
+		print ("User %s %s in %s has not been approved to run steps in this protocol." % ( user.first_name, user.last_name, lab_name ))
 		exit(-1)
 
 def run(lims, step_uri, groups):

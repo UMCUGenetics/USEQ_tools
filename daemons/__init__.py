@@ -1,2 +1,2 @@
-import useq_nextcloud_monitor
-import useq_manage_runs
+import daemons.useq_nextcloud_monitor
+import daemons.useq_manage_runs

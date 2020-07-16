@@ -7,7 +7,7 @@ def routeArtifacts(lims, step_uri, input):
     step = Step(lims, uri=step_uri)
 
     current_step = step.configuration.name
-    print current_step
+
     to_route = {}
     for io_map in step.details.input_output_maps:
         artifact = None
@@ -34,20 +34,20 @@ def routeArtifacts(lims, step_uri, input):
                     next_step = STEP_URIS[ 'USEQ - Fingerprinting' ]
         elif current_step in STEP_NAMES['LIBPREP']:
             next_step = STEP_URIS[ 'USEQ - Library Pooling' ]
-            # print 'Libprep, next step:',next_step
+
         elif current_step in STEP_NAMES['POOLING']:
             sample_type = first_sample.udf['Sample Type']
             if sample_type == 'DNA library' or sample_type == 'RNA library': #Go to pool QC
                 next_step = STEP_URIS['USEQ - Pool QC']
             else:#Pool QC has already been done
                 next_step = STEP_URIS[ first_sample.udf['Platform'] ]
-            # print 'Pooling, next step:',next_step
+
         elif current_step in STEP_NAMES['POOL QC']:
             next_step = STEP_URIS[ first_sample.udf['Platform'] ]
-            # print 'Pool QC, next step:',next_step
+
         elif current_step in STEP_NAMES['SEQUENCING']:
             next_step = STEP_URIS['USEQ - Post Sequencing']
-            # print 'Sequencing, next step:',next_step
+
         elif current_step in STEP_NAMES['POST SEQUENCING']:
             sample_analyses = None
             if 'Analysis' in first_sample.udf:
@@ -60,7 +60,7 @@ def routeArtifacts(lims, step_uri, input):
             else:
                 next_step = STEP_URIS['USEQ - Analysis']
                 run_finished(lims,MAIL_SENDER, MAIL_ANALYSIS, artifact )
-            # print 'Post sequencing, next step:',next_step
+
 
         if next_step not in to_route:
             to_route[ next_step ] = []

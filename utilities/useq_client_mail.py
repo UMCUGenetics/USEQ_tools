@@ -20,16 +20,16 @@ def parseContent(content):
     return mail
 
 def check(mail,email_addresses ):
-    print "You're about to send the following email :"
-    print "Subject : " + str(mail['subject'])
-    print "Content : \n" + mail['content']
-    print "To:"
-    print "\t".join( sorted(email_addresses) )
-    print "Are you sure? Please respond with (y)es or (n)o."
+    print ("You're about to send the following email :")
+    print ("Subject : " + str(mail['subject']))
+    print ("Content : \n" + mail['content'])
+    print ("To:")
+    print ("\t".join( sorted(email_addresses) ))
+    print ("Are you sure? Please respond with (y)es or (n)o.")
 
     yes = set(['yes','y', 'ye', ''])
     no = set(['no','n'])
-    choice = raw_input().lower()
+    choice = input().lower()
     if choice in yes:
        choice = True
     elif choice in no:
