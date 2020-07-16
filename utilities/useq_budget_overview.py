@@ -10,17 +10,17 @@ def getAllCosts():
 	"""Retrieves costs from cost db"""
 	costs_json = ""
 	try:
-		costs_json = urllib.urlopen( COST_DB ).read()
+		costs_json = urllib.request.urlopen( COST_DB ).read()
 	except urllib.error.HTTPError as e:
 		sys.exit(e.msg)
 	except urllib.error.URLError as e:
 		sys.exit(e.read())
 	except:
-		sys.exit( str(sys.exc_type) + str(sys.exc_value) )
+		sys.exit( str(sys.exc_info()[0:2]) )
 
 	costs = json.loads(costs_json)
 
-	costs_lower = dict( (k.lower(), v) for k,v in costs.iteritems())
+	costs_lower = dict( (k.lower(), v) for k,v in costs.items())
 	#Do some (unfortunately) neccessary name conversions
 	costs_lower['libprep dna'] = costs_lower['truseq dna nano']
 	costs_lower['truseq dna nano (manual)'] = costs_lower['truseq dna nano']

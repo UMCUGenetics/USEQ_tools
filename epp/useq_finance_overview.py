@@ -10,7 +10,7 @@ def getAllCosts():
 	"""Retrieves costs from cost db"""
 	costs_json = ""
 	try:
-		costs_json = urllib2.urlopen( COST_DB ).read()
+		costs_json = urllib.request.urlopen( COST_DB ).read()
 	except urllib.error.HTTPError as e:
 		sys.exit(e.msg)
 	except urllib.error.URLError as e:
@@ -20,7 +20,7 @@ def getAllCosts():
 
 	costs = json.loads(costs_json)
 
-	costs_lower = dict( (k.lower(), v) for k,v in costs.iteritems())
+	costs_lower = dict( (k.lower(), v) for k,v in costs.items())
 	#Do some (unfortunately) neccessary name conversions
 	costs_lower['libprep dna'] = costs_lower['truseq dna nano']
 	costs_lower['libprep ont dna'] = costs_lower['nanopore library prep']
@@ -39,6 +39,8 @@ def getAllCosts():
 	costs_lower['high output : 2 x 75 bp' ] = costs_lower[ 'nextseq500 2 x 75 bp high output']
 	costs_lower['high output : 2 x 150 bp' ] = costs_lower[ 'nextseq500 2 x 150 bp high output']
 	costs_lower['v2 kit : 1 x 50 bp' ] = costs_lower[ 'miseq 1 x 50 bp v2 kit']
+	costs_lower['v2 kit (nano) : 1 x 300 bp' ] = costs_lower[ 'miseq 1x300 bp v2 kit (nano)']
+	costs_lower['v2 kit (micro) : 1 x 300 bp' ] = costs_lower[ 'miseq 1x300 bp v2 kit (micro)']
 	costs_lower['v2 kit : 2 x 150 bp' ] = costs_lower[ 'miseq 2 x 150 bp v2 kit']
 	costs_lower['v2 kit : 2 x 250 bp' ] = costs_lower[ 'miseq 2 x 250 bp v2 kit']
 	costs_lower['v3 kit : 2 x 75 bp' ] = costs_lower[ 'miseq 2 x 75 bp v3 kit']
@@ -59,6 +61,11 @@ def getAllCosts():
 	costs_lower['1 x promethion flowcell' ] = costs_lower[ 'nanopore promethion 1 x flowcell']
 	costs_lower['1 x flongle flowcell'] = costs_lower[ 'nanopore flongle 1 x flowcell']
 	costs_lower['snp open array (60 snps)' ] = costs_lower[ 'snp open array (60 snps)']
+	costs_lower['1 x 36 bp'] = costs_lower['iseq 100 1 x 36 bp']
+	costs_lower['1 x 50 bp'] = costs_lower['iseq 100 1 x 50 bp']
+	costs_lower['1 x 75 bp'] = costs_lower['iseq 100 1 x 75 bp']
+	costs_lower['2 x 75 bp'] = costs_lower['iseq 100 2 x 75 bp']
+	costs_lower['2 x 150 bp'] = costs_lower['iseq 100 2 x 150 bp']
 
 	return costs_lower
 
@@ -167,7 +174,7 @@ def getSeqFinance(lims, step_uri):
 					runs[pool.id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 
 					requested_runtype = sample.udf['Sequencing Runtype'].lower()
-
+					print(sample.project.name + ' ' + protocol_name + ' ' + requested_runtype)
 					billing_date = getNearestBillingDate(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
 					if requested_runtype == 'WGS at HMF':
 						runs[pool.id]['run_step_costs'] = float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ]) * len(pool.samples)
@@ -354,7 +361,7 @@ def run(lims, step_uri, output_file):
 
 	if protocol_name.startswith("USEQ - Post Sequencing"):
 		finance_table = getSeqFinance(lims,step_uri)
-		output_file.write(finance_table.encode('utf-8'))
+		output_file.write(finance_table)
 	elif protocol_name.startswith("USEQ - Post Fingerprinting"):
 		finance_table = getSnpFinance(lims, step_uri)
-		output_file.write(finance_table.encode('utf-8'))
+		output_file.write(finance_table)

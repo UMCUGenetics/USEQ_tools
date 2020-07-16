@@ -29,7 +29,7 @@ def check(mail,email_addresses ):
 
     yes = set(['yes','y', 'ye', ''])
     no = set(['no','n'])
-    choice = raw_input().lower()
+    choice = input().lower()
     if choice in yes:
        choice = True
     elif choice in no:

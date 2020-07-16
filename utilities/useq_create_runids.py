@@ -11,7 +11,7 @@ def check( lab_name, project_names ):
 
     yes = set(['yes','y'])
     no = set(['no','n'])
-    choice = raw_input().lower()
+    choice = input().lower()
     if choice in yes:
         choice = True
     elif choice in no:

@@ -16,7 +16,7 @@ def sendMail(subject, content, sender ,receivers, attachments=None, logo=True):
     outer.attach( MIMEText(content, 'html') )
 
     if attachments:
-        for attachment_name, attachment in attachments.iteritems():
+        for attachment_name, attachment in attachments.items():
             file_name = attachment.split('/')[-1]
             ctype, encoding = mimetypes.guess_type(attachment)
             if ctype is None or encoding is not None:

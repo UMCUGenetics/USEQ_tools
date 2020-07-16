@@ -202,13 +202,13 @@ def check( run_info ):
 
     table.add_rows([['Dir','Project(s) (ID:Name)','Client Email']])
     for datadir in run_info:
-        projects = ",".join( ["{0}:{1}".format(id,name) for id,name in run_info[datadir]['projects'].iteritems() ] )
+        projects = ",".join( ["{0}:{1}".format(id,name) for id,name in run_info[datadir]['projects'].items() ] )
         table.add_row( [ datadir, projects, run_info[datadir]['researcher_email'] ])
     print (table.draw())
 
     yes = set(['yes','y', 'ye', ''])
     no = set(['no','n'])
-    choice = raw_input().lower()
+    choice = input().lower()
     if choice in yes:
        choice = True
     elif choice in no:

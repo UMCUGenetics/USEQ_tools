@@ -89,7 +89,7 @@ def edit(lims, csv, acc):
     account_update = parseAccountCSV(csv)
 
     print ("Is this correct (Y/N)?")
-    go = raw_input()
+    go = input()
     if go == 'Y':
         account.name = account_update['account_name']
         account.website = account_update['account_website']
@@ -121,7 +121,7 @@ def retrieve(lims, csv, acc):
     print ("Writing results to {0}".format(csv))
     # unicode(, "utf8")
     with open(csv, 'w') as csv_file:
-        csv_file.write(  getAccountCSV(account).encode('utf-8') )
+        csv_file.write(  getAccountCSV(account) )
 
 def run(lims, mode, csv, lab=None):
     """Run create,edit or retrieve function based on mode"""
