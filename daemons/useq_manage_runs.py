@@ -162,8 +162,7 @@ def conversionSuccesMail(run_dir, experiment_name, project_name):
     content = None
     expected_reads = parseRunParameters( "{0}/RunParameters.xml".format(run_dir) )
     conversion_stats = parseConversionStats( "{0}/Data/Intensities/BaseCalls/Stats/ConversionStats.xml".format(run_dir) )
-    # print conversion_stats, "\n\n"
-    # print conversion_stats['unknown']
+
     attachments = {
         'zip_file': '{}/{}_Reports.zip'.format(run_dir, run_name),
         'basepercent_by_cycle_plot': '{}/Data/Intensities/BaseCalls/Stats/{}_BasePercent-by-cycle_BasePercent.png'.format(run_dir, run_name),
@@ -181,7 +180,7 @@ def conversionSuccesMail(run_dir, experiment_name, project_name):
         'stats_summary': conversion_stats
     }
     mail_content = renderTemplate('conversion_done_template.html', template_data)
-    # print content
+
     mail_subject = 'Conversion of {0} - {1} finished'.format(experiment_name, project_name)
     sendMail(mail_subject,mail_content, MAIL_SENDER ,MAIL_ADMINS, attachments=attachments)
 
@@ -344,12 +343,12 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
 
     except Exception as e:
         logger.exception('Unhandled Exception')
-        print str(e)
+        print (str(e))
 
     try:
         # Complete transfers
         for run_dir in transfers:
-            print 'Transfer: {}'.format(run_dir)
+            print ('Transfer: {}'.format(run_dir))
             transfers[run_dir].wait()   # wait for transfer to finished
             run_name = os.path.split(run_dir)[-1]
 
@@ -387,12 +386,12 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                 transferFailedMail(run_dir, experiment_name, project_name)
     except Exception as e:
         logger.exception('Unhandled Exception')
-        print str(e)
+        print (str(e))
 
     try:
         #Complete archive transfers
         for run_dir in archive_transfers:
-            print 'Archiving: {}'.format(run_dir)
+            print ('Archiving: {}'.format(run_dir))
             archive_transfers[run_dir].wait()   # wait for transfer to finished
             run_name = os.path.split(run_dir)[-1]
 
@@ -423,7 +422,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                 archiveFailedMail(run_dir, experiment_name, project_name)
     except Exception as e:
         logger.exception('Unhandled Exception')
-        print str(e)
+        print (str(e))
 
 def run(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_reads):
     """Runs the manageRuns function"""

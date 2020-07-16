@@ -15,8 +15,8 @@ def closeProjects(lims, step_uri):
                 project.close_date = datetime.datetime.today().strftime('%Y-%m-%d')
                 project.put()
             except:
-                print 'Failed to close project {0}'.format(project_id)
-                
+                print ('Failed to close project {0}'.format(project_id))
+
 def run(lims, step_uri):
     """Runs the closeProjects function"""
     closeProjects(lims, step_uri)

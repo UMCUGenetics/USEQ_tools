@@ -46,30 +46,30 @@ def encryptRun( run_zip ,client_mail):
 
 def shareManual(email,dir):
     name = multiprocessing.current_process().name
-    print "{0}\tStarting".format(name)
+    print ("{0}\tStarting".format(name))
 
-    print "{0}\tRunning compression".format(name)
+    print ("{0}\tRunning compression".format(name))
     run_zip = zipRun(dir)
     if not os.path.isfile(run_zip):
-        print "{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,os.path.basename(dir))
+        print ("{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,os.path.basename(dir)))
         return
 
-    print "{0}\tRunning encryption".format(name)
+    print ("{0}\tRunning encryption".format(name))
     run_encrypted = encryptRun(run_zip, email)
     if not os.path.isfile(run_encrypted):
-        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,os.path.basename(dir), run_encrypted)
+        print ("{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,os.path.basename(dir), run_encrypted))
         return
 
-    print "{0}\tRunning upload to NextCloud".format(name)
+    print ("{0}\tRunning upload to NextCloud".format(name))
     upload_response = nextcloud_util.upload(run_encrypted)
     if "ERROR" in upload_response:
-        print "{0}\tError : Failed to upload {1} with message:\n\t{2}".format(name, run_encrypted, upload_response["ERROR"])
+        print ("{0}\tError : Failed to upload {1} with message:\n\t{2}".format(name, run_encrypted, upload_response["ERROR"]))
         return
 
-    print "{0}\tSharing run {1} with {2}".format(name, dir, email)
+    print ("{0}\tSharing run {1} with {2}".format(name, dir, email))
     share_response = nextcloud_util.share(run_encrypted, email)
     if "ERROR" in share_response:
-        print "{0}\tError : Failed to share {1} with message:\n\t{2}".format(name, run_encrypted, share_response["ERROR"])
+        print ("{0}\tError : Failed to share {1} with message:\n\t{2}".format(name, run_encrypted, share_response["ERROR"]))
         return
     else:
         share_id = share_response["SUCCES"]
@@ -91,31 +91,31 @@ def shareManual(email,dir):
 
 def shareProcessed(dir,dir_info):
     name = multiprocessing.current_process().name
-    print "{0}\tStarting".format(name)
+    print ("{0}\tStarting".format(name))
 
-    print "{0}\tRunning compression".format(name)
+    print ("{0}\tRunning compression".format(name))
     run_zip = zipRun( dir, dir_info )
     if not os.path.isfile(run_zip):
-        print "{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,dir_info['projects'].keys()[0])
+        print ("{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,dir_info['projects'].keys()[0]))
         return
 
-    print "{0}\tRunning encryption".format(name)
+    print ("{0}\tRunning encryption".format(name))
     run_encrypted = encryptRun(run_zip, dir_info['researcher_email'])
 
     if not os.path.isfile(run_encrypted):
-        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,dir_info['projects'].keys()[0], run_encrypted)
+        print ("{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,dir_info['projects'].keys()[0], run_encrypted))
         return
 
-    print "{0}\tRunning upload to NextCloud".format(name)
+    print ("{0}\tRunning upload to NextCloud".format(name))
     upload_response = nextcloud_util.upload(run_encrypted)
     if "ERROR" in upload_response:
-        print "{0}\tError : Failed to upload {1} with message:\n\t{2}".format(name, run_encrypted, upload_response["ERROR"])
+        print ("{0}\tError : Failed to upload {1} with message:\n\t{2}".format(name, run_encrypted, upload_response["ERROR"]))
         return
 
-    print "{0}\tSharing run {1} with {2}".format(name, dir, dir_info['researcher_email'])
+    print ("{0}\tSharing run {1} with {2}".format(name, dir, dir_info['researcher_email']))
     share_response = nextcloud_util.share(run_encrypted, dir_info['researcher_email'])
     if "ERROR" in share_response:
-        print "{0}\tError : Failed to share {1} with message:\n\t{2}".format(name, run_encrypted, share_response["ERROR"])
+        print ("{0}\tError : Failed to share {1} with message:\n\t{2}".format(name, run_encrypted, share_response["ERROR"]))
         return
     else:
         share_id = share_response["SUCCES"]
@@ -138,41 +138,41 @@ def shareProcessed(dir,dir_info):
 def shareRaw(dir,dir_info):
 
     name = multiprocessing.current_process().name
-    print "{0}\tStarting".format(name)
+    print ("{0}\tStarting".format(name))
 
     conversion_stats = parseConversionStats( "{0}/Data/Intensities/BaseCalls/Stats/ConversionStats.xml".format(dir) )
     if not conversion_stats:
-        print "{0}\tError : No ConversionStats.xml file could be found in {1}/Data/Intensities/BaseCalls/Stats/!".format(name,dir)
+        print ("{0}\tError : No ConversionStats.xml file could be found in {1}/Data/Intensities/BaseCalls/Stats/!".format(name,dir))
         return
 
     expected_yield = parseRunParameters( "{0}/RunParameters.xml".format(dir) )
     if not expected_yield:
-        print "{0}\tError : No RunParameters.xml file could be found in {1}!".format(name,dir)
+        print ("{0}\tError : No RunParameters.xml file could be found in {1}!".format(name,dir))
         return
 
-    print "{0}\tRunning compression".format(name)
+    print ("{0}\tRunning compression".format(name))
     run_zip = zipRun( dir, dir_info )
     if not os.path.isfile(run_zip):
-        print "{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,dir_info['projects'].keys()[0])
+        print ("{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,dir_info['projects'].keys()[0]))
         return
 
-    print "{0}\tRunning encryption".format(name)
+    print ("{0}\tRunning encryption".format(name))
     run_encrypted = encryptRun(run_zip, dir_info['researcher_email'])
 
     if not os.path.isfile(run_encrypted):
-        print "{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,dir_info['projects'].keys()[0], run_encrypted)
+        print ("{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,dir_info['projects'].keys()[0], run_encrypted))
         return
 
-    print "{0}\tRunning upload to NextCloud".format(name)
+    print ("{0}\tRunning upload to NextCloud".format(name))
     upload_response = nextcloud_util.upload(run_encrypted)
     if "ERROR" in upload_response:
-        print "{0}\tError : Failed to upload {1} with message:\n\t{2}".format(name, run_encrypted, upload_response["ERROR"])
+        print ("{0}\tError : Failed to upload {1} with message:\n\t{2}".format(name, run_encrypted, upload_response["ERROR"]))
         return
 
-    print "{0}\tSharing run {1} with {2}".format(name, dir, dir_info['researcher_email'])
+    print ("{0}\tSharing run {1} with {2}".format(name, dir, dir_info['researcher_email']))
     share_response = nextcloud_util.share(run_encrypted, dir_info['researcher_email'])
     if "ERROR" in share_response:
-        print "{0}\tError : Failed to share {1} with message:\n\t{2}".format(name, run_encrypted, share_response["ERROR"])
+        print ("{0}\tError : Failed to share {1} with message:\n\t{2}".format(name, run_encrypted, share_response["ERROR"]))
         return
     else:
         share_id = share_response["SUCCES"]
@@ -197,18 +197,18 @@ def shareRaw(dir,dir_info):
 
 def check( run_info ):
 
-    print "\nAre you sure you want to send the following datasets(s) (yes/no): "
+    print ("\nAre you sure you want to send the following datasets(s) (yes/no): ")
     table = Texttable(max_width=0)
 
     table.add_rows([['Dir','Project(s) (ID:Name)','Client Email']])
     for datadir in run_info:
-        projects = ",".join( ["{0}:{1}".format(id,name) for id,name in run_info[datadir]['projects'].iteritems() ] )
+        projects = ",".join( ["{0}:{1}".format(id,name) for id,name in run_info[datadir]['projects'].items() ] )
         table.add_row( [ datadir, projects, run_info[datadir]['researcher_email'] ])
-    print table.draw()
+    print (table.draw())
 
     yes = set(['yes','y', 'ye', ''])
     no = set(['no','n'])
-    choice = raw_input().lower()
+    choice = input().lower()
     if choice in yes:
        choice = True
     elif choice in no:
@@ -301,10 +301,10 @@ def getRawData( lims, project_name ):
 
 def shareDataByEmail(lims, email, dir):
     if not email.lower() in gpg_key_list:
-        print "Error : No public key found for email {0}".format(email)
+        print ("Error : No public key found for email {0}".format(email))
         sys.exit()
     if not exists(dir):
-        print "Error : Directory {0} not found".format(dir)
+        print ("Error : Directory {0} not found".format(dir))
 
     dir = dir.rstrip('/')
     share_processes = []
@@ -327,13 +327,13 @@ def shareDataById(lims, mode,ids):
             project = Project(lims, id=project_id)
             project_name = project.name
         except:
-            print "Error : Project ID {0} not found!".format(project_id)
+            print ("Error : Project ID {0} not found!".format(project_id))
             continue
 
         researcher = project.researcher
         #Check if client has a gpg-key
         if not researcher.email.lower() in gpg_key_list:
-            print "Error : User ID {0} ({1}) for project ID {2} has not provided a public key yet!".format(researcher.username,researcher.email, project_id)
+            print ("Error : User ID {0} ({1}) for project ID {2} has not provided a public key yet!".format(researcher.username,researcher.email, project_id))
             continue
 
         #Get run info
@@ -344,7 +344,7 @@ def shareDataById(lims, mode,ids):
             datadir = getProcessedData(lims, project_name, project_id)
 
         if not datadir:
-            print "Error : No dir could be found for project ID {0}!".format(project_id)
+            print ("Error : No dir could be found for project ID {0}!".format(project_id))
             continue
 
         #Got all the info we need
@@ -357,7 +357,7 @@ def shareDataById(lims, mode,ids):
         run_info[datadir]['projects'][project_id] = project_name
 
     if not run_info:
-        print "Error : None of the provided project IDs are able to be processed!"
+        print ("Error : None of the provided project IDs are able to be processed!")
     elif check(run_info):
         #Start sharing threads
         share_processes =[]
@@ -391,7 +391,7 @@ def run(lims, mode, ids, email, dir):
     nextcloud_util.setHostname( NEXTCLOUD_HOST )
     if mode == 'raw':
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,MAIL_SENDER )
-        
+
         shareDataById(lims, mode, ids)
     elif mode == 'processed':
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_PROCESSED_DIR,MAIL_SENDER )

@@ -5,13 +5,13 @@ from genologics.entities import Project
 
 def check( lab_name, project_names ):
 
-    print "\nYou're about to create the following LIMS run name(s) for account {0}: ".format(lab_name)
-    print ", ".join(project_names)
-    print "Is this correct (y)es/(n)o ?"
+    print ("\nYou're about to create the following LIMS run name(s) for account {0}: ".format(lab_name))
+    print (", ".join(project_names))
+    print ("Is this correct (y)es/(n)o ?")
 
     yes = set(['yes','y'])
     no = set(['no','n'])
-    choice = raw_input().lower()
+    choice = input().lower()
     if choice in yes:
         choice = True
     elif choice in no:
@@ -61,7 +61,7 @@ def createRunIDs(lims,userid,application, nr):
                 udf = {'Application':application, 'Priority':'Standard'}
             )
             project_ids.append(project.id)
-        print "Created run IDs: {0} for {1} {2} ({3}) in account {4}".format(", ".join(project_ids), researcher.first_name, researcher.last_name, researcher.email, lab.name)
+        print ("Created run IDs: {0} for {1} {2} ({3}) in account {4}".format(", ".join(project_ids), researcher.first_name, researcher.last_name, researcher.email, lab.name))
 
 def run(lims, userid, application, nr):
 

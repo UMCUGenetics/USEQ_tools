@@ -4,23 +4,23 @@ from config import COST_DB,RUN_PROCESSES,ISOLATION_PROCESSES,LIBPREP_PROCESSES,A
 import re
 import sys
 import json
-import urllib2
+import urllib
 
 def getAllCosts():
 	"""Retrieves costs from cost db"""
 	costs_json = ""
 	try:
-		costs_json = urllib2.urlopen( COST_DB ).read()
-	except urllib2.HTTPError, e:
+		costs_json = urllib.request.urlopen( COST_DB ).read()
+	except urllib.error.HTTPError as e:
 		sys.exit(e.msg)
-	except urllib2.URLError, e:
+	except urllib.error.URLError as e:
 		sys.exit(e.read())
 	except:
 		sys.exit( str(sys.exc_type) + str(sys.exc_value) )
 
 	costs = json.loads(costs_json)
 
-	costs_lower = dict( (k.lower(), v) for k,v in costs.iteritems())
+	costs_lower = dict( (k.lower(), v) for k,v in costs.items())
 	#Do some (unfortunately) neccessary name conversions
 	costs_lower['libprep dna'] = costs_lower['truseq dna nano']
 	costs_lower['libprep ont dna'] = costs_lower['nanopore library prep']
@@ -39,6 +39,8 @@ def getAllCosts():
 	costs_lower['high output : 2 x 75 bp' ] = costs_lower[ 'nextseq500 2 x 75 bp high output']
 	costs_lower['high output : 2 x 150 bp' ] = costs_lower[ 'nextseq500 2 x 150 bp high output']
 	costs_lower['v2 kit : 1 x 50 bp' ] = costs_lower[ 'miseq 1 x 50 bp v2 kit']
+	costs_lower['v2 kit (nano) : 1 x 300 bp' ] = costs_lower[ 'miseq 1x300 bp v2 kit (nano)']
+	costs_lower['v2 kit (micro) : 1 x 300 bp' ] = costs_lower[ 'miseq 1x300 bp v2 kit (micro)']
 	costs_lower['v2 kit : 2 x 150 bp' ] = costs_lower[ 'miseq 2 x 150 bp v2 kit']
 	costs_lower['v2 kit : 2 x 250 bp' ] = costs_lower[ 'miseq 2 x 250 bp v2 kit']
 	costs_lower['v3 kit : 2 x 75 bp' ] = costs_lower[ 'miseq 2 x 75 bp v3 kit']
@@ -59,7 +61,12 @@ def getAllCosts():
 	costs_lower['1 x promethion flowcell' ] = costs_lower[ 'nanopore promethion 1 x flowcell']
 	costs_lower['1 x flongle flowcell'] = costs_lower[ 'nanopore flongle 1 x flowcell']
 	costs_lower['snp open array (60 snps)' ] = costs_lower[ 'snp open array (60 snps)']
-	# print costs_lower
+	costs_lower['1 x 36 bp'] = costs_lower['iseq 100 1 x 36 bp']
+	costs_lower['1 x 50 bp'] = costs_lower['iseq 100 1 x 50 bp']
+	costs_lower['1 x 75 bp'] = costs_lower['iseq 100 1 x 75 bp']
+	costs_lower['2 x 75 bp'] = costs_lower['iseq 100 2 x 75 bp']
+	costs_lower['2 x 150 bp'] = costs_lower['iseq 100 2 x 150 bp']
+
 	return costs_lower
 
 def getNearestBillingDate(all_costs, step ,step_date):
@@ -165,9 +172,9 @@ def getSeqFinance(lims, step_uri):
 				elif process_name in RUN_PROCESSES and not runs[pool.id]['lims_runtype']:
 					protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 					runs[pool.id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
-					# print runs[pool.id]['requested_runtype'],runs[pool.id]['lims_runtype']
-					requested_runtype = sample.udf['Sequencing Runtype'].lower()
 
+					requested_runtype = sample.udf['Sequencing Runtype'].lower()
+					print(sample.project.name + ' ' + protocol_name + ' ' + requested_runtype)
 					billing_date = getNearestBillingDate(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
 					if requested_runtype == 'WGS at HMF':
 						runs[pool.id]['run_step_costs'] = float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ]) * len(pool.samples)
@@ -242,7 +249,7 @@ def getSeqFinance(lims, step_uri):
 			#Get billing specific info
 			if not runs[pool.id]['name'] :
 				runs[pool.id]['first_submission_date'] = sample.date_received
-				# print pool.id
+
 				if 'Sequencing Succesful' in pool.udf : runs[pool.id]['succesful'] = pool.udf['Sequencing Succesful']
 				runs[pool.id]['name'] = sample.project.name
 				runs[pool.id]['id'] = sample.project.id
@@ -256,7 +263,7 @@ def getSeqFinance(lims, step_uri):
 				if 'Budget Number' in sample.udf:
 					runs[pool.id]['budget_nr'] = sample.udf['Budget Number']
 				else:
-					print "No Budgetnumber:", sample.project.id
+					print ("No Budgetnumber:", sample.project.id)
 				runs[pool.id]['institute'] = sample.project.researcher.lab.billing_address['institution']
 				runs[pool.id]['postalcode'] = sample.project.researcher.lab.billing_address['postalCode']
 				runs[pool.id]['city'] = sample.project.researcher.lab.billing_address['city']
@@ -354,7 +361,7 @@ def run(lims, step_uri, output_file):
 
 	if protocol_name.startswith("USEQ - Post Sequencing"):
 		finance_table = getSeqFinance(lims,step_uri)
-		output_file.write(finance_table.encode('utf-8'))
+		output_file.write(finance_table)
 	elif protocol_name.startswith("USEQ - Post Fingerprinting"):
 		finance_table = getSnpFinance(lims, step_uri)
-		output_file.write(finance_table.encode('utf-8'))
+		output_file.write(finance_table)

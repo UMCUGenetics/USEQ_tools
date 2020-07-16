@@ -69,7 +69,7 @@ def create(lims, csv):
         account_name = response.findall('name')[0].text
         account_id = response.attrib['uri'].split("/")[-1]
 
-        print "Account {0} with ID {1} succesfully created".format(account_name, account_id)
+        print ("Account {0} with ID {1} succesfully created".format(account_name, account_id))
     else:
         sys.exit("Account with name '{0}' already exists".format(account_info['account_name']))
 
@@ -77,19 +77,19 @@ def edit(lims, csv, acc):
     """Edit existing account"""
     account = getAccount(lims,acc)
 
-    print "You are about to change :"
-    print getAccountCSV(account)
-    print "\n#####IN TO ####\n"
+    print ("You are about to change :")
+    print (getAccountCSV(account))
+    print ("\n#####IN TO ####\n")
 
     csv_content = ''
     with open(csv, 'r') as csv_file:
         csv_content = csv_file.read()
 
-    print csv_content
+    print (csv_content)
     account_update = parseAccountCSV(csv)
 
-    print "Is this correct (Y/N)?"
-    go = raw_input()
+    print ("Is this correct (Y/N)?")
+    go = input()
     if go == 'Y':
         account.name = account_update['account_name']
         account.website = account_update['account_website']
@@ -118,10 +118,10 @@ def retrieve(lims, csv, acc):
     """Saves matching account to csv"""
     account = getAccount(lims,acc)
 
-    print "Writing results to {0}".format(csv)
+    print ("Writing results to {0}".format(csv))
     # unicode(, "utf8")
     with open(csv, 'w') as csv_file:
-        csv_file.write(  getAccountCSV(account).encode('utf-8') )
+        csv_file.write(  getAccountCSV(account) )
 
 def run(lims, mode, csv, lab=None):
     """Run create,edit or retrieve function based on mode"""
