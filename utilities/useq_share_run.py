@@ -96,14 +96,14 @@ def shareProcessed(dir,dir_info):
     print ("{0}\tRunning compression".format(name))
     run_zip = zipRun( dir, dir_info )
     if not os.path.isfile(run_zip):
-        print ("{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,dir_info['projects'].keys()[0]))
+        print ("{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,list(dir_info['projects'].keys())[0]))
         return
 
     print ("{0}\tRunning encryption".format(name))
     run_encrypted = encryptRun(run_zip, dir_info['researcher_email'])
 
     if not os.path.isfile(run_encrypted):
-        print ("{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,dir_info['projects'].keys()[0], run_encrypted))
+        print ("{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,list(dir_info['projects'].keys())[0], run_encrypted))
         return
 
     print ("{0}\tRunning upload to NextCloud".format(name))
@@ -153,14 +153,14 @@ def shareRaw(dir,dir_info):
     print ("{0}\tRunning compression".format(name))
     run_zip = zipRun( dir, dir_info )
     if not os.path.isfile(run_zip):
-        print ("{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,dir_info['projects'].keys()[0]))
+        print ("{0}\tError : {1}/{2}.tar was not properly created!".format(name,dir,list(dir_info['projects'].keys())[0]))
         return
 
     print ("{0}\tRunning encryption".format(name))
     run_encrypted = encryptRun(run_zip, dir_info['researcher_email'])
 
     if not os.path.isfile(run_encrypted):
-        print ("{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,dir_info['projects'].keys()[0], run_encrypted))
+        print ("{0}\tError : Something went wrong during encryption of {1}/{2}.tar with error message:\n\t{3}".format(name,dir,list(dir_info['projects'].keys())[0], run_encrypted))
         return
 
     print ("{0}\tRunning upload to NextCloud".format(name))
@@ -177,7 +177,7 @@ def shareRaw(dir,dir_info):
     else:
         share_id = share_response["SUCCES"]
         template_data = {
-            'project_id' : dir_info['projects'].keys()[0],
+            'project_id' : list(dir_info['projects'].keys())[0],
             'nextcloud_host' : NEXTCLOUD_HOST,
             'share_id' : share_id,
             'expected_reads' : expected_yield,
@@ -187,7 +187,7 @@ def shareRaw(dir,dir_info):
         }
 
         mail_content = renderTemplate('share_raw_template.html', template_data)
-        mail_subject = "USEQ sequencing of sequencing-run ID {0} finished".format(dir_info['projects'].keys()[0])
+        mail_subject = "USEQ sequencing of sequencing-run ID {0} finished".format(list(dir_info['projects'].keys())[0])
         sendMail(mail_subject,mail_content, MAIL_SENDER ,dir_info['researcher_email'])
         # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
         os.remove(run_zip)
