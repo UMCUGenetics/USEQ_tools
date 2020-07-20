@@ -47,8 +47,8 @@ class NextcloudUtil(object):
                 if not columns[2].startswith(' 200'):continue
 
                 ip = columns[0].split(" ")[0]
-                from python-geoip-python3 import geolite2
-                # from geoip import geolite2
+
+                from geoip import geolite2
                 ip_match = geolite2.lookup(ip)
                 download_date = columns[0].split(" ")[3].lstrip('[')
 
