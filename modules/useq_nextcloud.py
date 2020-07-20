@@ -47,8 +47,8 @@ class NextcloudUtil(object):
                 if not columns[2].startswith(' 200'):continue
 
                 ip = columns[0].split(" ")[0]
-
-                from geoip import geolite2
+                from python-geoip-python3 import geolite2
+                # from geoip import geolite2
                 ip_match = geolite2.lookup(ip)
                 download_date = columns[0].split(" ")[3].lstrip('[')
 
@@ -101,14 +101,16 @@ class NextcloudUtil(object):
         if not os.path.isfile(file_path): return {"ERROR":"File path '{0}' is not a file".format(file_path)}
         file_basename = ntpath.basename(file_path)
 
+
         remote_path = self.webdav_root+self.run_dir+file_basename
 
-        if self.webdav.exists(remote_path):
+        if self.webdav.exists(remote_path ):
 
             return {"ERROR" : "File path '{0}' already exists on server".format(file_basename)}
         else:
             #upload file
-            self.webdav.upload(file_path, remote_path)
+            response = self.webdav.upload(file_path, remote_path)
+
 
         #check if file upload succeeded
         upload_response = self.webdav.exists(remote_path)
