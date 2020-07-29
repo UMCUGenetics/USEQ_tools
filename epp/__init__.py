@@ -4,3 +4,4 @@ import epp.useq_group_permissions
 import epp.useq_finance_overview
 import epp.useq_route_artifacts
 import epp.useq_close_projects
+import epp.useq_create_recipe

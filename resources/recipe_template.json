@@ -1,0 +1,21 @@
+{
+	"run_name":"{{run_name}}",
+	"run_mode":"{{run_mode}}",
+	"workflow_type":"{{workflow_type}}",
+	"sample_loading_type":"NovaSeqStandard",
+	"librarytube_ID":"{{librarytube_ID}}",
+	"flowcell_ID":"{{flowcell_ID}}",
+	"rehyb":{{rehyb}},
+	"paired_end":{{paired_end}},
+	"read1":{{read1}},
+	"read2":{{read2}},
+	"index_read1":{{index_read1}},
+	"index_read2":{{index_read2}},
+	"output_folder":"{{output_folder}}",
+	"attachment":"{{attachment}}",
+	"use_basespace":{{use_basespace}},
+	"basespace_mode":{{basespace_mode}},
+	"use_custom_read1_primer":{{use_custom_read1_primer}},
+	"use_custom_read2_primer":{{use_custom_read2_primer}},
+	"use_custom_index_read1_primer":{{use_custom_index_read1_primer}}
+}
