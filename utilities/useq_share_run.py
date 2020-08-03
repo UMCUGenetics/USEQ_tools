@@ -19,27 +19,35 @@ GPG_DIR = expanduser("~/.gnupg/")
 def zipRun( dir, dir_info=None):
     run_name = os.path.basename(dir)
     zip_name = None
+    name = multiprocessing.current_process().name
+
     if dir_info:
         zip_name = "-".join(dir_info['projects'].keys())
     else:
         zip_name = os.path.basename(dir)
+
     run_zip = "{0}/{1}.tar".format(dir,zip_name)
-
-    with tarfile.open(run_zip, "w", dereference=True) as tar:
-        tar.add(dir, arcname=run_name)
-
+    if os.path.isfile(run_zip) and os.path.isfile(f"{run_zip}.done"):
+        print (f"{name}\tSkipping compression step. {run_zip} and {run_zip}.done found. ")
+    else:
+        with tarfile.open(run_zip, "w", dereference=True) as tar:
+            tar.add(dir, arcname=run_name)
+        open(f'{run_zip}.done', 'w').close()
     return run_zip
 
 def encryptRun( run_zip ,client_mail):
     run_encrypted = "{0}.gpg".format(run_zip)
-    if os.path.isfile(run_encrypted):
-        os.remove(run_encrypted)
+    name = multiprocessing.current_process().name
 
-    #Wanted to use gnupg module for this, but it doesn't support encrypting 'large' files
-    try:
-        subprocess.check_output("gpg --compress-algo none --encrypt --output {0} --recipient '{1}' {2}".format(run_encrypted,client_mail, run_zip), shell=True, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
-        return e.output
+    if os.path.isfile(run_encrypted) and os.path.isfile(f"{run_encrypted}.done"):
+        print (f"{name}\tSkipping encryption step. {run_encrypted} and {run_encrypted}.done found.")
+    else:
+        #Wanted to use gnupg module for this, but it doesn't support encrypting 'large' files
+        try:
+            subprocess.check_output("gpg --compress-algo none --encrypt --output {0} --recipient '{1}' {2}".format(run_encrypted,client_mail, run_zip), shell=True, stderr=subprocess.STDOUT)
+            open(f'{run_encrypted}.done', 'w').close()
+        except subprocess.CalledProcessError as e:
+            return e.output
 
     return run_encrypted
 
@@ -83,9 +91,12 @@ def shareManual(email,dir):
         mail_content = renderTemplate('share_manual_template.html', template_data)
         mail_subject = "USEQ has shared a file with you."
 
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,email)
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,email)
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
         os.remove(run_zip)
+        os.remove(f'{run_zip}.done')
         os.remove(run_encrypted)
+        os.remove(f'{run_encrypted}.done')
 
     return
 
@@ -131,7 +142,9 @@ def shareProcessed(dir,dir_info):
 
         sendMail(mail_subject,mail_content, MAIL_SENDER ,dir_info['researcher_email'])
         os.remove(run_zip)
+        os.remove(f'{run_zip}.done')
         os.remove(run_encrypted)
+        os.remove(f'{run_encrypted}.done')
 
     return
 
@@ -188,10 +201,12 @@ def shareRaw(dir,dir_info):
 
         mail_content = renderTemplate('share_raw_template.html', template_data)
         mail_subject = "USEQ sequencing of sequencing-run ID {0} finished".format(list(dir_info['projects'].keys())[0])
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,dir_info['researcher_email'])
-        # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,dir_info['researcher_email'])
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
         os.remove(run_zip)
+        os.remove(f'{run_zip}.done')
         os.remove(run_encrypted)
+        os.remove(f'{run_encrypted}.done')
 
     return
 
