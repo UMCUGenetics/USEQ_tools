@@ -91,8 +91,8 @@ def shareManual(email,dir):
         mail_content = renderTemplate('share_manual_template.html', template_data)
         mail_subject = "USEQ has shared a file with you."
 
-        # sendMail(mail_subject,mail_content, MAIL_SENDER ,email)
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,email)
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
         os.remove(run_zip)
         os.remove(f'{run_zip}.done')
         os.remove(run_encrypted)
@@ -201,8 +201,8 @@ def shareRaw(dir,dir_info):
 
         mail_content = renderTemplate('share_raw_template.html', template_data)
         mail_subject = "USEQ sequencing of sequencing-run ID {0} finished".format(list(dir_info['projects'].keys())[0])
-        # sendMail(mail_subject,mail_content, MAIL_SENDER ,dir_info['researcher_email'])
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,dir_info['researcher_email'])
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
         os.remove(run_zip)
         os.remove(f'{run_zip}.done')
         os.remove(run_encrypted)
