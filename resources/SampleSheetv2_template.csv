@@ -1,0 +1,21 @@
+[Header],,
+FileFormatVersion,2,
+RunName,{{RunName}},
+InstrumentPlatform,{{InstrumentPlatform}},
+InstrumentType,{{InstrumentType}},
+,,
+[Reads],,
+Read1Cycles,{{Read1Cycles}},{% if Read2Cycles %}
+Read2Cycles,{{Read2Cycles}},{% endif %}
+Index1Cycles,{{Index1Cycles}},{% if Index2Cycles %}
+Index2Cycles,{{Index2Cycles}},{% endif %}
+,,
+[BCLConvert_Settings],,
+SoftwareVersion,{{SoftwareVersion}},
+AdapterRead1,{{AdapterRead1}},
+AdapterRead2,{{AdapterRead2}},
+,,
+[BCLConvert_Data],,
+{% if Index2Cycles %}Sample_ID,Index,Index2{% else %}Sample_ID,Index{% endif %}
+{% for sample in samples %}{{sample}}
+{% endfor %}
