@@ -44,7 +44,7 @@ def run_status_mail(args):
 
 def modify_samplesheet(args):
     """Reverse complements the barcodes in a samplesheet"""
-    epp.useq_modify_samplesheet.run(lims, args.step, args.aid, args.output_file)
+    epp.useq_modify_samplesheet.run(lims, args.step, args.aid, args.output_file, args.mode)
 
 def group_permissions(args):
     """Checks if a user trying to execute a LIMS step is part of the specified group(s)"""
@@ -138,6 +138,7 @@ if __name__ == "__main__":
     parser_modify_samplesheet = subparser_epp.add_parser('modify_samplesheet', help='This script is used to modify a samplesheet to work with either NextSeq or MiSeq/HiSeq. Currently all it does is reverse complement the barcodes when needed')
     parser_modify_samplesheet.add_argument('-s', '--step', help='Step URI', required=True)
     parser_modify_samplesheet.add_argument('-a', '--aid', help='Artifact ID', required=True)
+    parser_modify_samplesheet.add_argument('-m', '--mode', help='Run mode', choices=['rev', 'v1tov2'], required=True)
     parser_modify_samplesheet.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
     parser_modify_samplesheet.set_defaults(func=modify_samplesheet)
 
