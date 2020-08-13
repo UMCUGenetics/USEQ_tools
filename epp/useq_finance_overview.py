@@ -285,7 +285,11 @@ def getSnpFinance(lims, step_uri):
 		pool = io_map[0]['uri']
 
 		for sample in pool.samples:
-			budget_nr = sample.udf['Budget Number']
+			try :
+				budget_nr = sample.udf['Budget Number']
+			except:
+				sys.exit(f'No budgetnumber found for run {sample.project.id}')
+				
 			if sample.project.id + budget_nr not in runs:
 				runs[ sample.project.id + budget_nr ] ={
 					'errors' : set(),
