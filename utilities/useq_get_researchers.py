@@ -10,6 +10,7 @@ def getResearchers(lims):
         line.append(u'{}'.format(researcher.first_name))
         line.append(u'{}'.format(researcher.last_name))
         line.append(u'{}'.format(researcher.email))
+
         try:
             line.append(u'{}'.format(researcher.username))
         except:
@@ -22,10 +23,8 @@ def getResearchers(lims):
 
         line.append(u'{}'.format(lab.name))
         line.append(u'{}'.format(lab.id))
-        try:
-            line.append(u'{}'.format(lab.udf['Budget Number']))
-        except:
-            line.append(u'{}'.format('NA'))
+
+        line.append(f"{lab.billing_address.get('street', None)}\t{lab.billing_address.get('city',None)}\t{lab.billing_address.get('state',None)}\t{lab.billing_address.get('country',None)}\t{lab.billing_address.get('postalCode',None)}\t{lab.billing_address.get('institution',None)}\t{lab.billing_address.get('department',None)}")
 
 
         print ('\t'.join( (v) for v in line))
