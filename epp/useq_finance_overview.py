@@ -139,7 +139,7 @@ def getSeqFinance(lims, step_uri):
 				process_name = sample_artifact.parent_process.type.name
 
 
-				if process_name in ISOLATION_PROCESSES and runs[pool.id]['requested_runtype'] != 'WGS at HMF':
+				if process_name in ISOLATION_PROCESSES and sample.udf['Sequencing Runtype'] != 'WGS at HMF':
 					isolation_type = "{0} isolation".format(sample_artifact.udf['US Isolation Type'].split(" ")[0].lower())
 
 					billing_date = getNearestBillingDate(all_costs, isolation_type , sample_artifact.parent_process.date_run)
@@ -156,7 +156,9 @@ def getSeqFinance(lims, step_uri):
 					elif isolation_type == 'dna isolation' and sample.udf['Sample Type'] != 'DNA unisolated':
 						runs[pool.id]['errors'].add("Isolation type {0} in LIMS doesn't match sample type {1}".format(isolation_type, sample.udf['Sample Type']))
 
-				elif process_name in LIBPREP_PROCESSES and runs[pool.id]['requested_runtype'] != 'WGS at HMF':
+				elif process_name in LIBPREP_PROCESSES and sample.udf['Sequencing Runtype'] != 'WGS at HMF':
+					print (sample.project.id, process_name, runs[pool.id]['requested_runtype'])
+
 					protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 					lims_library_prep = protocol_name.split("-",1)[1].lower().strip()
 					runs[pool.id]['lims_library_prep'].add(lims_library_prep)
@@ -174,9 +176,9 @@ def getSeqFinance(lims, step_uri):
 					runs[pool.id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 
 					requested_runtype = sample.udf['Sequencing Runtype'].lower()
-					print(sample.project.name + ' ' + protocol_name + ' ' + requested_runtype)
+					# print(sample.project.name + ' ' + protocol_name + ' ' + requested_runtype)
 					billing_date = getNearestBillingDate(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
-					if requested_runtype == 'WGS at HMF':
+					if requested_runtype == 'wgs at hmf':
 						runs[pool.id]['run_step_costs'] = float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ]) * len(pool.samples)
 						runs[pool.id]['run_personell_costs'] = float(0)
 						runs[pool.id]['total_step_costs'] += float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ]) * len(pool.samples)
@@ -289,7 +291,7 @@ def getSnpFinance(lims, step_uri):
 				budget_nr = sample.udf['Budget Number']
 			except:
 				sys.exit(f'No budgetnumber found for run {sample.project.id}')
-				
+
 			if sample.project.id + budget_nr not in runs:
 				runs[ sample.project.id + budget_nr ] ={
 					'errors' : set(),
