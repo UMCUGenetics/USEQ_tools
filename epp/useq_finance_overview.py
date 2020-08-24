@@ -139,7 +139,7 @@ def getSeqFinance(lims, step_uri):
 				process_name = sample_artifact.parent_process.type.name
 
 
-				if process_name in ISOLATION_PROCESSES and sample.udf['Sequencing Runtype'] != 'WGS at HMF':
+				if process_name in ISOLATION_PROCESSES :
 					isolation_type = "{0} isolation".format(sample_artifact.udf['US Isolation Type'].split(" ")[0].lower())
 
 					billing_date = getNearestBillingDate(all_costs, isolation_type , sample_artifact.parent_process.date_run)
