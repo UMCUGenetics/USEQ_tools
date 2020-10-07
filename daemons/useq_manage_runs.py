@@ -370,7 +370,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                 zip_error = f'{run_dir}/run_zip.err'
                 zipped_run = Path(f'{STAGING_DIR}/{run_dir.name}.tar.gz')
                 zip_done = Path(f'{STAGING_DIR}/{run_dir.name}.tar.gz.done')
-                zip_command = f'tar -czvf {zipped_run} --exclude "*bcl*" --exclude "*.filter" --exclude "*tif" {run_dir} 1>> {zip_log} 2>> {zip_error}'
+                zip_command = f'tar -czvf {zipped_run} --exclude "*bcl*" --exclude "*.filter" --exclude "*tif" --exclude "*run_zip.*" {run_dir} 1>> {zip_log} 2>> {zip_error}'
 
                 transfer_log = f'{run_dir}/transfer.log'
                 transfer_error = f'{run_dir}/transfer.err'
@@ -395,6 +395,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                     if not zip_done.is_file():
 
                         exit_code = os.system(zip_command)
+                        print (exit_code)
                         if not exit_code: zip_done.touch()
 
                     if zip_done.is_file():
@@ -402,6 +403,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
 
                         if webdav_client.check(remote_run_path):
                             info = webdav_client.info(remote_run_path)
+                            print(info)
                             if info['size'] != zipped_run.stat().st_size :
                                 webdav_client.clean(remote_run_path)
                                 exit_code = os.system(ns_transfer_command)
