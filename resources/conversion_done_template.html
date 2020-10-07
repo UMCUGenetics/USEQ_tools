@@ -4,10 +4,11 @@
   <tr> <td><b>Experiment Name</b></td>  <td>{{experiment_name}}</td> </tr>
   <tr> <td><b>Run Name</b></td>  <td>{{run_dir}}</td> </tr>
   <tr valign="top"> <td><b>Rsync location</b></td>  <td>{{rsync_location}}</td> </tr>
-  <tr> <td><b>Output (filtered) / Output (raw)/ Output (expected)</b></td> <td>{{nr_reads}}</td> </tr>
+  {% if error %}<tr> <td><b>Error</b></td> <td>{{error}}</td> </tr>{% else %}<tr> <td><b>Output (filtered) / Output (raw)/ Output (expected)</b></td> <td>{{nr_reads}}</td> </tr>{% endif %}
 </table>
 <br>
 <!-- CONVERSION STATS -->
+{% if !error %}
 <h2>Demultiplexing Stats</h2>
 <h3>Samples</h3>
 <table class='useq_table'>
@@ -58,4 +59,5 @@
     <td><img src='cid:intensity_by_cycle_plot'></td>
   </tr>
 </table>
+{% endif %}
 {% endblock %}

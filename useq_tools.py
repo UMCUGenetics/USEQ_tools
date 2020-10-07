@@ -74,7 +74,7 @@ def nextcloud_monitor(args):
 
 def manage_runs(args):
     """Script responsible for starting conversion, transfer, cleanup and archiving of sequencing runs"""
-    daemons.useq_manage_runs.run(lims, args.missing_bcl, args.barcode_mismatches, args.fastq_for_index, args.short_reads)
+    daemons.useq_manage_runs.run(lims, args.missing_bcl, args.barcode_mismatches, args.fastq_for_index, args.short_reads, args.use_bases_mask)
 
 
 if __name__ == "__main__":
@@ -178,6 +178,7 @@ if __name__ == "__main__":
     parser_manage_runs.add_argument('-b', '--barcode_mismatches', help='Run conversion with n mismatches allowed in index', default=1)
     parser_manage_runs.add_argument('-f', '--fastq_for_index', help='Create FastQ for index reads', default=False)
     parser_manage_runs.add_argument('-s', '--short_reads', help='Sets --minimum-trimmed-read-length and --mask-short-adapter-reads to 0 allowing short reads to pass filter', default=False)
+    parser_manage_runs.add_argument('-u', '--use_bases_mask', help='Use this base mask', default=None)
     parser_manage_runs.set_defaults(func=manage_runs)
 
 
