@@ -388,18 +388,18 @@ def shareDataById(lims, mode,ids):
         for process in share_processes:
             process.join()
 
-def run(lims, mode, ids, email, dir):
+def run(lims, ids, email, dir):
     """Runs raw, processed or manual function based on mode"""
-    import gnupg
-    global gpg
-    global gpg_key_list
+    # import gnupg
+    # global gpg
+    # global gpg_key_list
     global nextcloud_util
 
     #Set up gpg keychain
-    gpg = gnupg.GPG(homedir=GPG_DIR)
-    gpg_key_list = {}
-    for key in gpg.list_keys():
-        gpg_key_list [ key['uids'][0].split("<")[1][:-1].lower() ] = key
+    # gpg = gnupg.GPG(homedir=GPG_DIR)
+    # gpg_key_list = {}
+    # for key in gpg.list_keys():
+    #     gpg_key_list [ key['uids'][0].split("<")[1][:-1].lower() ] = key
 
     #Set up nextcloud
     nextcloud_util = NextcloudUtil()
@@ -408,9 +408,9 @@ def run(lims, mode, ids, email, dir):
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,MAIL_SENDER )
 
         shareDataById(lims, mode, ids)
-    elif mode == 'processed':
-        nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_PROCESSED_DIR,MAIL_SENDER )
-        shareDataById(lims, mode, ids)
+    # elif mode == 'processed':
+    #     nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_PROCESSED_DIR,MAIL_SENDER )
+    #     shareDataById(lims, mode, ids)
     else:
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER )
         shareDataByEmail(lims, email, dir)

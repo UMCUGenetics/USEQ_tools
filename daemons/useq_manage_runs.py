@@ -62,25 +62,28 @@ def generateRunStats(run_dir):
         # Create 'Stats' dir
         stats_dir.mkdir()
 
-    exit_code = 0
+    exit_codes = []
     os.chdir(stats_dir)
+
+
     # Run summary csv
-    exit_code = os.system(f'{INTEROP_PATH}/bin/summary {run_dir} > {stats_dir}/{run_dir.name}_summary.csv')
+    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/summary {run_dir} > {stats_dir}/{run_dir.name}_summary.csv'))
     # Index summary csv
-    exit_code = os.system(f'{INTEROP_PATH}/bin/index-summary {run_dir} --csv= > {stats_dir}/{run_dir.name}_index-summary.csv')
+    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/index-summary {run_dir} --csv= > {stats_dir}/{run_dir.name}_index-summary.csv'))
     # Intensity by cycle plot
-    exit_code = os.system(f'{INTEROP_PATH}/bin/plot_by_cycle {run_dir} --metric-name=Intensity | gnuplot')
+    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_by_cycle {run_dir} --metric-name=Intensity | gnuplot'))
     # % Base by cycle plot
-    exit_code = os.system(f'{INTEROP_PATH}/bin/plot_by_cycle {run_dir} --metric-name=BasePercent | gnuplot')
+    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_by_cycle {run_dir} --metric-name=BasePercent | gnuplot'))
     # Clustercount by lane plot
-    exit_code = os.system(f'{INTEROP_PATH}/bin/plot_by_lane {run_dir} --metric-name=Clusters | gnuplot')
+    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_by_lane {run_dir} --metric-name=Clusters | gnuplot'))
     # Flowcell intensity plot
-    exit_code = os.system(f'{INTEROP_PATH}/bin/plot_flowcell {run_dir} | gnuplot')
+    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_flowcell {run_dir} | gnuplot'))
     # QScore heatmap plot
-    exit_code = os.system(f'{INTEROP_PATH}/bin/plot_qscore_heatmap {run_dir} | gnuplot')
+    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_qscore_heatmap {run_dir} | gnuplot'))
     # QScore histogram plot
-    exit_code = os.system(f'{INTEROP_PATH}/bin/plot_qscore_histogram {run_dir} | gnuplot')
-    return exit_code
+    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_qscore_histogram {run_dir} | gnuplot'))
+    print (exit_codes)
+    return exit_codes
 
 def v2ToV1SampleSheet(v2_samplesheet, experiment_name, project_name):
     header = None
@@ -185,7 +188,7 @@ def conversionSuccesMail(run_dir, experiment_name, project_name):
         }
         template_data = {
             'experiment_name': experiment_name,
-            'run_dir': run_name,
+            'run_dir': run_dir.name,
             'rsync_location': f" {machine}",
             'nr_reads': f'{conversion_stats["total_reads"]:,} / {conversion_stats["total_reads_raw"]:,} / {expected_reads:,}',
             'stats_summary': conversion_stats,
@@ -194,7 +197,7 @@ def conversionSuccesMail(run_dir, experiment_name, project_name):
     else:
         template_data = {
             'experiment_name': experiment_name,
-            'run_dir': run_name,
+            'run_dir': run_dir.name,
             'rsync_location': f" {machine}",
             'nr_reads': None,
             'stats_summary': None,
@@ -329,7 +332,16 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                         zip_file = zipConversionReport(run_dir)
 
                         # Generate run stats + plots
-                        generateRunStats(run_dir)
+                        if sum(generateRunStats(run_dir)) > 0:
+                            conversion_error = Path(f'{run_dir}/conversion_error.txt')
+                            ce = conversion_error.open('wa')
+                            ce.write('Conversion probably failed, failed to create conversion statistics. If this is ok please replace the ConversionFailed.txt file with ConversionDone.txt to continue data transfer\n')
+                            ce.close()
+                            os.system(f'date >> {conversion_log}')
+                            conversion_failed.touch()
+                            conversion_running.unlink()
+                            conversionFailedMail(run_dir, experiment_name, project_name)
+
 
                         conversion_stats_file = Path(f'{run_dir}/Data/Intensities/BaseCalls/Stats/ConversionStats.xml')
                         conversion_stats = parseConversionStats( conversion_stats_file  )
@@ -368,8 +380,8 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                 # project_name = getProjectName(sample_sheet)
                 zip_log = f'{run_dir}/run_zip.log'
                 zip_error = f'{run_dir}/run_zip.err'
-                zipped_run = Path(f'{STAGING_DIR}/{run_dir.name}.tar.gz')
-                zip_done = Path(f'{STAGING_DIR}/{run_dir.name}.tar.gz.done')
+                zipped_run = Path(f'{STAGING_DIR}/{experiment_name}-raw.tar.gz')
+                zip_done = Path(f'{STAGING_DIR}/{experiment_name}-raw.tar.gz.done')
                 zip_command = f'tar -czvf {zipped_run} --exclude "*bcl*" --exclude "*.filter" --exclude "*tif" --exclude "*run_zip.*" {run_dir} 1>> {zip_log} 2>> {zip_error}'
 
                 transfer_log = f'{run_dir}/transfer.log'
@@ -395,26 +407,20 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                     if not zip_done.is_file():
 
                         exit_code = os.system(zip_command)
-                        print (exit_code)
+                        # print (exit_code)
                         if not exit_code: zip_done.touch()
 
                     if zip_done.is_file():
                         remote_run_path = f'{NEXTCLOUD_RAW_DIR}/{run_dir.name}.tar.gz'
 
-                        if webdav_client.check(remote_run_path):
-                            info = webdav_client.info(remote_run_path)
-                            print(info)
-                            if info['size'] != zipped_run.stat().st_size :
-                                webdav_client.clean(remote_run_path)
-                                exit_code = os.system(ns_transfer_command)
-
-                        else:
-                            exit_code = os.system(ns_transfer_command)
+                        exit_code = os.system(transfer_command)
 
                         # project_name = getProjectName(sample_sheet)
                         if not exit_code:
                             transfer_done.touch()
                             transfer_running.unlink()
+                            zipped_run.unlink()
+                            zip_done.unlink()
                             conversionSuccesMail(run_dir, experiment_name, project_name)
 
 
@@ -434,14 +440,16 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                 try:
                     archive_running.touch()
                     rsync_command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {ARCHIVE_DIR}/{machine} 1>> {archive_log} 2>> {archive_error}"
-                    exit_code = system(rsync_command)
+                    exit_code = os.system(rsync_command)
 
                     if not exit_code:
                         archive_done.touch()
                         archive_running.unlink()
 
-                        for file in run_dir.rglob("*.z"):
-                            if file.suffix in [".fastq.gz", ".fq.gz"]:
+                        for file in run_dir.glob("**/*.gz"):
+                            # print (file.name)
+                            if file.name.endswith(".fastq.gz") or file.name.endswith(".fq.gz"):
+                                # print (file.name)
                                 file.unlink()
                     else:
                         archive_failed.touch()
