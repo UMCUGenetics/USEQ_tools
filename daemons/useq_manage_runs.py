@@ -258,6 +258,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
     for machine_dir in DATA_DIRS_RAW:
         md_path = Path(machine_dir)
         for run_dir in md_path.glob("*"):
+            if '_' not in run_dir.name: continue
             #Important Files
             sample_sheet = Path(f'{run_dir}/SampleSheet.csv')
             rta_complete = Path(f'{run_dir}/RTAComplete.txt')
