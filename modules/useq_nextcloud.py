@@ -4,6 +4,7 @@ import os
 import ntpath
 import requests
 import json
+import secrets
 from xml.dom.minidom import parseString
 
 DEBUG = 0
@@ -97,8 +98,12 @@ class NextcloudUtil(object):
                     files[file_path]['download_dates'] = download_ids[share_id]['download_dates']
         return files
 
+    def checkExists(self,file):
+        remote_path = f'{self.webdav_root}/{self.run_dir}/{file}'
+        return self.webdav.exists(remote_path)
+
     def upload(self, file_path):
-        if not os.path.isfile(file_path): return {"ERROR":"File path '{0}' is not a file".format(file_path)}
+        if not os.path.isfile(file_path): return {"ERROR":f"File path '{file_path}' is not a file"}
         file_basename = ntpath.basename(file_path)
 
 
@@ -106,7 +111,7 @@ class NextcloudUtil(object):
 
         if self.webdav.exists(remote_path ):
 
-            return {"ERROR" : "File path '{0}' already exists on server".format(file_basename)}
+            return {"ERROR" : f"File path '{file_basename}' already exists on server"}
         else:
             #upload file
             response = self.webdav.upload(file_path, remote_path)
@@ -116,20 +121,23 @@ class NextcloudUtil(object):
         upload_response = self.webdav.exists(remote_path)
         return {"SUCCES" : upload_response}
 
-    def share(self, file_path, email):
-        file_basename = ntpath.basename(file_path)
-        remote_path = self.webdav_root+self.run_dir+file_basename
-
+    def share(self, file_name, email):
+        remote_path = f"{self.webdav_root}/{self.run_dir}/{file_name}"
+        print(remote_path)
         if not self.webdav.exists(remote_path):
-            return {"ERROR" : "File path '{0}' does not exist on server".format(file_basename)}
+            return {"ERROR" : f"File path '{file_name}' does not exist on server"}
+
+        alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+        pw = ''.join(secrets.choice(alphabet) for i in range(12))
 
         data={
-            'path' : "{0}/{1}".format(self.run_dir,file_basename),
-            'shareType' : 4,
-            'shareWith' : 'useq@umcutrecht.nl'
+            'path' :f"{self.run_dir}/{file_name}",
+            'shareType' : 3,
+            'shareWith' : 'useq@umcutrecht.nl',
+            'password' : pw
         }
 
-        response = requests.post("https://{0}/ocs/v2.php/apps/files_sharing/api/v1/shares".format(self.hostname), auth=(self.user, self.password), headers={'OCS-APIRequest':'true','Content-Type': 'application/json'},data=json.dumps(data))
+        response = requests.post(f"https://{self.hostname}/ocs/v2.php/apps/files_sharing/api/v1/shares", auth=(self.user, self.password), headers={'OCS-APIRequest':'true','Content-Type': 'application/json'},data=json.dumps(data))
 
         if not response.ok:
             return {"ERROR" : response.raise_for_status()}
@@ -137,8 +145,8 @@ class NextcloudUtil(object):
 
         share_id = None
         if not self.webdav.exists(remote_path):
-            return {"ERROR" : "File '{0}' upload failed".format(file_basename)}
+            return {"ERROR" : f"File '{file_basename}' upload failed"}
 
         response_DOM = parseString( response.text )
         share_id = response_DOM.getElementsByTagName( "token" )[0].firstChild.data
-        return {"SUCCES": share_id}
+        return {"SUCCES": [share_id, pw]}
