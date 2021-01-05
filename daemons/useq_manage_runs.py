@@ -277,7 +277,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
             print (experiment_name)
             if '_' in experiment_name: #Novaseq exception
                 experiment_name = experiment_name.split("_")[3]
-
+            experiment_name = experiment_name.replace('REDO','')
 
             project = Project(lims, id=experiment_name)
             project_name = project.name
@@ -335,7 +335,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                         # Generate run stats + plots
                         if sum(generateRunStats(run_dir)) > 0:
                             conversion_error = Path(f'{run_dir}/conversion_error.txt')
-                            ce = conversion_error.open('wa')
+                            ce = conversion_error.open('a')
                             ce.write('Conversion probably failed, failed to create conversion statistics. If this is ok please replace the ConversionFailed.txt file with ConversionDone.txt to continue data transfer\n')
                             ce.close()
                             os.system(f'date >> {conversion_log}')
@@ -350,7 +350,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                         undetermined_reads = float(conversion_stats['samples']['Undetermined']['cluster_count'].replace(',',''))
                         if (undetermined_reads / total_reads) > 0.5:
                             conversion_error = Path(f'{run_dir}/conversion_error.txt')
-                            ce = conversion_error.open('wa')
+                            ce = conversion_error.open('a')
                             ce.write('Conversion probably failed, >50% of reads in Undetermined fraction. If this is ok please replace the ConversionFailed.txt file with ConversionDone.txt to continue data transfer\n')
                             ce.close()
                             os.system(f'date >> {conversion_log}')
