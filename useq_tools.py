@@ -25,7 +25,7 @@ def client_mail(args):
 
 def share_data(args):
     """Encrypt and Share one or more datasets"""
-    utilities.useq_share_run.run(lims, args.mode, args.ids, args.email, args.dir)
+    utilities.useq_share_run.run(lims, args.ids, args.username, args.dir)
 
 def budget_overview(args):
     utilities.useq_budget_overview.run(lims, args.budgetnrs, args.output_file)
@@ -74,7 +74,7 @@ def nextcloud_monitor(args):
 
 def manage_runs(args):
     """Script responsible for starting conversion, transfer, cleanup and archiving of sequencing runs"""
-    daemons.useq_manage_runs.run(lims, args.missing_bcl, args.barcode_mismatches, args.fastq_for_index, args.short_reads)
+    daemons.useq_manage_runs.run(lims, args.missing_bcl, args.barcode_mismatches, args.fastq_for_index, args.short_reads, args.use_bases_mask)
 
 
 if __name__ == "__main__":
@@ -103,10 +103,9 @@ if __name__ == "__main__":
     parser_client_mail.add_argument('-a','--attachment', help='Path to attachment file')
     parser_client_mail.set_defaults(func=client_mail)
 
-    parser_share_data = subparser_utilities.add_parser('share_data', help='Script support modes raw, processed & manual. For raw & processed the script will search for runs in the raw and processed data directories respectively. For manual the script expects an email and directory.')
-    parser_share_data.add_argument('-m', '--mode', choices=['raw','processed', 'manual'])
+    parser_share_data = subparser_utilities.add_parser('share_data', help='Shares raw data allready on Nextcloud (by ID) or uploads data to nextcloud and then shares it (email and dir).')
     parser_share_data.add_argument('-i', '--ids', help='One or more Project ID(s) to share, separated by comma.')
-    parser_share_data.add_argument('-e', '--email', help='Email to share data with, only used for manual mode.', default=None)
+    parser_share_data.add_argument('-u', '--username', help='Username to share data with.', default=None)
     parser_share_data.add_argument('-d', '--dir', help='Directory containing data to share.', default=None)
     parser_share_data.set_defaults(func=share_data)
 
@@ -178,6 +177,7 @@ if __name__ == "__main__":
     parser_manage_runs.add_argument('-b', '--barcode_mismatches', help='Run conversion with n mismatches allowed in index', default=1)
     parser_manage_runs.add_argument('-f', '--fastq_for_index', help='Create FastQ for index reads', default=False)
     parser_manage_runs.add_argument('-s', '--short_reads', help='Sets --minimum-trimmed-read-length and --mask-short-adapter-reads to 0 allowing short reads to pass filter', default=False)
+    parser_manage_runs.add_argument('-u', '--use_bases_mask', help='Use this base mask', default=None)
     parser_manage_runs.set_defaults(func=manage_runs)
 
 
