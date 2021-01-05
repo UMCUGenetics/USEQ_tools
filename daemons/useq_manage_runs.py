@@ -243,7 +243,7 @@ def archiveFailedMail(run_dir, experiment_name, project_name):
     sendMail(mail_subject,mail_content, MAIL_SENDER ,MAIL_ADMINS)
 
 
-def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_reads, bases_mask,webdav_client):
+def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_reads, bases_mask):
     transfers = {}  # Used to keep track of started transfer processes
     archive_transfers = {} # Used to keep track of started archive transfer processes
     smtp_handler = logging.handlers.SMTPHandler(
@@ -392,14 +392,16 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
 
                 analysis_steps = samples[0].udf['Analysis'].split(',')
 
-                if len(analysis_steps) > 1 or umi:
-                    rsync_command = '/usr/bin/rsync -rah --update --stats --verbose --prune-empty-dirs'
-                    rsync_command += " --include '*/' --include '*.fq.gz' --include '*.fastq.gz' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/*/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/*' --include '*.[pP][eE][dD]'"
-                    rsync_command += " --exclude '*'"
-                    rsync_command += f" {run_dir}"
-                    rsync_command += f" {DATA_DIR_HPC}/{machine} 1>> {transfer_log} 2>> {transfer_error}"
 
-                    transfer_command = f'{transfer_command} && {rsync_command}'
+                rsync_command = '/usr/bin/rsync -rah --update --stats --verbose --prune-empty-dirs'
+                if len(analysis_steps) > 1 or umi:
+                    rsync_command += " --include '*.fq.gz' --include '*.fastq.gz'"
+                rsync_command += " --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/*/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/*' --include '*.[pP][eE][dD]'"
+                rsync_command += " --exclude '*'"
+                rsync_command += f" {run_dir}"
+                rsync_command += f" {DATA_DIR_HPC}/{machine} 1>> {transfer_log} 2>> {transfer_error}"
+
+                transfer_command = f'{transfer_command} && {rsync_command}'
 
                 transfer_running.touch()
 
@@ -464,12 +466,12 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
 def run(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_reads,bases_mask):
     """Runs the manageRuns function"""
 
-    options = {
-         'webdav_hostname': f"https://{NEXTCLOUD_HOST}",
-         'webdav_login':    NEXTCLOUD_USER,
-         'webdav_password': NEXTCLOUD_PW
-    }
-    client = Client(options)
+    # options = {
+    #      'webdav_hostname': f"https://{NEXTCLOUD_HOST}",
+    #      'webdav_login':    NEXTCLOUD_USER,
+    #      'webdav_password': NEXTCLOUD_PW
+    # }
+    # client = Client(options)
 
 
     manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_reads,bases_mask ,client)
