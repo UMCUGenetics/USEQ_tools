@@ -55,13 +55,13 @@ def shareManual(researcher,dir):
     print (f"{name}\tRunning upload to NextCloud")
     upload_response = nextcloud_util.upload(run_zip)
     if "ERROR" in upload_response:
-        print (f"{name}\tError : Failed to upload {run_zip} with message:\n\t{upload_response["ERROR"]}")
+        print (f"{name}\tError : Failed to upload {run_zip} with message:\n\t{upload_response['ERROR']}")
         return
 
     print (f"{name}\tSharing dir {dir} with {researcher.email}")
     share_response = nextcloud_util.share(run_zip, researcher.email)
     if "ERROR" in share_response:
-        print (f"{name}\tError : Failed to share {run_encrypted} with message:\n\t{share_response["ERROR"]}")
+        print (f"{name}\tError : Failed to share {run_encrypted} with message:\n\t{share_response['ERROR']}")
         return
     else:
         share_id = share_response["SUCCES"][0]

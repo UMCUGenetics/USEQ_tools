@@ -82,7 +82,7 @@ def generateRunStats(run_dir):
     exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_qscore_heatmap {run_dir} | gnuplot'))
     # QScore histogram plot
     exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_qscore_histogram {run_dir} | gnuplot'))
-    print (exit_codes)
+    #print (exit_codes)
     return exit_codes
 
 def v2ToV1SampleSheet(v2_samplesheet, experiment_name, project_name):
@@ -258,7 +258,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
     for machine_dir in DATA_DIRS_RAW:
         md_path = Path(machine_dir)
         for run_dir in md_path.glob("*"):
-            if '_' not in run_dir.name: continue
+            if run_dir.name.count('_') != 3 or not run_dir.is_dir(): continue
             #Important Files
             sample_sheet = Path(f'{run_dir}/SampleSheet.csv')
             rta_complete = Path(f'{run_dir}/RTAComplete.txt')
@@ -274,7 +274,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
 
             run_parameters = xml.dom.minidom.parse(f'{run_dir}/RunParameters.xml')
             experiment_name = run_parameters.getElementsByTagName('ExperimentName')[0].firstChild.nodeValue
-            print (experiment_name)
+            #print (experiment_name)
             if '_' in experiment_name: #Novaseq exception
                 experiment_name = experiment_name.split("_")[3]
             experiment_name = experiment_name.replace('REDO','')
@@ -381,9 +381,9 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                 # project_name = getProjectName(sample_sheet)
                 zip_log = f'{run_dir}/run_zip.log'
                 zip_error = f'{run_dir}/run_zip.err'
-                zipped_run = Path(f'{STAGING_DIR}/{experiment_name}-raw.tar.gz')
+                zipped_run = Path(f'{STAGING_DIR}/{experiment_name}-raw.tar')
                 zip_done = Path(f'{STAGING_DIR}/{experiment_name}-raw.tar.gz.done')
-                zip_command = f'tar -czvf {zipped_run} --exclude "*bcl*" --exclude "*.filter" --exclude "*tif" --exclude "*run_zip.*" {run_dir} 1>> {zip_log} 2>> {zip_error}'
+                zip_command = f'tar -cvf {zipped_run} --exclude "*bcl*" --exclude "*.filter" --exclude "*tif" --exclude "*run_zip.*" {run_dir} 1>> {zip_log} 2>> {zip_error}'
 
                 transfer_log = f'{run_dir}/transfer.log'
                 transfer_error = f'{run_dir}/transfer.err'
@@ -414,7 +414,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                         if not exit_code: zip_done.touch()
 
                     if zip_done.is_file():
-                        remote_run_path = f'{NEXTCLOUD_RAW_DIR}/{run_dir.name}.tar.gz'
+                        remote_run_path = f'{NEXTCLOUD_RAW_DIR}/{run_dir.name}.tar'
 
                         exit_code = os.system(transfer_command)
 
@@ -474,4 +474,4 @@ def run(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_reads,base
     # client = Client(options)
 
 
-    manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_reads,bases_mask ,client)
+    manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_reads,bases_mask )
