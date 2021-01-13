@@ -382,8 +382,8 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                 zip_log = f'{run_dir}/run_zip.log'
                 zip_error = f'{run_dir}/run_zip.err'
                 zipped_run = Path(f'{STAGING_DIR}/{experiment_name}-raw.tar')
-                zip_done = Path(f'{STAGING_DIR}/{experiment_name}-raw.tar.gz.done')
-                zip_command = f'tar -cvf {zipped_run} --exclude "*bcl*" --exclude "*.filter" --exclude "*tif" --exclude "*run_zip.*" {run_dir} 1>> {zip_log} 2>> {zip_error}'
+                zip_done = Path(f'{STAGING_DIR}/{experiment_name}-raw.tar.done')
+                zip_command = f'tar -cf {zipped_run} --exclude "*bcl*" --exclude "*.filter" --exclude "*tif" --exclude "*run_zip.*" {run_dir} 1>> {zip_log} 2>> {zip_error}'
 
                 transfer_log = f'{run_dir}/transfer.log'
                 transfer_error = f'{run_dir}/transfer.err'
