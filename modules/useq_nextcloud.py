@@ -114,6 +114,7 @@ class NextcloudUtil(object):
             return {"ERROR" : f"File path '{file_basename}' already exists on server"}
         else:
             #upload file
+            # print (file_path, remote_path)
             response = self.webdav.upload(file_path, remote_path)
 
 
@@ -123,7 +124,7 @@ class NextcloudUtil(object):
 
     def share(self, file_name, email):
         remote_path = f"{self.webdav_root}/{self.run_dir}/{file_name}"
-        print(remote_path)
+        # print(remote_path)
         if not self.webdav.exists(remote_path):
             return {"ERROR" : f"File path '{file_name}' does not exist on server"}
 
