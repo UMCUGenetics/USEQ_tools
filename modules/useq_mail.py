@@ -6,7 +6,7 @@ from email.mime.multipart import MIMEMultipart
 from email import encoders
 import mimetypes
 import smtplib
-
+from pathlib import Path
 def sendMail(subject, content, sender ,receivers, attachments=None, logo=True):
     """Send email to one or more email addresses, attachment is optional"""
     outer = MIMEMultipart()
@@ -17,6 +17,7 @@ def sendMail(subject, content, sender ,receivers, attachments=None, logo=True):
 
     if attachments:
         for attachment_name, attachment in attachments.items():
+            if not Path(attachment).is_file(): continue
             file_name = attachment.split('/')[-1]
             ctype, encoding = mimetypes.guess_type(attachment)
             if ctype is None or encoding is not None:
