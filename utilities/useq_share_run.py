@@ -1,11 +1,12 @@
 from genologics.entities import Project
-from config import RUN_PROCESSES, RAW_DIR, PROCESSED_DIR, NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,NEXTCLOUD_PROCESSED_DIR,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER, NEXTCLOUD_USER, NEXTCLOUD_PW,DATA_DIRS_RAW,SMS_SERVER
+from config import RUN_PROCESSES, RAW_DIR, PROCESSED_DIR, NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,NEXTCLOUD_PROCESSED_DIR,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER, NEXTCLOUD_USER, NEXTCLOUD_PW,DATA_DIRS_RAW,SMS_SERVER,NEXTCLOUD_DATA_ROOT
 from os.path import expanduser, exists
 from texttable import Texttable
 import datetime
 import os
 import multiprocessing
 import subprocess
+import time
 from modules.useq_illumina_parsers import parseConversionStats, parseRunParameters
 from modules.useq_nextcloud import NextcloudUtil
 from modules.useq_mail import sendMail
@@ -38,13 +39,13 @@ def zipRun( dir, dir_info=None):
 def shareManual(researcher,dir):
     name = multiprocessing.current_process().name
     print (f"{name}\tStarting")
-    run_zip = Path(f"{dir}/{dir.name}.tar.gz")
-    zip_done = Path(f"{dir}/{dir.name}.tar.gz.done")
+    run_zip = Path(f"{dir}/{dir.name}.tar")
+    zip_done = Path(f"{dir}/{dir.name}.tar.done")
     if run_zip.is_file() and zip_done.is_file():
         print (f"{name}\tSkipping compression step. {run_zip} and {zip_done} found. ")
     else:
         print (f"{name}\tRunning compression")
-        zip_command = f"tar -czvf {run_zip} {dir}"
+        zip_command = f"cd {dir.parents[0]} && tar -cf {run_zip} {dir.name} "
         exit_code = os.system(zip_command)
         if exit_code:
             print (f"Error: Failed creating {run_zip}.")
@@ -52,16 +53,27 @@ def shareManual(researcher,dir):
         else:
             zip_done.touch()
 
+
+
     print (f"{name}\tRunning upload to NextCloud")
-    upload_response = nextcloud_util.upload(run_zip)
-    if "ERROR" in upload_response:
-        print (f"{name}\tError : Failed to upload {run_zip} with message:\n\t{upload_response['ERROR']}")
+    transfer_log = f'{dir}/transfer.log'
+    transfer_error = f'{dir}/transfer.error'
+    transfer_command = f'scp {run_zip} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_MANUAL_DIR} 1>>{transfer_log} 2>>{transfer_error}'
+
+    exit_code = os.system(transfer_command)
+    if exit_code:
+        print (f"{name}\tError : Failed to upload {run_zip} . Please look at {transfer_error} for the reason.")
         return
+    #upload_response = nextcloud_util.upload(run_zip)
+    #if "ERROR" in upload_response:
+    #    print (f"{name}\tError : Failed to upload {run_zip} with message:\n\t{upload_response['ERROR']}")
+    #    return
+    time.sleep(90)
 
     print (f"{name}\tSharing dir {dir} with {researcher.email}")
-    share_response = nextcloud_util.share(run_zip, researcher.email)
+    share_response = nextcloud_util.share(run_zip.name, researcher.email)
     if "ERROR" in share_response:
-        print (f"{name}\tError : Failed to share {run_encrypted} with message:\n\t{share_response['ERROR']}")
+        print (f"{name}\tError : Failed to share {run_zip} with message:\n\t{share_response['ERROR']}")
         return
     else:
         share_id = share_response["SUCCES"][0]
@@ -77,9 +89,11 @@ def shareManual(researcher,dir):
         mail_content = renderTemplate('share_manual_template.html', template_data)
         mail_subject = "USEQ has shared a file with you."
 
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-
-        print(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_You\'ve_received_a_download_link_for_{dir.name}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,researcher.email)
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+        # print (pw)
+        # print()
+        os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_{dir.name}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
         run_zip.unlink()
         zip_done.unlink()
 
@@ -123,9 +137,10 @@ def shareRaw(project_id,project_info):
         mail_content = renderTemplate('share_raw_template.html', template_data)
         mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-
-        print(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_You\'ve_received_a_download_link_for_runID_{project_id}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+        # print (pw)
+        os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
 
     return
 
@@ -144,7 +159,7 @@ def check(  ):
 def getRawData( lims, project_name ):
     """Get the most recent raw run info based on project name and allowed RUN_PROCESSES"""
     runs = {}
-
+    # print (project_name)
     project_processes = lims.get_processes(
         projectname=project_name,
         type=RUN_PROCESSES
@@ -153,6 +168,7 @@ def getRawData( lims, project_name ):
     for process in project_processes:
         run_id = None
         flowcell_id = None
+        # print(process)
         if 'Run ID' in process.udf: run_id = process.udf['Run ID']
         if 'Flow Cell ID' in process.udf: flowcell_id = process.udf['Flow Cell ID']
         runs[ process.date_run ] = [  run_id, flowcell_id ]
@@ -187,11 +203,12 @@ def getRawData( lims, project_name ):
 def shareDataByUser(lims, username, dir):
     #check if username belongs to a valid researcher
     researcher = lims.get_researchers(username=username)
+
     data_dir = Path(dir)
     if not researcher or not data_dir.is_dir():
         print(f"Error: Either username {username} or directory {data_dir} does not exist.")
         sys.exit()
-
+    researcher = researcher[0]
     if not researcher.phone:
         print(f"Error: {username} has not provided a mobile phone number yet.")
 
@@ -200,6 +217,7 @@ def shareDataByUser(lims, username, dir):
     lims_samples = None
     print (f"Trying to find known samples in {dir}")
     for file in data_dir.rglob("*"):
+        # print (file)
         if file.name.endswith('.bam') or file.name.endswith('.fastq.gz') :
             sample_name = file.name.split("_")[0]
             if sample_name not in possible_samples:
@@ -207,9 +225,10 @@ def shareDataByUser(lims, username, dir):
             possible_samples[sample_name].append(file)
 
     print (f"Found {len(possible_samples.keys())} possible samples in {dir}.")
-    print (f"Trying to link {len(possible_samples.keys())} samples to existing projectIDs.")
-    lims_samples = lims.get_samples(name=list(possible_samples.keys()))
-    if lims_samples:
+
+    if len(possible_samples.keys()):
+        print (f"Trying to link samples to existing projectIDs.")
+        lims_samples = lims.get_samples(name=list(possible_samples.keys()))
         lims_projects = {}
         for sample in lims_samples:
             sample_project = sample.project
@@ -221,8 +240,8 @@ def shareDataByUser(lims, username, dir):
         table = Texttable(max_width=0)
         table.add_rows([['projectID','Username','Nr. Samples']])
         for id in lims_projects:
-            (projectID, username) = id.split(":")
-            table.add_row([projectID, username, lims_projects[id]])
+            (projectID, user) = id.split(":")
+            table.add_row([projectID, user, lims_projects[id]])
         print (table.draw())
     else:
         print (f"Found no valid samples in {dir}. Trying to match {data_dir.name} to an existing projectID.")
@@ -230,6 +249,7 @@ def shareDataByUser(lims, username, dir):
         project =None
         try:
             project = Project(lims, id=projectID_matches.groups()[0])
+            id = project.id
             print(f"Match found for {projectID_matches.groups()[0]}")
             table = Texttable(max_width=0)
             table.add_rows([['Project ID','Project Name','Username']])
@@ -241,7 +261,7 @@ def shareDataByUser(lims, username, dir):
     print (f"Are you sure you want to share {dir} with {username} ? ")
     if check():
         share_processes = []
-        share_process = multiprocessing.Process(name=f"Process_{run_dir.name}", target=shareManual, args=(researcher, run_dir))
+        share_process = multiprocessing.Process(name=f"Process_{data_dir.name}", target=shareManual, args=(researcher, data_dir))
         share_processes.append(share_process)
         share_process.start()
 
@@ -270,16 +290,18 @@ def shareDataById(lims, ids):
             continue
 
         run_dir = getRawData(lims, project_name)
-        if not nextcloud_util.checkExists( f'{project_id}-raw.tar.gz' ) or not run_dir:
+
+        # print(run_dir)
+        # print ( f'{project_id}-raw.tar')
+        if not nextcloud_util.checkExists( f'{project_id}-raw.tar' ) or not run_dir:
             print (f'Error : {project_id} was not uploaded to Nextcloud yet.')
             continue
-
 
         run_info[project_id] = {
 
             'researcher' : researcher,
             'project_name' : project_name,
-            'data' : f'{project_id}-raw.tar.gz',
+            'data' : f'{project_id}-raw.tar',
             'dir' : run_dir
         }
 
