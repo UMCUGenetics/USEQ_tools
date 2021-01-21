@@ -256,8 +256,10 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
     logger.addHandler(smtp_handler)
 
     for machine_dir in DATA_DIRS_RAW:
+        #print(machine_dir)
         md_path = Path(machine_dir)
         for run_dir in md_path.glob("*"):
+            #print ('Checking: ',run_dir)
             if run_dir.name.count('_') != 3 or not run_dir.is_dir(): continue
             #Important Files
             sample_sheet = Path(f'{run_dir}/SampleSheet.csv')
@@ -271,6 +273,11 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
             archive_done = Path(f'{run_dir}/ArchiveDone.txt')
             archive_running = Path(f'{run_dir}/ArchiveRunning.txt')
             archive_failed = Path(f'{run_dir}/ArchiveFailed.txt')
+            run_parameters_old = Path(f'{run_dir}/runParameters.xml')
+            run_parameters = Path(f'{run_dir}/RunParameters.xml')
+            if run_parameters_old.is_file():
+                run_parameters_old.rename(run_parameters)
+
 
             run_parameters = xml.dom.minidom.parse(f'{run_dir}/RunParameters.xml')
             experiment_name = run_parameters.getElementsByTagName('ExperimentName')[0].firstChild.nodeValue
@@ -278,7 +285,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
             if '_' in experiment_name: #Novaseq exception
                 experiment_name = experiment_name.split("_")[3]
             experiment_name = experiment_name.replace('REDO','')
-
+            print(run_dir, experiment_name)
             project = Project(lims, id=experiment_name)
             project_name = project.name
             samples = lims.get_samples(projectlimsid=project.id)
@@ -303,7 +310,8 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                     lims_container_name = run_parameters.getElementsByTagName('LibraryTubeSerialBarcode')[0].firstChild.nodeValue
                 elif [x for x in run_dir.glob("*csv")][0] and not sample_sheet.is_file():
                     v2_samplesheet = [x for x in run_dir.glob("*csv")][0]
-                    v2ToV1SampleSheet(v2_samplesheet,experiment_name, project_name)
+                    v2_samplesheet.rename(f'{run_dir}/SampleSheet.csv')
+                    #v2ToV1SampleSheet(v2_samplesheet,experiment_name, project_name)
 
                 if not sample_sheet.is_file():
                     getSampleSheet(lims, lims_container_name, sample_sheet)
@@ -348,10 +356,10 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                         conversion_stats = parseConversionStats( conversion_stats_file  )
                         total_reads = float(conversion_stats['total_reads'])
                         undetermined_reads = float(conversion_stats['samples']['Undetermined']['cluster_count'].replace(',',''))
-                        if (undetermined_reads / total_reads) > 0.5:
+                        if (undetermined_reads / total_reads) > 0.75:
                             conversion_error = Path(f'{run_dir}/conversion_error.txt')
                             ce = conversion_error.open('a')
-                            ce.write('Conversion probably failed, >50% of reads in Undetermined fraction. If this is ok please replace the ConversionFailed.txt file with ConversionDone.txt to continue data transfer\n')
+                            ce.write('Conversion probably failed, >75% of reads in Undetermined fraction. If this is ok please replace the ConversionFailed.txt file with ConversionDone.txt to continue data transfer\n')
                             ce.close()
                             os.system(f'date >> {conversion_log}')
                             conversion_failed.touch()
@@ -383,7 +391,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                 zip_error = f'{run_dir}/run_zip.err'
                 zipped_run = Path(f'{STAGING_DIR}/{experiment_name}-raw.tar')
                 zip_done = Path(f'{STAGING_DIR}/{experiment_name}-raw.tar.done')
-                zip_command = f'tar -cf {zipped_run} --exclude "*bcl*" --exclude "*.filter" --exclude "*tif" --exclude "*run_zip.*" {run_dir} 1>> {zip_log} 2>> {zip_error}'
+                zip_command = f'cd {run_dir.parents[0]} && tar -cf {zipped_run} --exclude "*jpg" --exclude "*bcl*" --exclude "*.filter" --exclude "*tif" --exclude "*run_zip.*" {run_dir.name} 1>> {zip_log} 2>> {zip_error}'
 
                 transfer_log = f'{run_dir}/transfer.log'
                 transfer_error = f'{run_dir}/transfer.err'
@@ -391,7 +399,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
 
 
                 analysis_steps = samples[0].udf['Analysis'].split(',')
-
+                print(analysis_steps)
 
                 rsync_command = '/usr/bin/rsync -rah --update --stats --verbose --prune-empty-dirs'
                 if len(analysis_steps) > 1 or umi:
@@ -400,7 +408,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                 rsync_command += " --exclude '*'"
                 rsync_command += f" {run_dir}"
                 rsync_command += f" {DATA_DIR_HPC}/{machine} 1>> {transfer_log} 2>> {transfer_error}"
-
+                print(f'{transfer_command} && {rsync_command}')
                 transfer_command = f'{transfer_command} && {rsync_command}'
 
                 transfer_running.touch()
