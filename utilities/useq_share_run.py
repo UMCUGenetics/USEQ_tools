@@ -45,7 +45,7 @@ def shareManual(researcher,dir):
         print (f"{name}\tSkipping compression step. {run_zip} and {zip_done} found. ")
     else:
         print (f"{name}\tRunning compression")
-        zip_command = f"cd {dir.parents[0]} && tar -cf {run_zip} {dir.name} "
+        zip_command = f"cd {dir.parents[0]} && tar -chf {run_zip} {dir.name} "
         exit_code = os.system(zip_command)
         if exit_code:
             print (f"Error: Failed creating {run_zip}.")
@@ -159,7 +159,7 @@ def check(  ):
 def getRawData( lims, project_name ):
     """Get the most recent raw run info based on project name and allowed RUN_PROCESSES"""
     runs = {}
-    # print (project_name)
+    print (project_name)
     project_processes = lims.get_processes(
         projectname=project_name,
         type=RUN_PROCESSES
@@ -168,10 +168,11 @@ def getRawData( lims, project_name ):
     for process in project_processes:
         run_id = None
         flowcell_id = None
-        # print(process)
+        print(process)
         if 'Run ID' in process.udf: run_id = process.udf['Run ID']
         if 'Flow Cell ID' in process.udf: flowcell_id = process.udf['Flow Cell ID']
         runs[ process.date_run ] = [  run_id, flowcell_id ]
+    print(runs)
 
     if not runs:
         return None
@@ -291,8 +292,8 @@ def shareDataById(lims, ids):
 
         run_dir = getRawData(lims, project_name)
 
-        # print(run_dir)
-        # print ( f'{project_id}-raw.tar')
+        print(run_dir)
+        print ( f'{project_id}-raw.tar')
         if not nextcloud_util.checkExists( f'{project_id}-raw.tar' ) or not run_dir:
             print (f'Error : {project_id} was not uploaded to Nextcloud yet.')
             continue
