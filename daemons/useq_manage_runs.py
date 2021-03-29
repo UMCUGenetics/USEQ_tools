@@ -4,15 +4,23 @@ import subprocess
 import logging
 import logging.handlers
 import xml.dom.minidom
+import re
 from config import DATA_DIRS_RAW,DATA_DIR_HPC,ARCHIVE_DIR,MAIL_SENDER,MAIL_ADMINS,INTEROP_PATH,RUNTYPE_YIELDS,BCL2FASTQ_PATH,BCL2FASTQ_PROCESSING_THREADS,BCL2FASTQ_WRITING_THREADS,STAGING_DIR,NEXTCLOUD_DATA_ROOT,NEXTCLOUD_PW,NEXTCLOUD_USER,NEXTCLOUD_HOST,NEXTCLOUD_RAW_DIR
 from modules.useq_mail import sendMail
-from modules.useq_illumina_parsers import parseConversionStats, parseRunParameters
+from modules.useq_illumina_parsers import parseConversionStats, parseRunParameters,parseSampleSheet
 
 from pathlib import Path
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
 from datetime import datetime
 from webdav3.client import Client
 from genologics.entities import Project
+
+def revcomp(seq):
+    revcompl = lambda x: ''.join([{'A':'T','C':'G','G':'C','T':'A'}[B] for B in x][::-1])
+    return revcompl(seq)
+
+
+
 
 def convertBCL(run_dir, log_file, error_file, missing_bcl, barcode_mismatches, fastq_for_index, short_reads, bases_mask):
     """Convert bcl files from run to fastq.gz files."""
@@ -65,7 +73,6 @@ def generateRunStats(run_dir):
     exit_codes = []
     os.chdir(stats_dir)
 
-
     # Run summary csv
     exit_codes.append(os.system(f'{INTEROP_PATH}/bin/summary {run_dir} > {stats_dir}/{run_dir.name}_summary.csv'))
     # Index summary csv
@@ -85,52 +92,64 @@ def generateRunStats(run_dir):
     #print (exit_codes)
     return exit_codes
 
-def v2ToV1SampleSheet(v2_samplesheet, experiment_name, project_name):
-    header = None
-    v1_data = {
-        'project_name' : project_name,
-        'experiment_name' : experiment_name,
-        'date' : datetime.today().strftime('%Y-%m-%d'),
-        'read1_cycles' : None,
-        'read2_cycles' : None,
-        'dual_index' : False,
-        'samples' : []
+def writeV1SampleSheet(dir, samples, top, dual_index):
+    data = {
+        'top' : top,
+        'samples' : samples,
+        'dual_index' : dual_index
     }
 
-    with open(v2_samplesheet) as sheet:
-        for line in sheet.readlines():
-            line = line.rstrip()
-            if line.startswith('Sample_ID'):
-                header = line.rstrip().split(',')
-                continue
+    with open(f'{dir}/SampleSheet.csv', 'w') as new_sheet:
+        new_sheet.write(renderTemplate('SampleSheetv1_template.csv', data))
+    # with open(f'{v2_samplesheet.parent}/SampleSheet.csv', 'w') as new_sheet:
+    #     new_sheet.write(renderTemplate('SampleSheetv1_template.csv', v1_data))
 
-            if header:
-                data = line.split(",")
-                sample = [
-                    data[header.index('Sample_ID')],
-                    data[header.index('Sample_ID')], #Sample_ID == Sample_Name
-                    'NA',
-                    '1:1',
-                    data[header.index('Sample_ID')]
-                ]
-                # print(header)
-                if 'Index' in header:
-                    sample.append( data[ header.index('Index') ])
-                    sample.append( data[ header.index('Index') ])
-                if 'Index2' in header:
-                    v1_data['dual_index'] = True
-                    sample.append( data[ header.index('Index2') ])
-                    sample.append( data[ header.index('Index2') ])
-
-                v1_data['samples'].append(sample)
-            elif line.startswith('Read1Cycles'):
-                v1_data['read1_cycles'] = line.split(',')[1]
-            elif line.startswith('Read2Cycles'):
-                v1_data['read2_cycles'] = line.split(',')[1]
-
-    # print (v1_data)
-    with open(f'{v2_samplesheet.parent}/SampleSheet.csv', 'w') as new_sheet:
-        new_sheet.write(renderTemplate('SampleSheetv1_template.csv', v1_data))
+# def v2ToV1SampleSheet(v2_samplesheet, experiment_name, project_name):
+#     header = None
+#     v1_data = {
+#         'project_name' : project_name,
+#         'experiment_name' : experiment_name,
+#         'date' : datetime.today().strftime('%Y-%m-%d'),
+#         'read1_cycles' : None,
+#         'read2_cycles' : None,
+#         'dual_index' : False,
+#         'samples' : []
+#     }
+#
+#     with open(v2_samplesheet) as sheet:
+#         for line in sheet.readlines():
+#             line = line.rstrip()
+#             if line.startswith('Sample_ID'):
+#                 header = line.rstrip().split(',')
+#                 continue
+#
+#             if header:
+#                 data = line.split(",")
+#                 sample = [
+#                     data[header.index('Sample_ID')],
+#                     data[header.index('Sample_ID')], #Sample_ID == Sample_Name
+#                     'NA',
+#                     '1:1',
+#                     data[header.index('Sample_ID')]
+#                 ]
+#                 # print(header)
+#                 if 'Index' in header:
+#                     sample.append( data[ header.index('Index') ])
+#                     sample.append( data[ header.index('Index') ])
+#                 if 'Index2' in header:
+#                     v1_data['dual_index'] = True
+#                     sample.append( data[ header.index('Index2') ])
+#                     sample.append( data[ header.index('Index2') ])
+#
+#                 v1_data['samples'].append(sample)
+#             elif line.startswith('Read1Cycles'):
+#                 v1_data['read1_cycles'] = line.split(',')[1]
+#             elif line.startswith('Read2Cycles'):
+#                 v1_data['read2_cycles'] = line.split(',')[1]
+#
+#     # print (v1_data)
+#     with open(f'{v2_samplesheet.parent}/SampleSheet.csv', 'w') as new_sheet:
+#         new_sheet.write(renderTemplate('SampleSheetv1_template.csv', v1_data))
 
 # output_file.write(renderTemplate('SampleSheetv2_template.csv', v2_data))
 def getSampleSheet(lims, container_name, sample_sheet_path):
@@ -263,6 +282,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
             if run_dir.name.count('_') != 3 or not run_dir.is_dir(): continue
             #Important Files
             sample_sheet = Path(f'{run_dir}/SampleSheet.csv')
+            sample_sheet_old = Path(f'{run_dir}/SampleSheet.csv-old')
             rta_complete = Path(f'{run_dir}/RTAComplete.txt')
             conversion_done = Path(f'{run_dir}/ConversionDone.txt')
             conversion_running = Path(f'{run_dir}/ConversionRunning.txt')
@@ -357,14 +377,52 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                         total_reads = float(conversion_stats['total_reads'])
                         undetermined_reads = float(conversion_stats['samples']['Undetermined']['cluster_count'].replace(',',''))
                         if (undetermined_reads / total_reads) > 0.75:
-                            conversion_error = Path(f'{run_dir}/conversion_error.txt')
-                            ce = conversion_error.open('a')
-                            ce.write('Conversion probably failed, >75% of reads in Undetermined fraction. If this is ok please replace the ConversionFailed.txt file with ConversionDone.txt to continue data transfer\n')
-                            ce.close()
-                            os.system(f'date >> {conversion_log}')
-                            conversion_failed.touch()
-                            conversion_running.unlink()
-                            conversionFailedMail(run_dir, experiment_name, project_name)
+                            #Conversion might have failed due to barcode being in the wrong orientation or due to the presence of UMIs
+
+                            #Get barcodes from samplesheet and check if revcomp exists in unknown barcode_mismatches
+                            rev = None
+                            clean_bc = None
+                            dual_index = None
+                            if not sample_sheet_old.is_file():
+                                sample_sheet_info = parseSampleSheet(sample_sheet)
+                                samples = sample_sheet_info['samples']
+                                header = sample_sheet_info['header']
+                                for sample in samples:
+                                    print (sample)
+                                    print (header)
+                                    if 'index2' in header:
+                                        dual_index = 1
+                                        if 'N' in sample[header.index('index2')]: continue
+                                        revseq = revcomp(sample[header.index('index2')])
+                                        print (revseq)
+                                        sample[header.index('index2')] = revseq
+                                        print (conversion_stats['unknown'])
+                                        index1 = sample[header.index('index')]
+                                        if f'{index1}+{revseq}' in conversion_stats['unknown']: rev = 1
+                                    else:
+                                        if 'N' in sample[header.index('index')] and re.search("[ACGT]", sample[header.index('index')] ) and not umi:
+                                            sample[header.index('index')] = sample[header.index('index')].replace("N","")
+                                            clean_bc = 1
+                                        elif 'N' not in sample[header.index('index')]:
+                                            revseq = revcomp(sample[header.index('index')])
+                                            sample[header.index('index')] = revseq
+                                            if revseq in conversion_stats['unknown']: rev = 1
+
+                                conversion_error = Path(f'{run_dir}/conversion_error.txt')
+                                ce = conversion_error.open('a')
+
+                                if rev or clean_bc:
+                                    sample_sheet.rename(sample_sheet_old)
+                                    writeV1SampleSheet(run_dir,samples, sample_sheet_info['top'],dual_index)
+                                    ce.write('Conversion probably failed, >75% of reads in Undetermined fraction. Trying to remove N\'s and/or reverse complementation.\n')
+                                    conversion_running.unlink()
+                                else:
+                                    ce.write('Conversion probably failed, >75% of reads in Undetermined fraction. No solution could be found automatically.\n')
+                                    conversion_failed.touch()
+                                    conversion_running.unlink()
+                                    conversionFailedMail(run_dir, experiment_name, project_name)
+                                ce.close()
+
                         else:
                             # Remove lock and set conversion done
                             os.system(f'date >> {conversion_log}')

@@ -76,6 +76,9 @@ def manage_runs(args):
     """Script responsible for starting conversion, transfer, cleanup and archiving of sequencing runs"""
     daemons.useq_manage_runs.run(lims, args.missing_bcl, args.barcode_mismatches, args.fastq_for_index, args.short_reads, args.use_bases_mask)
 
+def run_overview(args):
+    """Creates json file intended for the USEQ-Overview website"""
+    daemons.useq_run_overview.run(lims, args.overview_file)
 
 if __name__ == "__main__":
     global lims
@@ -118,11 +121,9 @@ if __name__ == "__main__":
     parser_create_runids.add_argument('-u', '--userid', required=True)
     parser_create_runids.add_argument('-a', '--application', choices=['Sequencing','Fingerprinting'] ,required=True)
     parser_create_runids.add_argument('-n', '--nr', type=int,required=True)
-    # parser_create_runids.add_argument('-e', '--email', required=True)
     parser_create_runids.set_defaults(func=create_runids)
 
     parser_get_researchers = subparser_utilities.add_parser('get_researchers', help='Get all info for all researchers')
-    # parser_get_researchers.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
     parser_get_researchers.set_defaults(func=get_researchers)
 
     #epp parsers
@@ -180,7 +181,9 @@ if __name__ == "__main__":
     parser_manage_runs.add_argument('-u', '--use_bases_mask', help='Use this base mask', default=None)
     parser_manage_runs.set_defaults(func=manage_runs)
 
-
+    parser_run_overview = subparser_daemons.add_parser('run_overview', help='Daemon responsible for updating the run overview json file used in the USEQ-Overview website.')
+    parser_run_overview.add_argument('-o', '--overview_file', help='', default='overview.json')
+    parser_run_overview.set_defaults(func=run_overview)
 
     args = parser.parse_args()
     args.func(args)
