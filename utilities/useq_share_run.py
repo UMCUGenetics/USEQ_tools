@@ -233,7 +233,14 @@ def shareDataByUser(lims, username, dir):
         lims_projects = {}
         for sample in lims_samples:
             sample_project = sample.project
-            id = f"{sample_project.id}:{sample_project.researcher.username}"
+            # print(sample_project)
+            user = None
+            try:
+                user = sample_project.researcher.username
+            except:
+                user = 'NA'
+            id = f"{sample_project.id}:{user}"
+
             if id not in lims_projects:
                 lims_projects[id] = 0
             lims_projects[id] +=1
