@@ -1,20 +1,3 @@
-[Header]
-Investigator Name,NA
-Project Name,{{project_name}}
-Experiment Name,{{experiment_name}}
-Date,{{date}}
-Workflow,GenerateFASTQ
-Assay,null
-Chemistry,amplicon
-[Reads]
-{{read1_cycles}}
-{% if read2_cycles %}{{read2_cycles}}{% endif %}
-[Settings]
-AdapterRead1,AGATCGGAAGAGCACACGTCTGAACTCCAGTCA
-AdapterRead2,AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT
-FilterPCRDuplicates,1
-VariantCaller,GATK
-[Data]
-Sample_ID,Sample_Name,Sample_Plate,Sample_Well,Sample_Project,index,I7_Index_ID{% if dual_index %},index2,I5_Index_ID{% endif %}
+{{top}}Sample_ID,Sample_Name,Sample_Plate,Sample_Well,Sample_Project,index,I7_Index_ID{% if dual_index %},index2,I5_Index_ID{% endif %}
 {% for sample in samples %}{{sample|join(',')}}
 {% endfor %}
