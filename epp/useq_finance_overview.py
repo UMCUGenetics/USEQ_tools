@@ -66,6 +66,13 @@ def getAllCosts():
 	costs_lower['1 x 75 bp'] = costs_lower['iseq 100 1 x 75 bp']
 	costs_lower['2 x 75 bp'] = costs_lower['iseq 100 2 x 75 bp']
 	costs_lower['2 x 150 bp'] = costs_lower['iseq 100 2 x 150 bp']
+	costs_lower['p2 : 2 x 50 bp'] = costs_lower['nextseq2000 2 x 50 bp p2']
+	costs_lower['p2 : 2 x 100 bp'] = costs_lower['nextseq2000 2 x 100 bp p2']
+	costs_lower['p2 : 2 x 150 bp'] = costs_lower['nextseq2000 2 x 150 bp p2']
+	costs_lower['p3 : 1 x 50 bp'] = costs_lower['nextseq2000 1 x 50 bp p3']
+	costs_lower['p3 : 2 x 50 bp'] = costs_lower['nextseq2000 2 x 50 bp p3']
+	costs_lower['p3 : 2 x 100 bp'] = costs_lower['nextseq2000 2 x 100 bp p3']
+	costs_lower['p3 : 2 x 150 bp'] = costs_lower['nextseq2000 2 x 150 bp p3']
 
 	return costs_lower
 
