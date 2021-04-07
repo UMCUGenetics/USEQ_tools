@@ -111,3 +111,21 @@ def parseRunParameters( run_parameters):
         expected_reads = RUNTYPE_YIELDS['HiSeq rapid']
 
     return expected_reads
+
+def parseSampleSheet(sample_sheet):
+    data = {'top': '', 'samples': [], 'header':[] }
+    with open(sample_sheet) as sheet:
+        header = None
+
+        for line in sheet.readlines():
+            line = line.rstrip()
+            if line.startswith('Sample_ID'):
+                header = line.rstrip().split(',')
+                data['header'] = header
+                continue
+            elif header:
+                sample = line.split(",")
+                data['samples'].append(sample)
+            else:
+                data['top'] += f"{line}\n"
+        return data
