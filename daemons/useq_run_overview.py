@@ -157,7 +157,7 @@ def getProjectDetails( lims, project,run_dirs ):
 
     print (f'Getting processes start {datetime.now()}' )
     project_processes = lims.get_processes(projectname=project.name)
-    
+
     print (f'Getting processes stop {datetime.now()}' )
     if not project_processes:
         return project_details
@@ -420,4 +420,4 @@ def run(lims, overview_file):
     project_ovw = updateProjectOverview( lims, overview_file )
 
     # #write new project info overview
-    writeProjectOverview( lims, overview_file )
+    writeProjectOverview( project_ovw, overview_file )
