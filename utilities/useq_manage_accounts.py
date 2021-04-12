@@ -94,29 +94,8 @@ def edit(lims, csv, acc):
     print ("Is this correct (Y/N)?")
     go = input()
     if go == 'Y':
-        account.name = account_update['account_name']
-        account.website = account_update['account_website']
-        account.udf['BudgetNrs'] = account_update['account_BudgetNrs']
-        account.udf['UMCU_DebNr'] = account_update['account_DEBNr']
-        account.udf['UMCU_VATNr'] = account_update['account_VATNr']
-
-        account.billing_address['street'] = account_update['billing_street']
-        account.billing_address['city'] = account_update['billing_city']
-        account.billing_address['state'] = account_update['billing_state']
-        account.billing_address['country'] = account_update['billing_country']
-        account.billing_address['postalCode'] = account_update['billing_postalCode']
-        account.billing_address['institution'] = account_update['billing_institution']
-        account.billing_address['department'] = account_update['billing_department']
-
-        account.shipping_address['street'] = account_update['shipping_street']
-        account.shipping_address['city'] = account_update['shipping_city']
-        account.shipping_address['state'] = account_update['shipping_state']
-        account.shipping_address['country'] = account_update['shipping_country']
-        account.shipping_address['postalCode'] = account_update['shipping_postalCode']
-        account.shipping_address['institution'] = account_update['shipping_institution']
-        account.shipping_address['department'] = account_update['shipping_department']
-        account.put()
-
+        account_XML = renderTemplate('account_template.xml', account_update)
+        response = lims.put(account.uri, account_XML)
     else:
         sys.exit("Failed to update account {0}".format(acc))
 

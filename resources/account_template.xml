@@ -19,5 +19,7 @@
     <department>{{shipping_department}}</department>
   </shipping-address>
   <udf:field type="Text" name="BudgetNrs">{{account_BudgetNrs}}</udf:field>
+  <udf:field type="Text" name="UMCU_DebNr">{{account_DEBNr}}</udf:field>
+  <udf:field type="Text" name="UMCU_VATNr">{{account_VATNr}}</udf:field>
   <website>{{account_website}}</website>
 </lab:lab>
