@@ -26,6 +26,9 @@ def getAccountCSV(account):
     template_data['account_website'] = account.website
 
     template_data['account_BudgetNrs'] = account.udf['BudgetNrs'].replace("\n",",")
+    template_data['account_VATNr'] = account.udf['UMCU_VATNr'] if 'UMCU_VATNr' in account.udf else ''
+    template_data['account_DEBNr'] = account.udf['UMCU_DebNr'] if 'UMCU_DebNr' in account.udf else ''
+
     template_data['billing_street'] = account.billing_address['street']
     template_data['billing_city'] = account.billing_address['city']
     template_data['billing_state'] = account.billing_address['state']
@@ -94,6 +97,9 @@ def edit(lims, csv, acc):
         account.name = account_update['account_name']
         account.website = account_update['account_website']
         account.udf['BudgetNrs'] = account_update['account_BudgetNrs']
+        account.udf['UMCU_DebNr'] = account_update['account_DEBNr']
+        account.udf['UMCU_VATNr'] = account_update['account_VATNr']
+
         account.billing_address['street'] = account_update['billing_street']
         account.billing_address['city'] = account_update['billing_city']
         account.billing_address['state'] = account_update['billing_state']
