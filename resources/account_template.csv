@@ -4,6 +4,8 @@ account_website,{{account_website}}
 
 [udfs]
 account_BudgetNrs,{{account_BudgetNrs}}
+account_VATNr,{{account_VATNr}}
+account_DEBNr,{{account_DEBNr}}
 
 [billing-address]
 billing_street,{{billing_street}}

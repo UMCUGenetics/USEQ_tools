@@ -348,7 +348,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                         exit_code = convertBCL(run_dir, conversion_log, conversion_error, missing_bcl, barcode_mismatches, fastq_for_index, short_reads, bases_mask)
                     else:
                         exit_code = convertBCL(run_dir, conversion_log, conversion_error, missing_bcl, barcode_mismatches, fastq_for_index, short_reads, bases_mask)
-
+                    # exit_code = 0
                     if exit_code == 0:  # Conversion completed
 
                         # Add flowcell_id to fastq.gz files
@@ -390,7 +390,11 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                                 for sample in samples:
                                     print (sample)
                                     print (header)
-                                    if 'index2' in header:
+                                    if 'N' in sample[header.index('index')] and re.search("[ACGT]", sample[header.index('index')] ) and not umi:
+                                        sample[header.index('index')] = sample[header.index('index')].replace("N","")
+                                        clean_bc = 1
+                                        print ('cleaning')
+                                    elif 'index2' in header:
                                         dual_index = 1
                                         if 'N' in sample[header.index('index2')]: continue
                                         revseq = revcomp(sample[header.index('index2')])
@@ -400,13 +404,10 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                                         index1 = sample[header.index('index')]
                                         if f'{index1}+{revseq}' in conversion_stats['unknown']: rev = 1
                                     else:
-                                        if 'N' in sample[header.index('index')] and re.search("[ACGT]", sample[header.index('index')] ) and not umi:
-                                            sample[header.index('index')] = sample[header.index('index')].replace("N","")
-                                            clean_bc = 1
-                                        elif 'N' not in sample[header.index('index')]:
-                                            revseq = revcomp(sample[header.index('index')])
-                                            sample[header.index('index')] = revseq
-                                            if revseq in conversion_stats['unknown']: rev = 1
+                                        revseq = revcomp(sample[header.index('index')])
+                                        sample[header.index('index')] = revseq
+                                        if revseq in conversion_stats['unknown']: rev = 1
+
 
                                 conversion_error = Path(f'{run_dir}/conversion_error.txt')
                                 ce = conversion_error.open('a')
