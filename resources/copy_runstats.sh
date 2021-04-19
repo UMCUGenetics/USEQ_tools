@@ -1,13 +1,13 @@
 #!/bin/sh
 
-RAW_DATA_PATH=/hpc/cog_bioinf/ubec/useq/raw_data/
-USEQ_TOOLS=/hpc/cuppen/projects/TP0002_USEQ/general/analysis/sboymans/USEQ_tools/USEQ_tools/
-RUNSTATS_PATH=/hpc/cuppen/projects/TP0002_USEQ/general/analysis/sboymans/runstats/
+RAW_DATA_PATH=/hpc/useq/raw_data/
+USEQ_TOOLS=/hpc/local/CentOS7/cog_bioinf/USEQ_tools-sms/
+RUNSTATS_PATH=/hpc/useq/raw_data/runstats/
 WEBLOC=sitkaspar:/var/www/html/USEQ-Overview-dev
 #GATHER RUN STATS
 
 cd $RAW_DATA_PATH
-DIRS="novaseq_umc01 miseq_umc01 nextseq_umc03 nextseq_umc04 nextseq_umc05 nextseq2000/nextseq2000_umc01 nextseq2000/nextseq2000_umc02 nextseq2000_umc01 nextseq2000_umc02"
+DIRS="novaseq_umc01 miseq_umc01 nextseq_umc03 nextseq2000/nextseq2000_umc01 nextseq2000/nextseq2000_umc02 nextseq2000_umc01 nextseq2000_umc02"
 for dir in $DIRS;do
  for rundir in $(find $dir -mindepth 1 -maxdepth 1 -type d );do
   runname=$(basename $rundir);
