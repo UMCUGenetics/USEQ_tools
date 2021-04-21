@@ -101,57 +101,7 @@ def writeV1SampleSheet(dir, samples, top, dual_index):
 
     with open(f'{dir}/SampleSheet.csv', 'w') as new_sheet:
         new_sheet.write(renderTemplate('SampleSheetv1_template.csv', data))
-    # with open(f'{v2_samplesheet.parent}/SampleSheet.csv', 'w') as new_sheet:
-    #     new_sheet.write(renderTemplate('SampleSheetv1_template.csv', v1_data))
 
-# def v2ToV1SampleSheet(v2_samplesheet, experiment_name, project_name):
-#     header = None
-#     v1_data = {
-#         'project_name' : project_name,
-#         'experiment_name' : experiment_name,
-#         'date' : datetime.today().strftime('%Y-%m-%d'),
-#         'read1_cycles' : None,
-#         'read2_cycles' : None,
-#         'dual_index' : False,
-#         'samples' : []
-#     }
-#
-#     with open(v2_samplesheet) as sheet:
-#         for line in sheet.readlines():
-#             line = line.rstrip()
-#             if line.startswith('Sample_ID'):
-#                 header = line.rstrip().split(',')
-#                 continue
-#
-#             if header:
-#                 data = line.split(",")
-#                 sample = [
-#                     data[header.index('Sample_ID')],
-#                     data[header.index('Sample_ID')], #Sample_ID == Sample_Name
-#                     'NA',
-#                     '1:1',
-#                     data[header.index('Sample_ID')]
-#                 ]
-#                 # print(header)
-#                 if 'Index' in header:
-#                     sample.append( data[ header.index('Index') ])
-#                     sample.append( data[ header.index('Index') ])
-#                 if 'Index2' in header:
-#                     v1_data['dual_index'] = True
-#                     sample.append( data[ header.index('Index2') ])
-#                     sample.append( data[ header.index('Index2') ])
-#
-#                 v1_data['samples'].append(sample)
-#             elif line.startswith('Read1Cycles'):
-#                 v1_data['read1_cycles'] = line.split(',')[1]
-#             elif line.startswith('Read2Cycles'):
-#                 v1_data['read2_cycles'] = line.split(',')[1]
-#
-#     # print (v1_data)
-#     with open(f'{v2_samplesheet.parent}/SampleSheet.csv', 'w') as new_sheet:
-#         new_sheet.write(renderTemplate('SampleSheetv1_template.csv', v1_data))
-
-# output_file.write(renderTemplate('SampleSheetv2_template.csv', v2_data))
 def getSampleSheet(lims, container_name, sample_sheet_path):
     """Get sample_sheet from clarity lims and write to sample_sheet_path."""
     for reagent_kit_artifact in lims.get_artifacts(containername=container_name):
@@ -388,19 +338,15 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                                 samples = sample_sheet_info['samples']
                                 header = sample_sheet_info['header']
                                 for sample in samples:
-                                    print (sample)
-                                    print (header)
                                     if 'N' in sample[header.index('index')] and re.search("[ACGT]", sample[header.index('index')] ) and not umi:
                                         sample[header.index('index')] = sample[header.index('index')].replace("N","")
                                         clean_bc = 1
-                                        print ('cleaning')
+                                        if 'index2' in header : dual_index = 1
                                     elif 'index2' in header:
                                         dual_index = 1
                                         if 'N' in sample[header.index('index2')]: continue
                                         revseq = revcomp(sample[header.index('index2')])
-                                        print (revseq)
                                         sample[header.index('index2')] = revseq
-                                        print (conversion_stats['unknown'])
                                         index1 = sample[header.index('index')]
                                         if f'{index1}+{revseq}' in conversion_stats['unknown']: rev = 1
                                     else:

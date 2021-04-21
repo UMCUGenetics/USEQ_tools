@@ -123,6 +123,7 @@ def getSeqFinance(lims, step_uri):
 			'lims_analysis' : set(),	'requested_analysis' : set(),		'analysis_personell_costs' : 0,	'analysis_step_costs': 0,'analysis_date' : set(), #analysis fields
 			'total_step_costs' :0,'total_personell_costs':0,
 			'contact_name' : None,'contact_email' : None,'lab_name' : None,'budget_nr' : None,'institute' : None,'postalcode' : None,'city' : None,'country' : None,'department' : None,'street' : None,
+			'vat_nr' : None, 'deb_nr' : None
 
 		}
 
@@ -279,6 +280,9 @@ def getSeqFinance(lims, step_uri):
 				runs[pool.id]['country'] = sample.project.researcher.lab.billing_address['country']
 				runs[pool.id]['department'] = sample.project.researcher.lab.billing_address['department']
 				runs[pool.id]['street'] = sample.project.researcher.lab.billing_address['street']
+				if 'UMCU_DebNr' in sample.project.researcher.lab.udf: runs[pool.id]['deb_nr'] = sample.project.researcher.lab.udf['UMCU_DebNr']
+				if 'UMCU_VATNr' in sample.project.researcher.lab.udf: runs[pool.id]['vat_nr'] = sample.project.researcher.lab.udf['UMCU_VATNr']
+
 
 	return renderTemplate('seq_finance_overview_template.csv', {'runs':runs})
 
