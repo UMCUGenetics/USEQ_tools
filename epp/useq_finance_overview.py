@@ -1,6 +1,6 @@
 from genologics.entities import Step, ProtocolStep
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
-from config import COST_DB,RUN_PROCESSES,ISOLATION_PROCESSES,LIBPREP_PROCESSES,ANALYSIS_PROCESSES
+from config import COST_DB,RUN_PROCESSES,ISOLATION_PROCESSES,LIBPREP_PROCESSES,ANALYSIS_PROCESSES,DB_PWD,DB_USER,DB
 import re
 import sys
 import json

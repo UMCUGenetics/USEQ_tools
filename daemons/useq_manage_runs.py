@@ -92,15 +92,19 @@ def generateRunStats(run_dir):
     #print (exit_codes)
     return exit_codes
 
-def writeV1SampleSheet(dir, samples, top, dual_index):
-    data = {
-        'top' : top,
-        'samples' : samples,
-        'dual_index' : dual_index
-    }
+def writeV1SampleSheet(dir, header, samples, top):
+    # data = {
+    #     'top' : top,
+    #     'header' : header,
+    #     'samples' : samples,
+    # }
 
     with open(f'{dir}/SampleSheet.csv', 'w') as new_sheet:
-        new_sheet.write(renderTemplate('SampleSheetv1_template.csv', data))
+        new_sheet.write(top)
+        new_sheet.write(f'{",".join(header)}\n')
+        for sample in samples:
+            new_sheet.write(f'{",".join(sample)}\n')
+        # new_sheet.write(renderTemplate('SampleSheetv1_template.csv', data))
 
 def getSampleSheet(lims, container_name, sample_sheet_path):
     """Get sample_sheet from clarity lims and write to sample_sheet_path."""
@@ -360,7 +364,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
 
                                 if rev or clean_bc:
                                     sample_sheet.rename(sample_sheet_old)
-                                    writeV1SampleSheet(run_dir,samples, sample_sheet_info['top'],dual_index)
+                                    writeV1SampleSheet(run_dir,header, samples, sample_sheet_info['top'])
                                     ce.write('Conversion probably failed, >75% of reads in Undetermined fraction. Trying to remove N\'s and/or reverse complementation.\n')
                                     conversion_running.unlink()
                                 else:
