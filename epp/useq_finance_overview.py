@@ -5,20 +5,58 @@ import re
 import sys
 import json
 import urllib
+import pymysql
+
+def getFinanceOvw():
+    # try:
+    db = pymysql.connect(user=DB_USER,password=DB_PWD,database=DB, host='sitkaspar', ssl={'ssl': 1})
+    # except:
+        # sys.exit('ERROR : Failed to create db connection!')
+
+    cursor = db.cursor()
+    sql_query = None
+    step_costs = {}
+
+    sql_query = "SELECT s.name as step_name, sc.costs, sc.step_cost,sc.personell_cost,sc.date, st.name as type_name, st.step_input FROM usf_step s JOIN usf_step_costs sc ON s.step_id=sc.step_id JOIN usf_step_types st ON s.type_id=st.type_id;"
+
+    try:
+        cursor.execute(sql_query)
+        results = cursor.fetchall()
+        header = [x[0] for x in cursor.description]
+
+        # print (header)
+        for row in results:
+            r = dict(zip(header, row))
+            # print(r)
+            if r['step_name'] not in step_costs:
+                step_costs[ r['step_name'] ] = {
+                    'type_name' : r['type_name'],
+                    'step_input' : r['step_input'],
+                    'date_costs' : {},
+                    'date_step_costs' : {},
+                    'date_personell_costs' : {}
+                }
+            step_costs[ r['step_name'] ] [ 'date_costs' ][ r['date'] ] = r['costs']
+            step_costs[ r['step_name'] ] [ 'date_step_costs' ][ r['date'] ] = r['step_cost']
+            step_costs[ r['step_name'] ] [ 'date_personell_costs' ][ r['date'] ] = r['personell_cost']
+        return (step_costs)
+    except:
+        db.close()
+        sys.exit('ERROR : Unable to retrieve data')
 
 def getAllCosts():
 	"""Retrieves costs from cost db"""
-	costs_json = ""
-	try:
-		costs_json = urllib.request.urlopen( COST_DB ).read()
-	except urllib.error.HTTPError as e:
-		sys.exit(e.msg)
-	except urllib.error.URLError as e:
-		sys.exit(e.read())
-	except:
-		sys.exit( str(sys.exc_type) + str(sys.exc_value) )
+	# costs_json = ""
+	# try:
+	# 	costs_json = urllib.request.urlopen( COST_DB ).read()
+	# except urllib.error.HTTPError as e:
+	# 	sys.exit(e.msg)
+	# except urllib.error.URLError as e:
+	# 	sys.exit(e.read())
+	# except:
+	# 	sys.exit( str(sys.exc_type) + str(sys.exc_value) )
 
-	costs = json.loads(costs_json)
+	costs = getFinanceOvw()
 
 	costs_lower = dict( (k.lower(), v) for k,v in costs.items())
 	#Do some (unfortunately) neccessary name conversions
