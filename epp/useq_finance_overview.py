@@ -6,6 +6,7 @@ import sys
 import json
 import urllib
 import pymysql
+from datetime import datetime
 
 def getFinanceOvw():
     # try:
@@ -45,87 +46,76 @@ def getFinanceOvw():
         sys.exit('ERROR : Unable to retrieve data')
 
 def getAllCosts():
-	"""Retrieves costs from cost db"""
-	# costs_json = ""
-	# try:
-	# 	costs_json = urllib.request.urlopen( COST_DB ).read()
-	# except urllib.error.HTTPError as e:
-	# 	sys.exit(e.msg)
-	# except urllib.error.URLError as e:
-	# 	sys.exit(e.read())
-	# except:
-	# 	sys.exit( str(sys.exc_type) + str(sys.exc_value) )
+    """Retrieves costs from cost db"""
 
-	costs = getFinanceOvw()
+    costs = getFinanceOvw()
+    costs_lower = dict( (k.lower(), v) for k,v in costs.items())
+    #Do some (unfortunately) neccessary name conversions
+    costs_lower['libprep dna'] = costs_lower['truseq dna nano']
+    costs_lower['truseq dna nano (manual)'] = costs_lower['truseq dna nano']
+    costs_lower['truseq dna nano (automatic)'] = costs_lower['truseq dna nano']
+    costs_lower['truseq rna stranded polya (manual)'] =costs_lower['truseq rna stranded polya']
+    costs_lower['truseq rna stranded polya (automatic)'] =costs_lower['truseq rna stranded polya']
+    costs_lower['libprep rna stranded polya'] = costs_lower['truseq rna stranded polya']
+    costs_lower['truseq rna stranded ribo-zero'] = costs_lower['truseq rna stranded ribozero (human, mouse, rat)']
+    costs_lower['libprep rna stranded ribo-zero'] = costs_lower['truseq rna stranded ribozero (human, mouse, rat)']
+    costs_lower['open snp array'] = costs_lower['snp open array (60 snps)']
+    costs_lower['mid output : 2 x 75 bp'] = costs_lower['nextseq500 2 x 75 bp mid output']
+    costs_lower['mid output : 2 x 150 bp' ] = costs_lower[ 'nextseq500 2 x 150 bp mid output']
+    costs_lower['high output : 1 x 75 bp' ] = costs_lower[ 'nextseq500 1 x 75 bp high output']
+    costs_lower['high output : 2 x 75 bp' ] = costs_lower[ 'nextseq500 2 x 75 bp high output']
+    costs_lower['high output : 2 x 150 bp' ] = costs_lower[ 'nextseq500 2 x 150 bp high output']
+    costs_lower['v2 kit : 1 x 50 bp' ] = costs_lower[ 'miseq 1 x 50 bp v2 kit']
+    costs_lower['v2 kit (nano) : 1 x 300 bp' ] = costs_lower[ 'miseq 1x300 bp v2 kit (nano)']
+    costs_lower['v2 kit (micro) : 1 x 300 bp' ] = costs_lower[ 'miseq 1x300 bp v2 kit (micro)']
+    costs_lower['v2 kit : 2 x 150 bp' ] = costs_lower[ 'miseq 2 x 150 bp v2 kit']
+    costs_lower['v2 kit : 2 x 250 bp' ] = costs_lower[ 'miseq 2 x 250 bp v2 kit']
+    costs_lower['v3 kit : 2 x 75 bp' ] = costs_lower[ 'miseq 2 x 75 bp v3 kit']
+    costs_lower['v3 kit : 2 x 300 bp' ] = costs_lower[ 'miseq 2 x 300 bp v3 kit']
+    costs_lower['s4 : 2 x 150 bp'] = costs_lower[ 'novaseq 6000 s4 2 x 150 bp']
+    costs_lower['s1 : 2 x 50 bp' ] = costs_lower[ 'novaseq 6000 s1 2 x 50 bp']
+    costs_lower['s1 : 2 x 100 bp'] = costs_lower['novaseq 6000 s1 2 x 100 bp' ]
+    costs_lower['s1 : 2 x 150 bp'] = costs_lower['novaseq 6000 s1 2 x 150 bp' ]
+    costs_lower['s2 : 2 x 50 bp' ] = costs_lower['novaseq 6000 s2 2 x 50 bp' ]
+    costs_lower['s2 : 2 x 100 bp'] = costs_lower['novaseq 6000 s2 2 x 100 bp'  ]
+    costs_lower['s2 : 2 x 150 bp'] = costs_lower['novaseq 6000 s2 2 x 150 bp'  ]
+    costs_lower['s4 : 2 x 100 bp'] = costs_lower[ 'novaseq 6000 s4 2 x 100 bp' ]
+    costs_lower['s4 : 1 x 35 bp'] = costs_lower['novaseq 6000 s4 1 x 35 bp']
+    costs_lower['wgs at hmf'] = costs_lower['novaseq 6000 wgs at hmf']
+    costs_lower['sp : 2 x 100 bp'] = costs_lower['novaseq 6000 sp 2 x 100 bp']
+    costs_lower['sp : 2 x 50 bp'] = costs_lower[ 'novaseq 6000 sp 2 x 50 bp' ]
+    costs_lower['sp : 2 x 150 bp'] = costs_lower['novaseq 6000 sp 2 x 150 bp' ]
+    costs_lower['sp : 2 x 250 bp'] = costs_lower[ 'novaseq 6000 sp 2 x 250 bp']
+    costs_lower['1 x minion flowcell' ] = costs_lower[ 'nanopore minion 1 x flowcell']
+    costs_lower['1 x promethion flowcell' ] = costs_lower[ 'nanopore promethion 1 x flowcell']
+    costs_lower['1 x flongle flowcell'] = costs_lower[ 'nanopore flongle 1 x flowcell']
+    costs_lower['snp open array (60 snps)' ] = costs_lower[ 'snp open array (60 snps)']
+    costs_lower['1 x 36 bp'] = costs_lower['iseq 100 1 x 36 bp']
+    costs_lower['1 x 50 bp'] = costs_lower['iseq 100 1 x 50 bp']
+    costs_lower['1 x 75 bp'] = costs_lower['iseq 100 1 x 75 bp']
+    costs_lower['2 x 75 bp'] = costs_lower['iseq 100 2 x 75 bp']
+    costs_lower['2 x 150 bp'] = costs_lower['iseq 100 2 x 150 bp']
+    costs_lower['p2 : 2 x 50 bp'] = costs_lower['nextseq2000 2 x 50 bp p2']
+    costs_lower['p2 : 2 x 100 bp'] = costs_lower['nextseq2000 2 x 100 bp p2']
+    costs_lower['p2 : 2 x 150 bp'] = costs_lower['nextseq2000 2 x 150 bp p2']
+    costs_lower['p3 : 1 x 50 bp'] = costs_lower['nextseq2000 1 x 50 bp p3']
+    costs_lower['p3 : 2 x 50 bp'] = costs_lower['nextseq2000 2 x 50 bp p3']
+    costs_lower['p3 : 2 x 100 bp'] = costs_lower['nextseq2000 2 x 100 bp p3']
+    costs_lower['p3 : 2 x 150 bp'] = costs_lower['nextseq2000 2 x 150 bp p3']
 
-	costs_lower = dict( (k.lower(), v) for k,v in costs.items())
-	#Do some (unfortunately) neccessary name conversions
-	costs_lower['libprep dna'] = costs_lower['truseq dna nano']
-	costs_lower['libprep ont dna'] = costs_lower['nanopore library prep']
-	costs_lower['libprep ont rna'] = costs_lower['nanopore library prep']
-	costs_lower['truseq dna nano (manual)'] = costs_lower['truseq dna nano']
-	costs_lower['truseq dna nano (automatic)'] = costs_lower['truseq dna nano']
-	costs_lower['truseq rna stranded polya (manual)'] =costs_lower['truseq rna stranded polya']
-	costs_lower['truseq rna stranded polya (automatic)'] =costs_lower['truseq rna stranded polya']
-	costs_lower['libprep rna stranded polya'] = costs_lower['truseq rna stranded polya']
-	costs_lower['truseq rna stranded ribo-zero'] = costs_lower['truseq rna stranded ribozero (human, mouse, rat)']
-	costs_lower['libprep rna stranded ribo-zero'] = costs_lower['truseq rna stranded ribozero (human, mouse, rat)']
-	costs_lower['open snp array'] = costs_lower['snp open array (60 snps)']
-	costs_lower['mid output : 2 x 75 bp'] = costs_lower['nextseq500 2 x 75 bp mid output']
-	costs_lower['mid output : 2 x 150 bp' ] = costs_lower[ 'nextseq500 2 x 150 bp mid output']
-	costs_lower['high output : 1 x 75 bp' ] = costs_lower[ 'nextseq500 1 x 75 bp high output']
-	costs_lower['high output : 2 x 75 bp' ] = costs_lower[ 'nextseq500 2 x 75 bp high output']
-	costs_lower['high output : 2 x 150 bp' ] = costs_lower[ 'nextseq500 2 x 150 bp high output']
-	costs_lower['v2 kit : 1 x 50 bp' ] = costs_lower[ 'miseq 1 x 50 bp v2 kit']
-	costs_lower['v2 kit (nano) : 1 x 300 bp' ] = costs_lower[ 'miseq 1x300 bp v2 kit (nano)']
-	costs_lower['v2 kit (micro) : 1 x 300 bp' ] = costs_lower[ 'miseq 1x300 bp v2 kit (micro)']
-	costs_lower['v2 kit : 2 x 150 bp' ] = costs_lower[ 'miseq 2 x 150 bp v2 kit']
-	costs_lower['v2 kit : 2 x 250 bp' ] = costs_lower[ 'miseq 2 x 250 bp v2 kit']
-	costs_lower['v3 kit : 2 x 75 bp' ] = costs_lower[ 'miseq 2 x 75 bp v3 kit']
-	costs_lower['v3 kit : 2 x 300 bp' ] = costs_lower[ 'miseq 2 x 300 bp v3 kit']
-	costs_lower['s4 : 2 x 150 bp'] = costs_lower[ 'novaseq 6000 s4 2 x 150 bp']
-	costs_lower['s1 : 2 x 50 bp' ] = costs_lower[ 'novaseq 6000 s1 2 x 50 bp']
-	costs_lower['s1 : 2 x 100 bp'] = costs_lower['novaseq 6000 s1 2 x 100 bp' ]
-	costs_lower['s1 : 2 x 150 bp'] = costs_lower['novaseq 6000 s1 2 x 150 bp' ]
-	costs_lower['s2 : 2 x 50 bp' ] = costs_lower['novaseq 6000 s2 2 x 50 bp' ]
-	costs_lower['s2 : 2 x 100 bp'] = costs_lower['novaseq 6000 s2 2 x 100 bp'  ]
-	costs_lower['s2 : 2 x 150 bp'] = costs_lower['novaseq 6000 s2 2 x 150 bp'  ]
-	costs_lower['s4 : 2 x 100 bp'] = costs_lower[ 'novaseq 6000 s4 2 x 100 bp' ]
-	costs_lower['wgs at hmf'] = costs_lower['novaseq 6000 wgs at hmf']
-	costs_lower['sp : 2 x 50 bp'] = costs_lower[ 'novaseq 6000 sp 2 x 50 bp' ]
-	costs_lower['sp : 2 x 150 bp'] = costs_lower['novaseq 6000 sp 2 x 150 bp'  ]
-	costs_lower['sp : 2 x 250 bp'] = costs_lower[ 'novaseq 6000 sp 2 x 250 bp']
-	costs_lower['1 x minion flowcell' ] = costs_lower[ 'nanopore minion 1 x flowcell']
-	costs_lower['1 x promethion flowcell' ] = costs_lower[ 'nanopore promethion 1 x flowcell']
-	costs_lower['1 x flongle flowcell'] = costs_lower[ 'nanopore flongle 1 x flowcell']
-	costs_lower['snp open array (60 snps)' ] = costs_lower[ 'snp open array (60 snps)']
-	costs_lower['1 x 36 bp'] = costs_lower['iseq 100 1 x 36 bp']
-	costs_lower['1 x 50 bp'] = costs_lower['iseq 100 1 x 50 bp']
-	costs_lower['1 x 75 bp'] = costs_lower['iseq 100 1 x 75 bp']
-	costs_lower['2 x 75 bp'] = costs_lower['iseq 100 2 x 75 bp']
-	costs_lower['2 x 150 bp'] = costs_lower['iseq 100 2 x 150 bp']
-	costs_lower['p2 : 2 x 50 bp'] = costs_lower['nextseq2000 2 x 50 bp p2']
-	costs_lower['p2 : 2 x 100 bp'] = costs_lower['nextseq2000 2 x 100 bp p2']
-	costs_lower['p2 : 2 x 150 bp'] = costs_lower['nextseq2000 2 x 150 bp p2']
-	costs_lower['p3 : 1 x 50 bp'] = costs_lower['nextseq2000 1 x 50 bp p3']
-	costs_lower['p3 : 2 x 50 bp'] = costs_lower['nextseq2000 2 x 50 bp p3']
-	costs_lower['p3 : 2 x 100 bp'] = costs_lower['nextseq2000 2 x 100 bp p3']
-	costs_lower['p3 : 2 x 150 bp'] = costs_lower['nextseq2000 2 x 150 bp p3']
 
-	return costs_lower
+
+    return costs_lower
 
 def getNearestBillingDate(all_costs, step ,step_date):
-	billing_date = ''
-
-	for date in sorted(all_costs[ step ][ 'date_step_costs'].keys() ):
-
-		if date <= step_date:
-			billing_date = date
-
-	if not billing_date:
-		billing_date = sorted(all_costs[ step ][ 'date_step_costs'].keys())[-1]
-
-	return billing_date
+    billing_date = ''
+    step_date = datetime.strptime(step_date, "%Y-%m-%d").date()
+    for date in sorted(all_costs[ step ][ 'date_step_costs'].keys() ):
+        if date <= step_date:
+            billing_date = date
+    if not billing_date:
+        billing_date = sorted(all_costs[ step ][ 'date_step_costs'].keys())[-1]
+    return billing_date
 
 def getStepProtocol(lims, step_id=None, step_uri=None):
 	protocol_name = None
@@ -203,10 +193,20 @@ def getSeqFinance(lims, step_uri):
 						runs[pool.id]['errors'].add("Isolation type {0} in LIMS doesn't match sample type {1}".format(isolation_type, sample.udf['Sample Type']))
 
 				elif process_name in LIBPREP_PROCESSES and sample.udf['Sequencing Runtype'] != 'WGS at HMF':
-					print (sample.project.id, process_name, runs[pool.id]['requested_runtype'])
+					# print (sample.project.id, process_name, runs[pool.id]['requested_runtype'])
+					lims_library_prep = ''
 
-					protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
-					lims_library_prep = protocol_name.split("-",1)[1].lower().strip()
+					if 'flongle' in sample.udf['Sequencing Runtype'].lower():
+						lims_library_prep = 'nanopore flongle library prep'
+						print (lims_library_prep)
+					elif 'minion' in sample.udf['Sequencing Runtype'].lower() or 'promethion' in sample.udf['Sequencing Runtype'].lower():
+						lims_library_prep = 'nanopore minion library prep'
+						print (lims_library_prep)
+					else:
+						protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
+						lims_library_prep = protocol_name.split("-",1)[1].lower().strip()
+
+
 					runs[pool.id]['lims_library_prep'].add(lims_library_prep)
 
 					billing_date = getNearestBillingDate(all_costs, lims_library_prep , sample_artifact.parent_process.date_run)
@@ -215,14 +215,11 @@ def getSeqFinance(lims, step_uri):
 					runs[pool.id]['total_step_costs'] += float(all_costs[ lims_library_prep][ 'date_step_costs' ][ billing_date ])
 					runs[pool.id]['total_personell_costs'] += float(all_costs[ lims_library_prep][ 'date_personell_costs' ][ billing_date ])
 					runs[pool.id]['libprep_date'].add(sample_artifact.parent_process.date_run)
-
-
 				elif process_name in RUN_PROCESSES and not runs[pool.id]['lims_runtype']:
 					protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 					runs[pool.id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 
 					requested_runtype = sample.udf['Sequencing Runtype'].lower()
-					# print(sample.project.name + ' ' + protocol_name + ' ' + requested_runtype)
 					billing_date = getNearestBillingDate(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
 					if requested_runtype == 'wgs at hmf':
 						runs[pool.id]['run_step_costs'] = float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ]) * len(pool.samples)
