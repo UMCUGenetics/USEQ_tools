@@ -156,7 +156,7 @@ def check(  ):
        sys.stdout.write("Please respond with '(y)es' or '(n)o'")
     return choice
 
-def getRawData( lims, project_name ):
+def getRawData( lims, project_name, fid ):
     """Get the most recent raw run info based on project name and allowed RUN_PROCESSES"""
     runs = {}
     print (project_name)
@@ -170,7 +170,10 @@ def getRawData( lims, project_name ):
         flowcell_id = None
         print(process)
         if 'Run ID' in process.udf: run_id = process.udf['Run ID']
-        if 'Flow Cell ID' in process.udf: flowcell_id = process.udf['Flow Cell ID']
+        if fid:
+            flowcell_id = fid
+        elif 'Flow Cell ID' in process.udf:
+            flowcell_id = process.udf['Flow Cell ID']
         runs[ process.date_run ] = [  run_id, flowcell_id ]
     print(runs)
 
@@ -277,7 +280,7 @@ def shareDataByUser(lims, username, dir):
             process.join()
 
 
-def shareDataById(lims, ids):
+def shareDataById(lims, ids, fid):
     """Get's the run names, encrypts the run data and sends it to the appropriate client"""
     project_ids = ids.split(",")
     run_info = {}
@@ -297,7 +300,7 @@ def shareDataById(lims, ids):
             print(f'Error : User ID {researcher.username} for project ID {project_id} has not provided a phone number yet.')
             continue
 
-        run_dir = getRawData(lims, project_name)
+        run_dir = getRawData(lims, project_name, fid)
 
         print(run_dir)
         print ( f'{project_id}-raw.tar')
@@ -337,7 +340,7 @@ def shareDataById(lims, ids):
             for process in share_processes:
                 process.join()
 
-def run(lims, ids, username, dir):
+def run(lims, ids, username, dir, fid):
     """Runs raw, processed or manual function based on mode"""
 
     global nextcloud_util
@@ -348,7 +351,7 @@ def run(lims, ids, username, dir):
 
     if ids:
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,MAIL_SENDER )
-        shareDataById(lims, ids)
+        shareDataById(lims, ids, fid)
 
     elif username and dir:
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER )
