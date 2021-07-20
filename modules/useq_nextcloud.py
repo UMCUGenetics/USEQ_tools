@@ -45,17 +45,24 @@ class NextcloudUtil(object):
 
                 if not line.rstrip():continue
                 columns = line.split('"')
-                print(columns)
+
                 if not columns[2].startswith(' 200'):continue
 
-                ip = columns[0].split(" ")[0]
+                ip = columns[0].split(" ")[0].split(":")[-1]
 
                 from geoip import geolite2
                 ip_match = geolite2.lookup(ip)
-                download_date = columns[0].split(" ")[3].lstrip('[')
 
-                download_id = columns[1].split(' ')[1].split('/')[2]
-                # print (download_date, download_id)
+                download_date = columns[0].split(" ")[3].lstrip('[')
+                download_id_fields = columns[1].split(' ')[1].split('/')
+                download_id = None
+                if download_id_fields[2] == 's':
+                    download_id = download_id_fields[3]
+                elif download_id_fields[1] == 's':
+                    download_id = download_id_fields[2]
+                else:
+                    download_id = columns[0].split(" ")[2]
+
                 if download_id not in download_ids:
                     download_ids[download_id] = {'download_sizes':[],'downloaded_from':[], 'download_dates': []}
 
@@ -64,16 +71,11 @@ class NextcloudUtil(object):
 
                 if ip_match:
                     download_ids[download_id]['downloaded_from'].append(ip_match.country)
-        pp.pprint(download_ids['cfeKQCb6RJpmk2q'])
-        # print (download_ids)
-        # Get a listing of all files
 
 
         for file in self.webdav.ls(self.webdav_root+self.run_dir):
             if not file.contenttype: continue #directories
             file_path = file.name.replace(self.webdav_root,'')
-            # if 'raw' in file_path: print (file_path)
-            # print (file)
             files[file_path] = {
                 'size' : file.size,
                 'mtime' : file.mtime,
@@ -86,7 +88,7 @@ class NextcloudUtil(object):
         # Get file share ID
         response = requests.get("https://{0}/ocs/v2.php/apps/files_sharing/api/v1/shares".format(self.hostname), auth=(self.user, self.password), headers={'OCS-APIRequest':'true'})
         response_DOM = parseString( response.text )
-        # print (response.text)
+
         for element in response_DOM.getElementsByTagName( "element" ):
 
             file_path = element.getElementsByTagName("path")[0].firstChild.data
@@ -97,12 +99,12 @@ class NextcloudUtil(object):
                 files[file_path]['share_id'] = share_id
 
                 if share_id in download_ids:
-                    # print (file_path, share_id)
+
                     files[file_path]['downloaded'] = True
                     files[file_path]['download_sizes'] = download_ids[share_id]['download_sizes']
                     files[file_path]['downloaded_from'] = download_ids[share_id]['downloaded_from']
                     files[file_path]['download_dates'] = download_ids[share_id]['download_dates']
-                    print(file_path,files[file_path])
+
         return files
 
     def checkExists(self,file):

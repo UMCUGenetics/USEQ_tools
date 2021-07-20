@@ -31,7 +31,7 @@ def checkUsage():
 	}
 
 	content = renderTemplate('nextcloud_overview.html', data)
-	# sendMail(subject,content,MAIL_SENDER,MAIL_ADMINS)
+	sendMail(subject,content,MAIL_SENDER,MAIL_ADMINS)
 
 def run():
     global nextcloud_util
@@ -41,9 +41,6 @@ def run():
 
     nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,MAIL_SENDER )
     checkUsage()
-    # #
-    # # # nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_PROCESSED_DIR,MAIL_SENDER )
-    # # # checkUsage()
-    # #
-    # nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER )
-    # checkUsage()
+
+    nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER )
+    checkUsage()
