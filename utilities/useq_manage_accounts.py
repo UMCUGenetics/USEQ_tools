@@ -28,6 +28,8 @@ def getAccountCSV(account):
     template_data['account_BudgetNrs'] = account.udf['BudgetNrs'].replace("\n",",")
     template_data['account_VATNr'] = account.udf['UMCU_VATNr'] if 'UMCU_VATNr' in account.udf else ''
     template_data['account_DEBNr'] = account.udf['UMCU_DebNr'] if 'UMCU_DebNr' in account.udf else ''
+    template_data['account_SupEmail'] = account.udf['Supervisor Email'] if 'Supervisor Email' in account.udf else ''
+    template_data['account_FinEmail'] = account.udf['Finance Department Email'] if 'Finance Department Email' in account.udf else ''
 
     template_data['billing_street'] = account.billing_address['street']
     template_data['billing_city'] = account.billing_address['city']

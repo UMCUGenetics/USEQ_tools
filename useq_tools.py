@@ -34,8 +34,8 @@ def get_researchers(args):
     utilities.useq_get_researchers.run(lims)
 
 
-def create_runids(args):
-    utilities.useq_create_runids.run(lims, args.userid, args.application, args.nr)
+def manage_runids(args):
+    utilities.useq_manage_runids.run(lims, args.csv, args.mode)
 
 #Clarity epp scripts
 def run_status_mail(args):
@@ -117,11 +117,10 @@ if __name__ == "__main__":
     parser_budget_ovw.add_argument('-b', '--budgetnrs', required=True)
     parser_budget_ovw.set_defaults(func=budget_overview)
 
-    parser_create_runids = subparser_utilities.add_parser('create_runids', help='Create one or multiple runIDs for a user.')
-    parser_create_runids.add_argument('-u', '--userid', required=True)
-    parser_create_runids.add_argument('-a', '--application', choices=['Sequencing','Fingerprinting'] ,required=True)
-    parser_create_runids.add_argument('-n', '--nr', type=int,required=True)
-    parser_create_runids.set_defaults(func=create_runids)
+    parser_manage_runids = subparser_utilities.add_parser('manage_runids', help='Link or unlink one or multiple runIDs for a user.')
+    parser_manage_runids.add_argument('-c', '--csv', help='Path to csv file', nargs='?' ,type=argparse.FileType('r') ,required=True)
+    parser_manage_runids.add_argument('-m', '--mode', choices=['link','unlink'] ,required=True)
+    parser_manage_runids.set_defaults(func=manage_runids)
 
     parser_get_researchers = subparser_utilities.add_parser('get_researchers', help='Get all info for all researchers')
     parser_get_researchers.set_defaults(func=get_researchers)
