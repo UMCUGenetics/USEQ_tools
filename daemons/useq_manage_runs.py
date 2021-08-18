@@ -90,6 +90,7 @@ def generateRunStats(run_dir):
     # QScore histogram plot
     exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_qscore_histogram {run_dir} | gnuplot'))
     #print (exit_codes)
+    exit_codes.append(os.system(f'multiqc {run_dir} -o {stats_dir} -k json'))
     return exit_codes
 
 def writeV1SampleSheet(dir, header, samples, top):
@@ -413,7 +414,7 @@ def manageRuns(lims, missing_bcl, barcode_mismatches, fastq_for_index, short_rea
                 rsync_command = '/usr/bin/rsync -rah --update --stats --verbose --prune-empty-dirs'
                 if len(analysis_steps) > 1 or umi:
                     rsync_command += " --include '*.fq.gz' --include '*.fastq.gz'"
-                rsync_command += " --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/*/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/*' --include '*.[pP][eE][dD]'"
+                rsync_command += " --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/*/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/**' --include '*.[pP][eE][dD]'"
                 rsync_command += " --exclude '*'"
                 rsync_command += f" {run_dir}"
                 rsync_command += f" {DATA_DIR_HPC}/{machine} 1>> {transfer_log} 2>> {transfer_error}"
