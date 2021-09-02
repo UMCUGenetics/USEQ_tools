@@ -33,9 +33,11 @@ def budget_overview(args):
 def get_researchers(args):
     utilities.useq_get_researchers.run(lims)
 
-
 def manage_runids(args):
     utilities.useq_manage_runids.run(lims, args.csv, args.mode)
+
+def link_run_results(args):
+    utilities.useq_link_run_results.run(args.runid, args.rundir)
 
 #Clarity epp scripts
 def run_status_mail(args):
@@ -90,7 +92,7 @@ if __name__ == "__main__":
     subparser = parser.add_subparsers()
 
     #Utility parsers
-    parser_utilities = subparser.add_parser('utilities',help="Utility functions: manage_accounts, client_mail, share_run")
+    parser_utilities = subparser.add_parser('utilities',help="Utility functions: manage_accounts, client_mail, share_data, budget_overview , manage_runids,link_run_results, get_researchers")
     subparser_utilities = parser_utilities.add_subparsers()
 
     parser_manage_accounts = subparser_utilities.add_parser('manage_accounts', help='Create, Edit & Retrieve accounts (labs)')
@@ -121,6 +123,11 @@ if __name__ == "__main__":
     parser_manage_runids.add_argument('-c', '--csv', help='Path to csv file', nargs='?' ,type=argparse.FileType('r') ,required=True)
     parser_manage_runids.add_argument('-m', '--mode', choices=['link','unlink'] ,required=True)
     parser_manage_runids.set_defaults(func=manage_runids)
+
+    parser_link_run_results = subparser_utilities.add_parser('link_run_results', help='Link the run results for a runID.')
+    parser_link_run_results.add_argument('-i', '--runid', help='LIMS runID', required=True)
+    parser_link_run_results.add_argument('-p', '--rundir', help='Path the run directory', required=True)
+    parser_link_run_results.set_defaults(func=link_run_results)
 
     parser_get_researchers = subparser_utilities.add_parser('get_researchers', help='Get all info for all researchers')
     parser_get_researchers.set_defaults(func=get_researchers)
