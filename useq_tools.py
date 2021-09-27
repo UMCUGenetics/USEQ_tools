@@ -76,7 +76,7 @@ def nextcloud_monitor(args):
 
 def manage_runs(args):
     """Script responsible for starting conversion, transfer, cleanup and archiving of sequencing runs"""
-    daemons.useq_manage_runs.run(lims, args.missing_bcl, args.barcode_mismatches, args.fastq_for_index, args.short_reads, args.use_bases_mask)
+    daemons.useq_manage_runs.run(lims)
 
 def run_overview(args):
     """Creates json file intended for the USEQ-Overview website"""
@@ -180,11 +180,11 @@ if __name__ == "__main__":
     parser_nextcloud_monitor.set_defaults(func=nextcloud_monitor)
 
     parser_manage_runs = subparser_daemons.add_parser('manage_runs', help='Daemon responsible for starting conversion, transfer, cleanup and archiving of sequencing runs')
-    parser_manage_runs.add_argument('-m', '--missing_bcl', help='Run conversion with --ignore-missing-bcls flag', default=False)
-    parser_manage_runs.add_argument('-b', '--barcode_mismatches', help='Run conversion with n mismatches allowed in index', default=1)
-    parser_manage_runs.add_argument('-f', '--fastq_for_index', help='Create FastQ for index reads', default=False)
-    parser_manage_runs.add_argument('-s', '--short_reads', help='Sets --minimum-trimmed-read-length and --mask-short-adapter-reads to 0 allowing short reads to pass filter', default=False)
-    parser_manage_runs.add_argument('-u', '--use_bases_mask', help='Use this base mask', default=None)
+    # parser_manage_runs.add_argument('-m', '--missing_bcl', help='Run conversion with --ignore-missing-bcls flag', default=False)
+    # parser_manage_runs.add_argument('-b', '--barcode_mismatches', help='Run conversion with n mismatches allowed in index', default=1)
+    # parser_manage_runs.add_argument('-f', '--fastq_for_index', help='Create FastQ for index reads', default=False)
+    # parser_manage_runs.add_argument('-s', '--short_reads', help='Sets --minimum-trimmed-read-length and --mask-short-adapter-reads to 0 allowing short reads to pass filter', default=False)
+    # parser_manage_runs.add_argument('-u', '--use_bases_mask', help='Use this base mask', default=None)
     parser_manage_runs.set_defaults(func=manage_runs)
 
     parser_run_overview = subparser_daemons.add_parser('run_overview', help='Daemon responsible for updating the run overview json file used in the USEQ-Overview website.')

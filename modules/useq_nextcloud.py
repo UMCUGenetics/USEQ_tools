@@ -64,7 +64,7 @@ class NextcloudUtil(object):
 
                 if ip_match:
                     download_ids[download_id]['downloaded_from'].append(ip_match.country)
-        pp.pprint(download_ids['cfeKQCb6RJpmk2q'])
+        # pp.pprint(download_ids['cfeKQCb6RJpmk2q'])
         # print (download_ids)
         # Get a listing of all files
 
@@ -108,6 +108,10 @@ class NextcloudUtil(object):
     def checkExists(self,file):
         remote_path = f'{self.webdav_root}/{self.run_dir}/{file}'
         return self.webdav.exists(remote_path)
+
+    def delete(self,file):
+        remote_path = f'{self.webdav_root}/{self.run_dir}/{file}'
+        self.webdav.delete(remote_path)
 
     def upload(self, file_path):
         if not os.path.isfile(file_path): return {"ERROR":f"File path '{file_path}' is not a file"}

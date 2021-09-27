@@ -97,9 +97,7 @@ def parseConversionStats( conversion_stats_file ):
 
     return conversion_stats
 
-
-
-def parseRunParameters( run_parameters):
+def getExpectedReads( run_parameters):
     if not os.path.isfile( run_parameters ):
         return None
 
@@ -137,7 +135,7 @@ def parseSampleSheet(sample_sheet):
 
         for line in sheet.readlines():
             line = line.rstrip()
-            if line.startswith('Sample_ID'):
+            if 'Sample_ID' in line:
                 header = line.rstrip().split(',')
                 data['header'] = header
                 continue
