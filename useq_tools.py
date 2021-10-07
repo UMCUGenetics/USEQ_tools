@@ -62,12 +62,15 @@ def route_artifacts(args):
 
 def close_projects(args):
     """Close all projects included in the current step"""
-    epp.useq_close_projects.run(lims, args.step)
+    epp.useq_close_projects.run(lims, args.step, args.pid)
 
 def create_recipe(args):
     """Create Novaseq run recipe"""
     epp.useq_create_recipe.run(lims, args.step,args.output_file)
 
+def create_samplesheet(args):
+    """Create generic v2 samplesheet"""
+    epp.useq_create_samplesheet.run(lims, args.step,args.output_file)
 
 #Daemon scripts
 def nextcloud_monitor(args):
@@ -164,7 +167,8 @@ if __name__ == "__main__":
     parser_route_artifacts.set_defaults(func=route_artifacts)
 
     parser_close_projects = subparser_epp.add_parser('close_projects', help='Close all projects included in the specified step')
-    parser_close_projects.add_argument('-s', '--step', help='Step URI', required=True)
+    parser_close_projects.add_argument('-s', '--step', help='Step URI', required=False)
+    parser_close_projects.add_argument('-p', '--pid', required=False, default=None, help='ProjectID, Overrides Step URI')
     parser_close_projects.set_defaults(func=close_projects)
 
     parser_create_recipe = subparser_epp.add_parser('create_recipe', help='Creates a novaseq run recipe. Can only be started from the USEQ - Denature, Dilute and Load (Novaseq) step.')
@@ -172,6 +176,10 @@ if __name__ == "__main__":
     parser_create_recipe.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
     parser_create_recipe.set_defaults(func=create_recipe)
 
+    parser_create_samplesheet = subparser_epp.add_parser('create_samplesheet', help='Creates a v2 samplesheet.')
+    parser_create_samplesheet.add_argument('-s', '--step', help='Step URI', required=True)
+    parser_create_samplesheet.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
+    parser_create_samplesheet.set_defaults(func=create_samplesheet)
     #Daemon parsers
     parser_daemons = subparser.add_parser('daemons', help='USEQ daemon scripts: check_nextcloud_storage,manage_runs ')
     subparser_daemons = parser_daemons.add_subparsers()

@@ -1,21 +1,15 @@
-[Header],,
-FileFormatVersion,2,
-RunName,{{RunName}},
-InstrumentPlatform,{{InstrumentPlatform}},
-InstrumentType,{{InstrumentType}},
-,,
-[Reads],,
-Read1Cycles,{{Read1Cycles}},{% if Read2Cycles %}
-Read2Cycles,{{Read2Cycles}},{% endif %}
-Index1Cycles,{{Index1Cycles}},{% if Index2Cycles %}
-Index2Cycles,{{Index2Cycles}},{% endif %}
-,,
-[BCLConvert_Settings],,
-SoftwareVersion,{{SoftwareVersion}},
-AdapterRead1,{{AdapterRead1}},
-AdapterRead2,{{AdapterRead2}},
-,,
-[BCLConvert_Data],,
-{% if Index2Cycles %}Sample_ID,Index,Index2{% else %}Sample_ID,Index{% endif %}
-{% for sample in samples %}{{sample}}
+[Header]
+Investigator Name,{{investigator_name}}
+Experiment Name,{{experiment_name}}
+Date,{{date}}
+[Reads]
+Read1Cycles,{{read1_cycles}}{% if read2_cycles %}
+Read2Cycles,{{read2_cycles}}{% endif %}
+[Settings]
+OverrideCycles,{{override_cycles}}
+{% if trim_umi %}TrimUMI,0{% endif %}
+CreateFastqForIndexReads,1
+[Data]
+Sample_ID,index,{% if index2_cycles %}index2,{% endif %}Sample_Project
+{% for sample in samples %}{{sample['Sample_ID']}},{{sample['index']}},{% if index2_cycles %}{{sample['index2']}},{% endif %}{{sample['Sample_Project']}}
 {% endfor %}

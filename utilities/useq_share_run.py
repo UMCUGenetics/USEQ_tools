@@ -7,7 +7,7 @@ import os
 import multiprocessing
 import subprocess
 import time
-from modules.useq_illumina_parsers import parseConversionStats, parseRunParameters
+from modules.useq_illumina_parsers import parseConversionStats, getExpectedReads
 from modules.useq_nextcloud import NextcloudUtil
 from modules.useq_mail import sendMail
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
@@ -109,7 +109,7 @@ def shareRaw(project_id,project_info):
         print (f"{name}\tError : No ConversionStats.xml file could be found in {project_info['dir']}/Data/Intensities/BaseCalls/Stats/!")
         return
 
-    expected_yield = parseRunParameters( f"{project_info['dir']}/RunParameters.xml" )
+    expected_yield = getExpectedReads( f"{project_info['dir']}/RunParameters.xml" )
     if not expected_yield:
         print (f"{name}\tError : No RunParameters.xml file could be found in {project_info['dir']}!")
         return
