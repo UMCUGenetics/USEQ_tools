@@ -23,7 +23,7 @@ def convertBCL(run_dir, sample_sheet, log_file, error_file):
 
     # Start conversion
     os.system(f'date >> {log_file}')
-    command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {sample_sheet} --first-tile-only true'
+    command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {sample_sheet}'
     command = f'{command} 1>> /dev/null 2>> {error_file}'
     exit_code = os.system(command)
     updateLog(log_file, 'Conversion : Done')
@@ -166,7 +166,7 @@ def parseConversionStats(dir):
             stats['top_unknown'].append(row)
     return stats
 
-def statusMail(message, run_dir, experiment_name, project_name):
+def statusMail(message, run_dir, projectIDs):
     status_file = Path(f'{run_dir}/Conversion/Logs/status.json')
     log_file = Path(f'{run_dir}/Conversion/Logs/mgr.log')
     error_file = Path(f'{run_dir}/Conversion/Logs/mgr.err')
@@ -191,6 +191,8 @@ def statusMail(message, run_dir, experiment_name, project_name):
     expected_reads = getExpectedReads(f'{run_dir}/RunParameters.xml')
     conversion_stats = parseConversionStats(f'{run_dir}/Conversion/FastQ/Reports')
 
+    #TODO ADD PROJECT ID TO SAMPLES
+
     attachments = {
         'zip_file': f'{run_dir}/{run_dir.name}_Reports.zip',
         'basepercent_by_cycle_plot': str(basepercent_by_cycle_plot) if basepercent_by_cycle_plot.is_file else None,
@@ -204,14 +206,14 @@ def statusMail(message, run_dir, experiment_name, project_name):
         'status' : status,
         'log' : log,
         'error' : error,
-        'experiment_name': experiment_name,
+        'projectIDs': ",".join(projectIDs),
         'run_dir': run_dir.name,
         'nr_reads' : f'{conversion_stats["total_reads"]:,} / {expected_reads:,}',
         'stats_summary': conversion_stats,
     }
 
     mail_content = renderTemplate('conversion_status_mail.html', template_data)
-    mail_subject = f'[USEQ] Status ({experiment_name}-{project_name}): {message}'
+    mail_subject = f'[USEQ] Status ({",".join(projectIDs)}): {message}'
     sendMail(mail_subject,mail_content, MAIL_SENDER ,MAIL_ADMINS, attachments=attachments)
 
 def updateLog(file,msg):
@@ -279,58 +281,135 @@ def demux_check(run_dir, log_file, error_file):
         return True
     return False
 
+def filterStats(lims, pid, pid_staging, report_dir):
+    samples = lims.get_samples(projectlimsid=pid)
+    sample_names = [x.name for x in samples]
+    adapter_metrics = Path(f'{report_dir}/Adapter_Metrics.csv')
+    adapter_metrics_filtered = Path(f'{pid_staging}/Adapter_Metrics.csv')
+    demultiplex_stats = Path(f'{report_dir}/Demultiplex_Stats.csv')
+    demultiplex_stats_filtered = Path(f'{pid_staging}/Demultiplex_Stats.csv')
 
-def uploadToNextcloud(run_dir, mode,experiment_name,log_file, error_file):
+    with open(adapter_metrics, 'r') as original, open(adapter_metrics_filtered, 'w') as filtered:
+        for line in original.readlines():
+            parts = line.split(',')
+            if line.startswith('Lane') or parts[1] in sample_names:
+                filtered.write(line)
+
+    with open(demultiplex_stats, 'r') as original, open(demultiplex_stats_filtered, 'w') as filtered:
+        for line in original.readlines():
+            parts = line.split(',')
+            if line.startswith('Lane') or parts[1] in sample_names:
+                filtered.write(line)
+
+    # for sample in samples:
+    # print(sample_names)
+def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
     machine = run_dir.parents[0].name
-    zipped_run = Path(f'{STAGING_DIR}/{experiment_name}-raw.tar')
-    zipped_run_md5 = Path(f'{STAGING_DIR}/{experiment_name}-raw.tar.md5')
-    zip_done = Path(f'{STAGING_DIR}/{experiment_name}-raw.tar.done')
-    zip_command = None
 
-
+    #Create .tar files for upload to nextcloud
     if mode == 'fastq':
-        zip_command = f'cd {run_dir.parents[0]} && tar -cf {zipped_run} --exclude "*jpg" --exclude "*bcl*" --exclude "*.filter" --exclude "*tif" --exclude "*run_zip.*" {run_dir.name} 1>> {log_file} 2>> {error_file} && md5sum {zipped_run} > {zipped_run_md5}'
+        for pid in projectIDs:
+            pid_staging = Path(f'{STAGING_DIR}/{pid}')
+            pid_staging.mkdir(parents=True, exist_ok=True)
+
+
+            pid_samples  = set()
+            pid_dir = Path(f'{run_dir}/Conversion/FastQ/{pid}')
+            for fastq in pid_dir.glob('*.fastq.gz'):
+                name = fastq.name.split('_')[0]
+                pid_samples.add(name)
+
+            for sample in pid_samples:
+                sample_zip = Path(f'{pid_staging}/{sample}.tar')
+                sample_zip_done = Path(f'{pid_staging}/{sample}.tar.done')
+                if not sample_zip_done.is_file():
+                    zip_command = f'cd {pid_dir} && tar -cf {sample_zip} {sample}*fastq.gz 1>> {log_file} 2>> {error_file}'
+                    updateLog(log_file, f'Compressing {pid} {sample} to tar : Running')
+                    exit_code = os.system(zip_command)
+                    if exit_code: return False
+                    updateLog(log_file, f'Compressing {pid} {sample} to tar : Done')
+                    sample_zip_done.touch()
+
+
     else:
-        zip_command = f'cd {run_dir.parents[0]} && tar -cf {zipped_run} --exclude "*jpg" --exclude "*fastq.gz*" --exclude "*.filter" --exclude "*tif" --exclude "*run_zip.*" {run_dir.name} 1>> {log_file} 2>> {error_file} && md5sum {zipped_run} > {zipped_run_md5}'
+        pid = projectIDs[0]
+        pid_staging = Path(f'{STAGING_DIR}/{pid}')
+        pid_staging.mkdir(parents=True, exist_ok=True)
 
-    updateLog(log_file, 'Compressing run to tar : Running')
+        zipped_run = Path(f'{pid_staging}/{pid}.tar')
+        zip_done = Path(f'{pid_staging}/{pid}.tar.done')
 
-    if not zip_done.is_file():
-        exit_code = os.system(zip_command)
-        if not exit_code:
+        zip_command = f'cd {run_dir.parents[0]} && tar -cf {zipped_run} --exclude "Conversion/" --exclude "*jpg" --exclude "*fastq.gz*" --exclude "*.filter" --exclude "*tif" --exclude "*run_zip.*" {run_dir.name} 1>> {log_file} 2>> {error_file}'
+        if not zip_done.is_file():
+            updateLog(log_file, f'Compressing {pid} to tar : Running')
+            # print(zip_command)
+            exit_code = os.system(zip_command)
+            if exit_code: return False
+            updateLog(log_file, f'Compressing {pid} to tar : Done')
             zip_done.touch()
-            updateLog(log_file, 'Compressing run to tar : Done')
-        else:
-            return False
 
-    if nextcloud_util.checkExists( f'{experiment_name}-raw.tar' ):
-        nextcloud_util.delete(f'{experiment_name}-raw.tar')
-    updateLog(log_file, 'Transferring run to nextcloud : Running')
-    transfer_command = f'scp {zipped_run} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR} 1>> {log_file} 2>> {error_file}'
-    exit_code = os.system(transfer_command)
-    if exit_code:
-        return False
-    updateLog(log_file, 'Transferring run to nextcloud : Done')
-    zipped_run.unlink()
-    zip_done.unlink()
+    #Filter stats files per PID
+    for pid in projectIDs:
+        pid_staging = Path(f'{STAGING_DIR}/{pid}')
+        report_dir = Path(f'{run_dir}/Conversion/FastQ/Reports')
+        filterStats(lims, pid, pid_staging, report_dir)
+
+    #Create md5sums for .tar files
+    for pid in projectIDs:
+        pid_staging = Path(f'{STAGING_DIR}/{pid}')
+        updateLog(log_file, f'Creating md5sums for {pid} : Running')
+        md5_command = f'md5sum {pid_staging}/*.tar > {pid_staging}/md5sums.txt'
+        exit_code = os.system(md5_command)
+        updateLog(log_file, f'Creating md5sums for {pid} : Done')
+
+
+    #Upload .tar/stats & md5sums to nextcloud
+    for pid in projectIDs:
+        pid_staging = Path(f'{STAGING_DIR}/{pid}')
+        pid_done = Path(f'{STAGING_DIR}/{pid}/transfer_done')
+
+        if nextcloud_util.checkExists(pid):
+            for file in pid_staging.iterdir():
+                 if nextcloud_util.checkExists(f'{pid}/{file.name}'):
+                     nextcloud_util.delete(f'{pid}/{file.name}')
+            nextcloud_util.delete(pid)
+
+        transfer_command = "rsync -rah --include '*.tar' --include 'md5sums.txt' --include '*.csv' --exclude '*' "
+        transfer_command += f'{pid_staging} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/ 1>> {log_file} 2>> {error_file}'
+        updateLog(log_file, f'Transferring {pid} to nextcloud : Running')
+        exit_code = os.system(transfer_command)
+        if exit_code: return False
+        pid_done.touch()
+        done_command = f"scp {pid_done} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/{pid}"
+        exit_code = os.system(done_command)
+        updateLog(log_file, f'Transferring {pid} to nextcloud : Done')
+
+    for file in pid_staging.iterdir():
+        file.unlink()
     return True
 
-def uploadToHPC(lims, run_dir, experiment_name, project_name, error_file, log_file):
+def uploadToHPC(lims, run_dir, projectIDs, error_file, log_file):
     machine = run_dir.parents[0].name
-    project = Project(lims, id=experiment_name)
-    project_name = project.name
-    samples = lims.get_samples(projectlimsid=project.id)
-    analysis_steps = samples[0].udf['Analysis'].split(',')
+    to_sync = ''
+    rsync_command = '/usr/bin/rsync -rah --update --stats --verbose --prune-empty-dirs '
+    for pid in projectIDs:
+        project = Project(lims, id=pid)
+        project_name = project.name
 
-    rsync_command = '/usr/bin/rsync -rah --update --stats --verbose --prune-empty-dirs'
-    if len(analysis_steps) > 1:
-        rsync_command += " --include '*.fq.gz' --include '*.fastq.gz'"
+        samples = lims.get_samples(projectlimsid=project.id)
+        analysis_steps = samples[0].udf['Analysis'].split(',')
+        if len(analysis_steps) > 1:
+            rsync_command += f'--include "Conversion/FastQ/{pid}/*.fastq.gz" '
+        else:
+            rsync_command += f'--exclude "Conversion/FastQ/{pid}/*.fastq.gz" '
+
     rsync_command += " --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/*/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/**' --include '*.[pP][eE][dD]'"
     rsync_command += " --exclude '*'"
     rsync_command += f" {run_dir}"
     rsync_command += f" {DATA_DIR_HPC}/{machine} 1> /dev/null 2>> {error_file}"
 
     updateLog(log_file, 'Upload to HPC : Running')
+    # print (rsync_command)
     exit_code = os.system(rsync_command)
     if exit_code:
         return False
@@ -355,6 +434,7 @@ def cleanup(run_dir, error_file, log_file):
         if file.name.endswith(".fastq.gz") or file.name.endswith(".fq.gz"):
             file.unlink()
     updateLog(log_file, "Cleaning up : Done")
+
 def manageRuns(lims):
     for machine_dir in DATA_DIRS_RAW:
 
@@ -402,8 +482,6 @@ def manageRuns(lims):
                     if run_parameters_old.is_file():
                         run_parameters_old.rename(run_parameters)
 
-
-
                     run_parameters = xml.dom.minidom.parse(f'{run_dir}/RunParameters.xml')
                     experiment_name = run_parameters.getElementsByTagName('ExperimentName')[0].firstChild.nodeValue
 
@@ -411,8 +489,9 @@ def manageRuns(lims):
                         experiment_name = experiment_name.split("_")[3]
                     experiment_name = experiment_name.replace('REDO','')
 
-                    project = Project(lims, id=experiment_name)
-                    project_name = project.name
+
+                    # project = Project(lims, id=experiment_name)
+                    # project_name = project.name
 
                     if run_parameters.getElementsByTagName('ReagentKitSerial'):  # NextSeq
                         lims_container_name = run_parameters.getElementsByTagName('ReagentKitSerial')[0].firstChild.nodeValue
@@ -430,10 +509,15 @@ def manageRuns(lims):
                             updateLog(log_file,f'Tring to find SampleSheet.csv in LIMS.')
                             getSampleSheet(lims, lims_container_name, sample_sheet)
 
+
                     if status['Demux-check'] == False:
                         status['Demux-check']  = demux_check( run_dir, log_file, error_file )
                         updateStatus(status_file, status, 'Demux-check')
 
+                    projectIDs = set()
+                    sheet = parseSampleSheet(sample_sheet)
+                    for sample in sheet['samples']:
+                        projectIDs.add( sample[ sheet['header'].index('Sample_Project') ] )
 
                     if status['Demux-check']: #Demultiplexing will probably succeed, so carry on
                         updateLog(log_file,f'Pre demultiplexing check was succesful.')
@@ -450,81 +534,62 @@ def manageRuns(lims):
 
                                 if sum(generateRunStats(run_dir, log_file, error_file)) > 0:
                                     raise RuntimeError(f'Demultiplexing probably failed, failed to create conversion statistics. If this is ok please set Conversion to True in {status_file} and remove {failed_file}.',run_dir, experiment_name, project_name)
-                                    # updateLog(error_file, f'Demultiplexing probably failed, failed to create conversion statistics. If this is ok please set Conversion to True in {status_file} and remove {failed_file}.')
-
-                                    # failed_file.touch()
-                                    # running_file.unlink()
-                                    # statusMail(status,run_dir, experiment_name, project_name)
                                 else:
                                     updateStatus(status_file, status, 'Conversion')
                             else:
-                                raise RuntimeError('Demultiplexing failed with unknown error.',run_dir, experiment_name, project_name)
-                                # updateLog(error_file,f)
-                                # statusMail(status,run_dir, experiment_name, project_name)
+                                raise RuntimeError('Demultiplexing failed with unknown error.',run_dir, projectIDs)
 
                         if status['Conversion']: #Conversion succesful,
                             if not status['Transfer-nc']:
-                                status['Transfer-nc'] = uploadToNextcloud(run_dir, 'fastq',experiment_name,log_file, error_file)
+                                status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'fastq',projectIDs,log_file, error_file)
                             if status['Transfer-nc'] :
                                 updateStatus(status_file, status, 'Transfer-nc')
                             else:
-                                raise RuntimeError('Transfer to nextcloud failed.',run_dir, experiment_name, project_name)
-                                # updateLog(error_file,f'Transfer to nextcloud failed.')
-                                # statusMail(status,run_dir, experiment_name, project_name)
+                                raise RuntimeError('Transfer to nextcloud failed.',run_dir, projectIDs)
 
                             if not status['Transfer-hpc']:
-                                status['Transfer-hpc'] = uploadToHPC(lims, run_dir, experiment_name, project_name,error_file, log_file)
+                                status['Transfer-hpc'] = uploadToHPC(lims, run_dir, projectIDs,error_file, log_file)
                             if status['Transfer-hpc']:
                                 updateStatus(status_file, status, 'Transfer-hpc')
                             else:
-                                raise RuntimeError('Transfer to hpc failed.',run_dir, experiment_name, project_name)
-                                # updateLog(error_file,f'Transfer to hpc failed.')
-                                # statusMail(status,run_dir, experiment_name, project_name)
+                                raise RuntimeError('Transfer to hpc failed.',run_dir, projectIDs)
 
                     else: #Skip straight to transfer
                         updateLog(log_file,f'Pre demultiplexing check failed, skipping demultiplexing.')
                         if not status['Transfer-nc']:
-                            status['Transfer-nc'] = uploadToNextcloud(run_dir, 'fastq',experiment_name,log_file, error_file)
+                            status['Transfer-nc'] = uploadToNextcloud(run_dir, 'fastq',projectIDs,log_file, error_file)
                         if status['Transfer-nc'] :
                             updateStatus(status_file, status, 'Transfer-nc')
                             # cleanup(run_dir)
                         else:
-                            raise RuntimeError('Transfer to nextcloud failed.',run_dir, experiment_name, project_name)
-                            # updateLog(error_file,f'Transfer to nextcloud failed.')
-                            # statusMail(status,run_dir, experiment_name, project_name)
+                            raise RuntimeError('Transfer to nextcloud failed.',run_dir, projectIDs)
 
                         if not status['Transfer-hpc']:
-                            status['Transfer-hpc'] = uploadToHPC(lims, run_dir, experiment_name, project_name,error_file, log_file)
+                            status['Transfer-hpc'] = uploadToHPC(lims, run_dir, projectIDs,error_file, log_file)
                         if status['Transfer-hpc']:
                             updateStatus(status_file, status, 'Transfer-hpc')
                         else:
-                            raise RuntimeError('Transfer to hpc failed.',run_dir, experiment_name, project_name)
-                            # updateLog(error_file,f'Transfer to hpc failed.')
-                            # statusMail(status,run_dir, experiment_name, project_name)
+                            raise RuntimeError('Transfer to hpc failed.',run_dir, projectIDs)
 
                     if not status['Archive']:
                         status['Archive'] = uploadToArchive(run_dir, error_file, log_file)
                     if status['Archive']:
                         updateStatus(status_file, status, 'Archive')
                     else:
-                        raise RuntimeError('Transfer to archive storage failed.',run_dir, experiment_name, project_name)
-                        # updateLog(error_file, f'Transfer to archive storage failed.')
-                        # statusMail(status,run_dir, experiment_name, project_name)
+                        raise RuntimeError('Transfer to archive storage failed.',run_dir, projectIDs)
 
                     if status['Conversion'] and status['Transfer-nc'] and status['Transfer-hpc'] and status['Archive']:
                         # cleanup(run_dir, error_file, log_file)
-                        statusMail('Processing finished', run_dir, experiment_name, project_name)
+                        statusMail('Processing finished', run_dir,projectIDs)
                         running_file.unlink()
                         done_file.touch()
 
                 except RuntimeError as e:
                     print(e)
-                    statusMail(e.args[0],e.args[1],e.args[2],e.args[3])
+                    statusMail(e.args[0],e.args[1],e.args[2])
                     running_file.unlink()
                     failed_file.touch()
-# /data/results/testruns/210810_VH00225_66_AAALJ3TM5/Conversion/Reports/Demultiplex_Stats.csv
-                # finally:
-                #     running_file.unlink() #Whatever happens, clear running_file on exit
+
 
 
 def run(lims):

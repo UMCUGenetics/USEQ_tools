@@ -37,18 +37,23 @@ def parseConversionStats( conversion_stats ):
 
     tree = ET.ElementTree(file=conversion_stats)
     conversion_stats = {
-        'raw_clusters' : 0,
-        'filtered_clusters' : 0,
-        'yield_r1' : 0,
-        'yield_r2' : 0,
-        'yield_q30_r1' : 0,
-        'yield_q30_r2' : 0,
-        'qsum_r1' : 0,
-        'qsum_r2' : 0,
-        'avg_quality_r1' : 0,
-        'avg_quality_r2' : 0,
-        'perc_q30_r1' : 0,
-        'perc_q30_r2' : 0,
+        'raw_clusters' : 0, #NA
+        'filtered_clusters' : 0, # = # Reads
+        'yield_r1' : 0, #NA
+        'yield_r2' : 0, #NA
+        'yield_q30_r1' : 0,#NA
+        'yield_q30_r2' : 0,#NA
+        'qsum_r1' : 0,#NA
+        'qsum_r2' : 0,#NA
+        'avg_quality_r1' : 0,#NA
+        'avg_quality_r2' : 0,#NA
+        'perc_q30_r1' : 0,#NA
+        'perc_q30_r2' : 0,#NA
+        'bases_r1' : 0,
+        'bases_r2' : 0,
+        'perc_q30' : 0,
+        'perc_perfect_index' :0,
+        'mean_quality' : 0
     }
     for project in tree.iter(tag='Project'):
         if project.attrib['name'] != 'all': continue
