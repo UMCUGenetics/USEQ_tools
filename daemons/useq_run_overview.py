@@ -2,6 +2,7 @@ from config import PROJECT_TYPES,ILL_SEQUENCING_STEPS,NAN_SEQUENCING_STEPS,STAT_
 import argparse
 import json
 import xml.etree.cElementTree as ET
+import csv
 from pathlib import Path
 from datetime import datetime
 
@@ -110,6 +111,48 @@ def parseRunSummary( summary ):
     stats['cluster_density'] = sum(densities) / len(densities)
     return stats
 
+def parseDemuxStats(demux_stats):
+
+    stats = {
+        'nr_rows' : 0,
+        'total_reads' : 0,
+        'perfect_index_reads' : 0,
+        'one_mm_index_reads' : 0,
+        'nr_bases_q30_pf' : 0,
+        'mean_qual_score_pf' : 0
+    }
+
+    with open(demux_stats, 'r') as d:
+        csv_reader = csv.DictReader(d)
+        for row in csv_reader:
+            stats['total_reads'] += float(row['# Reads'])
+            stats['perfect_index_reads'] += float(row['# Perfect Index Reads'])
+            stats['one_mm_index_reads'] += float(row['# One Mismatch Index Reads'])
+            stats['nr_bases_q30_pf'] += float(row['# of >= Q30 Bases (PF)'])
+            stats['mean_qual_score_pf'] += float(row['Mean Quality Score (PF)'])
+            stats['nr_rows'] +=1
+
+    stats['mean_qual_score_pf'] = stats['mean_qual_score_pf']/stats['nr_rows']
+
+    return stats
+
+def parseAdapterMetrics(adapter_metrics):
+    stats = {
+        'r1_bases' : 0,
+        'r2_bases' : 0,
+        'total_bases' : 0
+
+    }
+    with open(adapter_metrics, 'r') as a:
+        csv_reader = csv.DictReader(a)
+        for row in csv_reader:
+            stats['r1_bases'] += float(row['R1_SampleBases'])
+            stats['total_bases'] +=float(row['R1_SampleBases'])
+            if 'R2_SampleBases' in row:
+                stats['r2_bases'] += float(row['R2_SampleBases'])
+                stats['total_bases'] += float(row['R2_SampleBases'])
+    return stats
+
 def getProjectDetails( lims, project,run_dirs ):
     project_details = {}
     project_details['runs'] = []
@@ -179,8 +222,10 @@ def getProjectDetails( lims, project,run_dirs ):
                 'sequencing_succesful': None,
                 'raw_clusters' : None,  #total_reads_raw
                 'filtered_clusters' : None, #total_reads
+                'avg_quality' : None,
                 'avg_quality_r1' : None,
                 'avg_quality_r2' : None,
+                'perc_bases_q30' : None,
                 'perc_bases_q30_r1' : None,
                 'perc_bases_q30_r2' : None,
                 'cluster_density' : None,
@@ -200,6 +245,8 @@ def getProjectDetails( lims, project,run_dirs ):
 
             if run['flowcell'] in run_dirs:
                 conversion_stats_file = Path(f"{run_dirs[run['flowcell']]}/ConversionStats.xml")
+                demux_stats_file = Path(f"{run_dirs[run['flowcell']]}/Demultiplex_Stats.csv")
+                adapter_metrics_file = Path(f"{run_dirs[run['flowcell']]}/Adapter_Metrics.csv")
                 summary_stats_file = Path(f"{run_dirs[run['flowcell']]}/{ Path(run_dirs[run['flowcell']]).name }_summary.csv")
                 # print(summary_stats_file)
                 if conversion_stats_file.is_file():
@@ -212,6 +259,16 @@ def getProjectDetails( lims, project,run_dirs ):
                     run['avg_quality_r2'] = conversion_stats['avg_quality_r2']
                     run['perc_bases_q30_r1'] = conversion_stats['perc_q30_r1']
                     run['perc_bases_q30_r2'] = conversion_stats['perc_q30_r2']
+
+                if demux_stats_file.is_file() and adapter_metrics_file.is_file():
+                    # Lane,SampleID,Index,# Reads,# Perfect Index Reads,# One Mismatch Index Reads,# of >= Q30 Bases (PF),Mean Quality Score (PF)
+                    demux_stats = parseDemuxStats(demux_stats_file)
+                    run['filtered_clusters'] = demux_stats['total_reads']
+                    run['avg_quality'] = demux_stats['mean_qual_score_pf']
+
+
+                    adapter_stats = parseAdapterMetrics(adapter_metrics_file)
+                    run['perc_bases_q30'] = (demux_stats['nr_bases_q30_pf']/adapter_stats['total_bases'])*100
 
                 if summary_stats_file.is_file():
                     summary_stats = parseRunSummary(summary_stats_file)
@@ -233,8 +290,10 @@ def getProjectDetails( lims, project,run_dirs ):
                 'sequencing_succesful': None,
                 'raw_clusters' : None,
                 'filtered_clusters' : None,
+                'avg_quality' : None,
                 'avg_quality_r1' : None,
                 'avg_quality_r2' : None,
+                'perc_bases_q30' : None,
                 'perc_bases_q30_r1' : None,
                 'perc_bases_q30_r2' : None,
                 'cluster_density' : None,
@@ -324,8 +383,10 @@ def writeProjectOverview( ovw, ovw_file ):
                     'sequencing_succesful': run['sequencing_succesful'],
                     'raw_clusters' : run['raw_clusters'],
                     'filtered_clusters' : run['filtered_clusters'],
+                    'avg_quality' : run['avg_quality'],
                     'avg_quality_r1' : run['avg_quality_r1'],
                     'avg_quality_r2' : run['avg_quality_r2'],
+                    'perc_bases_q30' : run['perc_bases_q30'],
                     'perc_bases_q30_r1' : run['perc_bases_q30_r1'],
                     'perc_bases_q30_r2' : run['perc_bases_q30_r2'],
                     'cluster_density' : run['cluster_density'],
@@ -367,8 +428,10 @@ def writeProjectOverview( ovw, ovw_file ):
                 'sequencing_succesful': None,
                 'raw_clusters' : None,
                 'filtered_clusters' : None,
+                'avg_quality' : None,
                 'avg_quality_r1' : None,
                 'avg_quality_r2' : None,
+                'perc_bases_q30' : None,
                 'perc_bases_q30_r1' : None,
                 'perc_bases_q30_r2' : None,
                 'cluster_density' : None,

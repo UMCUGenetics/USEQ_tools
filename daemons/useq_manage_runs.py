@@ -191,8 +191,6 @@ def statusMail(message, run_dir, projectIDs):
     expected_reads = getExpectedReads(f'{run_dir}/RunParameters.xml')
     conversion_stats = parseConversionStats(f'{run_dir}/Conversion/FastQ/Reports')
 
-    #TODO ADD PROJECT ID TO SAMPLES
-
     attachments = {
         'zip_file': f'{run_dir}/{run_dir.name}_Reports.zip',
         'basepercent_by_cycle_plot': str(basepercent_by_cycle_plot) if basepercent_by_cycle_plot.is_file else None,
@@ -312,7 +310,6 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
             pid_staging = Path(f'{STAGING_DIR}/{pid}')
             pid_staging.mkdir(parents=True, exist_ok=True)
 
-
             pid_samples  = set()
             pid_dir = Path(f'{run_dir}/Conversion/FastQ/{pid}')
             for fastq in pid_dir.glob('*.fastq.gz'):
@@ -403,7 +400,7 @@ def uploadToHPC(lims, run_dir, projectIDs, error_file, log_file):
         else:
             rsync_command += f'--exclude "Conversion/FastQ/{pid}/*.fastq.gz" '
 
-    rsync_command += " --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/*/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/**' --include '*.[pP][eE][dD]'"
+    rsync_command += " --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/Conversion/Reports/**' --include '*/FastQ/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/**' --include '*.[pP][eE][dD]'"
     rsync_command += " --exclude '*'"
     rsync_command += f" {run_dir}"
     rsync_command += f" {DATA_DIR_HPC}/{machine} 1> /dev/null 2>> {error_file}"

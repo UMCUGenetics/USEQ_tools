@@ -7,7 +7,7 @@ import os
 import multiprocessing
 import subprocess
 import time
-from modules.useq_illumina_parsers import parseConversionStats, getExpectedReads
+from modules.useq_illumina_parsers import getExpectedReads
 from modules.useq_nextcloud import NextcloudUtil
 from modules.useq_mail import sendMail
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
@@ -15,6 +15,66 @@ import sys
 import tarfile
 from pathlib import Path
 import re
+
+def parseConversionStats(lims, dir, pid):
+    demux_stats = f'{dir}/Demultiplex_Stats.csv'
+    top_unknown = f'{dir}/Top_Unknown_Barcodes.csv'
+    samples = lims.get_samples(projectlimsid=pid)
+    sample_names = [x.name for x in samples]
+    stats = {
+        'total_reads' : 0,
+        'undetermined_reads' : 0,
+        'samples' : [],
+        'top_unknown' : []
+    }
+    samples_tmp = {}
+    with open(demux_stats, 'r') as d:
+        csv_reader = csv.DictReader(d)
+        for row in csv_reader:
+            if row['SampleID'] == 'Undetermined':
+                stats['undetermined_reads'] += float(row['# Reads'])
+                stats['total_reads'] += float(row['# Reads'])
+            else:
+                stats['total_reads'] += float(row['# Reads'])
+
+            if row['SampleID'] not in samples_tmp:
+                samples_tmp[ row['SampleID'] ] = {
+                    'Index' : None,
+                    '# Reads' : 0,
+                    '# Perfect Index Reads' : 0,
+                    '# One Mismatch Index Reads' : 0,
+                    '# of >= Q30 Bases (PF)' : 0,
+                    'Mean Quality Score (PF)' : 0
+                }
+            samples_tmp[ row['SampleID'] ]['Index'] = row['Index']
+            samples_tmp[ row['SampleID'] ]['Lane'] = int(row['Lane'])
+            samples_tmp[ row['SampleID'] ]['# Reads'] += int(row['# Reads'])
+            samples_tmp[ row['SampleID'] ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
+            samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
+            samples_tmp[ row['SampleID'] ]['# of >= Q30 Bases (PF)']  += int(row['# of >= Q30 Bases (PF)'])
+            samples_tmp[ row['SampleID'] ]['Mean Quality Score (PF)']  += float(row['Mean Quality Score (PF)'])
+            # stats['samples'].append(row)
+    for sampleID in samples_tmp:
+        if sampleID not in sample_names:continue
+        samples_tmp[sampleID]['# Reads'] = samples_tmp[sampleID]['# Reads'] / samples_tmp[ row['SampleID'] ]['Lane']
+        samples_tmp[sampleID]['# Perfect Index Reads'] = samples_tmp[sampleID]['# Perfect Index Reads'] / samples_tmp[ row['SampleID'] ]['Lane']
+        samples_tmp[sampleID]['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads'] / samples_tmp[ row['SampleID'] ]['Lane']
+        samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] = samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
+        samples_tmp[sampleID]['Mean Quality Score (PF)'] = samples_tmp[sampleID]['Mean Quality Score (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
+        stats['samples'].append(
+            {'SampleID':sampleID,
+            'Index' : samples_tmp[sampleID]['Index'],
+            '# Reads' :  samples_tmp[sampleID]['# Reads'],
+            '# Perfect Index Reads' : samples_tmp[sampleID]['# Perfect Index Reads'],
+            '# One Mismatch Index Reads' : samples_tmp[sampleID]['# One Mismatch Index Reads'],
+            '# of >= Q30 Bases (PF)' : samples_tmp[sampleID]['# of >= Q30 Bases (PF)'],
+            'Mean Quality Score (PF)' : samples_tmp[sampleID]['Mean Quality Score (PF)'] })
+
+    with open(top_unknown, 'r') as t:
+        csv_reader = csv.DictReader(t)
+        for row in islice(csv_reader,0,20):
+            stats['top_unknown'].append(row)
+    return stats
 
 def zipRun( dir, dir_info=None):
     run_name = os.path.basename(dir)
@@ -99,15 +159,14 @@ def shareManual(researcher,dir):
 
     return
 
-def shareRaw(project_id,project_info):
+def shareRaw(lims, project_id,project_info):
 
     name = multiprocessing.current_process().name
     print (f"{name}\tStarting")
 
-    conversion_stats = parseConversionStats( f"{project_info['dir']}/Data/Intensities/BaseCalls/Stats/ConversionStats.xml" )
-    if not conversion_stats:
-        print (f"{name}\tError : No ConversionStats.xml file could be found in {project_info['dir']}/Data/Intensities/BaseCalls/Stats/!")
-        return
+    conversion_stats = None
+    if Path(f'{project_info["dir"]}/Conversion/FastQ/Reports/Demultiplex_Stats.csv').is_file():
+        conversion_stats = parseConversionStats(lims, {project_info['dir']},pid )
 
     expected_yield = getExpectedReads( f"{project_info['dir']}/RunParameters.xml" )
     if not expected_yield:
@@ -128,19 +187,19 @@ def shareRaw(project_id,project_info):
             'phone' : project_info['researcher'].phone,
             'nextcloud_host' : NEXTCLOUD_HOST,
             'share_id' : share_id,
-            'expected_reads' : expected_yield,
-            'raw_reads' : conversion_stats['total_reads_raw'],
-            'filtered_reads' : conversion_stats['total_reads'],
+            # 'expected_reads' : expected_yield,
+            # 'total_reads' : conversion_stats['total_reads'],
+            # 'filtered_reads' : conversion_stats['total_reads'],
             'conversion_stats' : conversion_stats
         }
 
         mail_content = renderTemplate('share_raw_template.html', template_data)
         mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
-        # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-        # print (pw)
-        os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+        print (pw)
+        # os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
 
     return
 
@@ -329,7 +388,7 @@ def shareDataById(lims, ids):
             for project_id in run_info:
                 share_process = None
 
-                share_process = multiprocessing.Process(name=f"Process_{project_id}", target=shareRaw, args=(project_id, run_info[project_id]) )
+                share_process = multiprocessing.Process(name=f"Process_{project_id}", target=shareRaw, args=(lims,project_id, run_info[project_id]) )
 
                 share_processes.append(share_process)
                 share_process.start()

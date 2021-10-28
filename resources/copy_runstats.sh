@@ -13,7 +13,7 @@ for dir in $DIRS;do
   runname=$(basename $rundir);
   machine=$(echo $runname | awk '{split($1, parts, "_"); print parts[2]}');
   mkdir -p $RUNSTATS_PATH$machine/$runname;
-  rsync -a --include '*_summary.csv' --include '*ConversionStats.xml' --exclude "*" $rundir/Data/Intensities/BaseCalls/Stats/ $RUNSTATS_PATH$machine/$runname;
+  rsync -a --include '*/*_summary.csv' --include '*/Demultiplex_Stats.csv' --include '*ConversionStats.xml' --exclude "*" $rundir/Conversion/ $RUNSTATS_PATH$machine/$runname;
  done
 done
 
