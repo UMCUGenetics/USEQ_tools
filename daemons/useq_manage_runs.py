@@ -4,6 +4,7 @@ import xml.dom.minidom
 import re
 import json
 import csv
+import sys
 from config import DATA_DIRS_RAW,DATA_DIR_HPC,ARCHIVE_DIR,MAIL_SENDER,MAIL_ADMINS,INTEROP_PATH,RUNTYPE_YIELDS,BCLCONVERT_PATH,BCLCONVERT_PROCESSING_THREADS,BCLCONVERT_WRITING_THREADS,STAGING_DIR,NEXTCLOUD_DATA_ROOT,NEXTCLOUD_PW,NEXTCLOUD_USER,NEXTCLOUD_HOST,NEXTCLOUD_RAW_DIR,NEXTCLOUD_WEBDAV_ROOT
 from modules.useq_mail import sendMail
 from modules.useq_illumina_parsers import getExpectedReads,parseSampleSheet
@@ -13,6 +14,7 @@ from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTempl
 from datetime import datetime
 from genologics.entities import Project
 from itertools import islice
+
 def revcomp(seq):
     revcompl = lambda x: ''.join([{'A':'T','C':'G','G':'C','T':'A'}[B] for B in x][::-1])
     return revcompl(seq)
@@ -23,9 +25,13 @@ def convertBCL(run_dir, sample_sheet, log_file, error_file):
 
     # Start conversion
     os.system(f'date >> {log_file}')
-    command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {sample_sheet}'
+    command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {sample_sheet} --first-tile-only true 1'
     command = f'{command} 1>> /dev/null 2>> {error_file}'
     exit_code = os.system(command)
+
+    mv_command = f'mv {run_dir}/Conversion/FastQ/Reports/* {run_dir}/Conversion/Reports && rm -r {run_dir}/Conversion/FastQ/Reports'
+    os.system(mv_command)
+
     updateLog(log_file, 'Conversion : Done')
     return exit_code
 #
@@ -189,7 +195,7 @@ def statusMail(message, run_dir, projectIDs):
         error = e.read()
 
     expected_reads = getExpectedReads(f'{run_dir}/RunParameters.xml')
-    conversion_stats = parseConversionStats(f'{run_dir}/Conversion/FastQ/Reports')
+    conversion_stats = parseConversionStats(f'{run_dir}/Conversion/Reports')
 
     attachments = {
         'zip_file': f'{run_dir}/{run_dir.name}_Reports.zip',
@@ -310,6 +316,16 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
             pid_staging = Path(f'{STAGING_DIR}/{pid}')
             pid_staging.mkdir(parents=True, exist_ok=True)
 
+            tmp_dir = Path(f'{run_dir}/{pid}')
+            tmp_dir.mkdir(parents=True, exist_ok=True)
+
+            updateLog(log_file, f'Creating nextcloud dir for {pid} : Running')
+            remote_dir_command = f"scp -r {tmp_dir} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/ 1>> {log_file} 2>> {error_file}"
+            exit_code = os.system(remote_dir_command)
+            if exit_code: return False
+            tmp_dir.rmdir()
+            updateLog(log_file, f'Creating nextcloud dir for {pid} : Done')
+
             pid_samples  = set()
             pid_dir = Path(f'{run_dir}/Conversion/FastQ/{pid}')
             for fastq in pid_dir.glob('*.fastq.gz'):
@@ -333,6 +349,17 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
         pid_staging = Path(f'{STAGING_DIR}/{pid}')
         pid_staging.mkdir(parents=True, exist_ok=True)
 
+        tmp_dir = Path(f'{run_dir}/{pid}')
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+
+
+        updateLog(log_file, f'Creating nextcloud dir for {pid} : Running')
+        remote_dir_command = f"scp -r {tmp_dir} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/ 1>> {log_file} 2>> {error_file}"
+        exit_code = os.system(remote_dir_command)
+        if exit_code: return False
+        tmp_dir.rmdir()
+        updateLog(log_file, f'Creating nextcloud dir for {pid} : Done')
+
         zipped_run = Path(f'{pid_staging}/{pid}.tar')
         zip_done = Path(f'{pid_staging}/{pid}.tar.done')
 
@@ -348,14 +375,14 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
     #Filter stats files per PID
     for pid in projectIDs:
         pid_staging = Path(f'{STAGING_DIR}/{pid}')
-        report_dir = Path(f'{run_dir}/Conversion/FastQ/Reports')
+        report_dir = Path(f'{run_dir}/Conversion/Reports')
         filterStats(lims, pid, pid_staging, report_dir)
 
     #Create md5sums for .tar files
     for pid in projectIDs:
         pid_staging = Path(f'{STAGING_DIR}/{pid}')
         updateLog(log_file, f'Creating md5sums for {pid} : Running')
-        md5_command = f'md5sum {pid_staging}/*.tar > {pid_staging}/md5sums.txt'
+        md5_command = f'cd {pid_staging} && md5sum *.tar > {pid_staging}/md5sums.txt'
         exit_code = os.system(md5_command)
         updateLog(log_file, f'Creating md5sums for {pid} : Done')
 
@@ -363,21 +390,23 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
     #Upload .tar/stats & md5sums to nextcloud
     for pid in projectIDs:
         pid_staging = Path(f'{STAGING_DIR}/{pid}')
-        pid_done = Path(f'{STAGING_DIR}/{pid}/transfer_done')
+        pid_done = Path(f'{STAGING_DIR}/{pid}.done')
 
-        if nextcloud_util.checkExists(pid):
-            for file in pid_staging.iterdir():
-                 if nextcloud_util.checkExists(f'{pid}/{file.name}'):
-                     nextcloud_util.delete(f'{pid}/{file.name}')
-            nextcloud_util.delete(pid)
+        # if nextcloud_util.checkExists(pid):
+        #     for file in pid_staging.iterdir():
+        #          if nextcloud_util.checkExists(f'{pid}/{file.name}'):
+        #              nextcloud_util.delete(f'{pid}/{file.name}')
+            # nextcloud_util.delete(pid)
 
-        transfer_command = "rsync -rah --include '*.tar' --include 'md5sums.txt' --include '*.csv' --exclude '*' "
-        transfer_command += f'{pid_staging} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/ 1>> {log_file} 2>> {error_file}'
+        transfer_command ="set -eo pipefail && "
+        transfer_command += f"scp -r {pid_staging}/*.tar {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/{pid} 1>> {log_file} 2>> {error_file} && "
+        transfer_command += f"scp -r {pid_staging}/*.csv {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/{pid} 1>> {log_file} 2>> {error_file} && "
+        transfer_command += f"scp -r {pid_staging}/*.txt {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/{pid} 1>> {log_file} 2>> {error_file}"
         updateLog(log_file, f'Transferring {pid} to nextcloud : Running')
         exit_code = os.system(transfer_command)
         if exit_code: return False
         pid_done.touch()
-        done_command = f"scp {pid_done} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/{pid}"
+        done_command = f"scp -r {pid_done} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/"
         exit_code = os.system(done_command)
         updateLog(log_file, f'Transferring {pid} to nextcloud : Done')
 
@@ -415,11 +444,11 @@ def uploadToHPC(lims, run_dir, projectIDs, error_file, log_file):
 
 def uploadToArchive(run_dir, error_file, log_file):
     updateLog(log_file, "Upload to archive : Running")
-    machine = run_dir.parents[0].name
-    rsync_command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {ARCHIVE_DIR}/{machine} 1> /dev/null 2>> {error_file}"
-    exit_code = os.system(rsync_command)
-    if exit_code:
-        return False
+    # machine = run_dir.parents[0].name
+    # rsync_command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {ARCHIVE_DIR}/{machine} 1> /dev/null 2>> {error_file}"
+    # exit_code = os.system(rsync_command)
+    # if exit_code:
+    #     return False
 
     updateLog(log_file, "Upload to archive : Done")
     return True
@@ -527,12 +556,11 @@ def manageRuns(lims):
 
                                 md5sumFastq(run_dir,log_file, error_file)
 
-                                zip_file = zipConversionReport(run_dir,log_file, error_file)
-
                                 if sum(generateRunStats(run_dir, log_file, error_file)) > 0:
                                     raise RuntimeError(f'Demultiplexing probably failed, failed to create conversion statistics. If this is ok please set Conversion to True in {status_file} and remove {failed_file}.',run_dir, experiment_name, project_name)
                                 else:
                                     updateStatus(status_file, status, 'Conversion')
+                                zip_file = zipConversionReport(run_dir,log_file, error_file)
                             else:
                                 raise RuntimeError('Demultiplexing failed with unknown error.',run_dir, projectIDs)
 
