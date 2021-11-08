@@ -31,6 +31,16 @@ class NextcloudUtil(object):
         self.run_dir = run_dir
         self.recipient = recipient
 
+    def simpleFileList(self, dir):
+        files = []
+        for file in self.webdav.ls(self.webdav_root+self.run_dir+'/'+dir):
+            if not file.contenttype: continue #directories
+
+            file_path = file.name.replace(self.webdav_root,'')
+            file_path = file_path.split("/")[-1]
+
+            files.append(file_path)
+        return files
     def fileList(self):
         files = {}
         #Check in log files if file was downloaded
@@ -48,10 +58,13 @@ class NextcloudUtil(object):
 
                 if not columns[2].startswith(' 200'):continue
 
-                ip = columns[0].split(" ")[0].split(":")[-1]
 
-                from geoip import geolite2
-                ip_match = geolite2.lookup(ip)
+                ip = columns[0].split(" ")[0]
+                try:
+                    from geoip import geolite2
+                    ip_match = geolite2.lookup(ip)
+                except:
+                    ip_match = None
 
                 download_date = columns[0].split(" ")[3].lstrip('[')
                 download_id_fields = columns[1].split(' ')[1].split('/')
@@ -73,8 +86,10 @@ class NextcloudUtil(object):
                     download_ids[download_id]['downloaded_from'].append(ip_match.country)
 
 
+
         for file in self.webdav.ls(self.webdav_root+self.run_dir):
             if not file.contenttype: continue #directories
+
             file_path = file.name.replace(self.webdav_root,'')
             files[file_path] = {
                 'size' : file.size,
@@ -111,10 +126,20 @@ class NextcloudUtil(object):
         remote_path = f'{self.webdav_root}/{self.run_dir}/{file}'
         return self.webdav.exists(remote_path)
 
+    def delete(self,file):
+        remote_path = f'{self.webdav_root}/{self.run_dir}/{file}'
+        self.webdav.delete(remote_path)
+
+    def createDir(self,dir):
+        remote_path = f'{self.webdav_root}/{self.run_dir}/{dir}'
+        self.webdav.mkdir(remote_path)
+
+    # def dirFiles(self, dir):
+    #     print(self.webdav.ls(f'{self.webdav_root}/{self.run_dir}/{dir}'))
+
     def upload(self, file_path):
         if not os.path.isfile(file_path): return {"ERROR":f"File path '{file_path}' is not a file"}
         file_basename = ntpath.basename(file_path)
-
 
         remote_path = self.webdav_root+self.run_dir+file_basename
 

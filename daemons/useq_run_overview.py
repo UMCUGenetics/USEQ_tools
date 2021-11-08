@@ -2,6 +2,7 @@ from config import PROJECT_TYPES,ILL_SEQUENCING_STEPS,NAN_SEQUENCING_STEPS,STAT_
 import argparse
 import json
 import xml.etree.cElementTree as ET
+import csv
 from pathlib import Path
 from datetime import datetime
 
@@ -30,39 +31,72 @@ def getBillingComments(lims, process, project):
             if output['uri'].samples[0].id == project.id + 'A1':
                 return getUDF(output['uri'],"Comment field")
 
-def parseConversionStats( conversion_stats ):
 
-    if not Path(conversion_stats).is_file():
+def parseConversionStats( conversion_stats_file ):
+
+    if not Path(conversion_stats_file).is_file():
         return None
 
-    tree = ET.ElementTree(file=conversion_stats)
+    # tree = ET.ElementTree(file=conversion_stats)
+    # conversion_stats_file = '/hpc/useq/raw_data/runstats/A00295/210830_A00295_0517_AHJVWFDSX2/ConversionStats.xml'
     conversion_stats = {
-        'raw_clusters' : 0,
-        'filtered_clusters' : 0,
-        'yield_r1' : 0,
-        'yield_r2' : 0,
-        'yield_q30_r1' : 0,
-        'yield_q30_r2' : 0,
-        'qsum_r1' : 0,
-        'qsum_r2' : 0,
-        'avg_quality_r1' : 0,
-        'avg_quality_r2' : 0,
-        'perc_q30_r1' : 0,
-        'perc_q30_r2' : 0,
+        'raw_clusters' : 0, #NA
+        'filtered_clusters' : 0, # = # Reads
+        'yield_r1' : 0, #NA
+        'yield_r2' : 0, #NA
+        'yield_q30_r1' : 0,#NA
+        'yield_q30_r2' : 0,#NA
+        'qsum_r1' : 0,#NA
+        'qsum_r2' : 0,#NA
+        'avg_quality_r1' : 0,#NA
+        'avg_quality_r2' : 0,#NA
+        'perc_q30_r1' : 0,#NA
+        'perc_q30_r2' : 0,#NA
+        'bases_r1' : 0,
+        'bases_r2' : 0,
+        'perc_q30' : 0,
+        'perc_perfect_index' :0,
+        'mean_quality' : 0
     }
-    for project in tree.iter(tag='Project'):
-        if project.attrib['name'] != 'all': continue
-        for tile in project.iter(tag='Tile'):
-            raw_counts = tile.find('Raw')
-            pf_counts = tile.find('Pf')
-            conversion_stats['raw_clusters'] += int(raw_counts.find("ClusterCount").text)
-            conversion_stats['filtered_clusters'] += int(pf_counts.find("ClusterCount").text)
-            for read in pf_counts.findall('Read'):
-                read_nr = int(read.attrib['number'])
-                if read_nr > 2: continue
-                conversion_stats[f'yield_r{read_nr}'] += int(read.find("Yield").text)
-                conversion_stats[f'yield_q30_r{read_nr}'] += int(read.find("YieldQ30").text)
-                conversion_stats[f'qsum_r{read_nr}'] += int(read.find("QualityScoreSum").text)
+
+    def getelements(filename_or_file, tag):
+        context = iter(ET.iterparse(filename_or_file, events=('start', 'end')))
+        _, root = next(context) # get root element
+        # print(root)
+        for event, elem in context:
+            # print(event,elem)
+            if event == 'end' and elem.tag == tag:
+                yield elem
+                root.clear() # preserve memory
+
+
+    for sample in getelements(conversion_stats_file, "Sample"):
+        if sample.attrib['name'] != 'all':continue
+        for tile in sample.iter("Tile"):
+            # print(sample.attrib['number'],tile.attrib['number'])
+            raw_counts = tile.find("./Raw/ClusterCount")
+            pf_counts = tile.find("./Pf/ClusterCount")
+            pf_read1_counts = tile.find("./Pf/Read[@number='1']")
+            pf_read2_counts = tile.find("./Pf/Read[@number='2']")
+            conversion_stats['raw_clusters'] += int(raw_counts.text)
+            conversion_stats['filtered_clusters'] += int(pf_counts.text)
+
+            r1_yield = pf_read1_counts.find("Yield")
+            r1_yield_q30 = pf_read1_counts.find("YieldQ30")
+            r1_qsum = pf_read1_counts.find("QualityScoreSum")
+
+            conversion_stats['yield_r1'] += int(r1_yield.text)
+            conversion_stats['yield_q30_r1'] += int(r1_yield_q30.text)
+            conversion_stats['qsum_r1'] += int(r1_qsum.text)
+
+            if pf_read2_counts is not None:
+                r2_yield = pf_read2_counts.find("Yield")
+                r2_yield_q30 = pf_read2_counts.find("YieldQ30")
+                r2_qsum = pf_read2_counts.find("QualityScoreSum")
+
+                conversion_stats['yield_r2'] += int(r2_yield.text)
+                conversion_stats['yield_q30_r2'] += int(r2_yield_q30.text)
+                conversion_stats['qsum_r2'] += int(r2_qsum.text)
 
     conversion_stats['perc_q30_r1'] = (conversion_stats['yield_q30_r1'] / float( conversion_stats['yield_r1']) ) * 100
     conversion_stats['avg_quality_r1'] = conversion_stats['qsum_r1'] / float( conversion_stats['yield_r1'])
@@ -103,6 +137,48 @@ def parseRunSummary( summary ):
                 line_nr += 1
     #print(densities)
     stats['cluster_density'] = sum(densities) / len(densities)
+    return stats
+
+def parseDemuxStats(demux_stats):
+
+    stats = {
+        'nr_rows' : 0,
+        'total_reads' : 0,
+        'perfect_index_reads' : 0,
+        'one_mm_index_reads' : 0,
+        'nr_bases_q30_pf' : 0,
+        'mean_qual_score_pf' : 0
+    }
+
+    with open(demux_stats, 'r') as d:
+        csv_reader = csv.DictReader(d)
+        for row in csv_reader:
+            stats['total_reads'] += float(row['# Reads'])
+            stats['perfect_index_reads'] += float(row['# Perfect Index Reads'])
+            stats['one_mm_index_reads'] += float(row['# One Mismatch Index Reads'])
+            stats['nr_bases_q30_pf'] += float(row['# of >= Q30 Bases (PF)'])
+            stats['mean_qual_score_pf'] += float(row['Mean Quality Score (PF)'])
+            stats['nr_rows'] +=1
+
+    stats['mean_qual_score_pf'] = stats['mean_qual_score_pf']/stats['nr_rows']
+
+    return stats
+
+def parseAdapterMetrics(adapter_metrics):
+    stats = {
+        'r1_bases' : 0,
+        'r2_bases' : 0,
+        'total_bases' : 0
+
+    }
+    with open(adapter_metrics, 'r') as a:
+        csv_reader = csv.DictReader(a)
+        for row in csv_reader:
+            stats['r1_bases'] += float(row['R1_SampleBases'])
+            stats['total_bases'] +=float(row['R1_SampleBases'])
+            if 'R2_SampleBases' in row:
+                stats['r2_bases'] += float(row['R2_SampleBases'])
+                stats['total_bases'] += float(row['R2_SampleBases'])
     return stats
 
 def getProjectDetails( lims, project,run_dirs ):
@@ -156,15 +232,19 @@ def getProjectDetails( lims, project,run_dirs ):
         project_details['library_prep_nr'] = project_details['sample_nr']
 
     print (f'Getting processes start {datetime.now()}' )
-    project_processes = lims.get_processes(projectname=project.name)
+    print (project.name)
+    project_processes = lims.get_processes(type=ILL_SEQUENCING_STEPS+NAN_SEQUENCING_STEPS+['USEQ - BCL to FastQ','USEQ - Ready for billing'], projectname=project.name)
 
     print (f'Getting processes stop {datetime.now()}' )
     if not project_processes:
         return project_details
 
     for process_nr, process in enumerate(project_processes):
-        print (f'Getting processes start 1{process.type.name} {datetime.now()}' )
+        # print (f'Getting processes start 1{process.type.name} {datetime.now()}' )
+        print (process)
+
         if process.type.name in ILL_SEQUENCING_STEPS:
+
             run = {
                 'name' : 'NA',
                 'flowcell' : getUDF(process.parent_processes()[0],'Flow Cell ID') if process.type.name == 'USEQ - Automated NovaSeq Run' else getUDF(process, 'Flow Cell ID'),
@@ -174,8 +254,10 @@ def getProjectDetails( lims, project,run_dirs ):
                 'sequencing_succesful': None,
                 'raw_clusters' : None,  #total_reads_raw
                 'filtered_clusters' : None, #total_reads
+                'avg_quality' : None,
                 'avg_quality_r1' : None,
                 'avg_quality_r2' : None,
+                'perc_bases_q30' : None,
                 'perc_bases_q30_r1' : None,
                 'perc_bases_q30_r2' : None,
                 'cluster_density' : None,
@@ -192,9 +274,12 @@ def getProjectDetails( lims, project,run_dirs ):
                         run['sequencing_succesful'] = getUDF(io[1]['uri'], 'Sequencing Succesful')
                         run['data_send'] = project_processes[process_nr + 1].date_run
                         break
+            print(run)
 
             if run['flowcell'] in run_dirs:
                 conversion_stats_file = Path(f"{run_dirs[run['flowcell']]}/ConversionStats.xml")
+                demux_stats_file = Path(f"{run_dirs[run['flowcell']]}/Demultiplex_Stats.csv")
+                adapter_metrics_file = Path(f"{run_dirs[run['flowcell']]}/Adapter_Metrics.csv")
                 summary_stats_file = Path(f"{run_dirs[run['flowcell']]}/{ Path(run_dirs[run['flowcell']]).name }_summary.csv")
                 # print(summary_stats_file)
                 if conversion_stats_file.is_file():
@@ -207,6 +292,16 @@ def getProjectDetails( lims, project,run_dirs ):
                     run['avg_quality_r2'] = conversion_stats['avg_quality_r2']
                     run['perc_bases_q30_r1'] = conversion_stats['perc_q30_r1']
                     run['perc_bases_q30_r2'] = conversion_stats['perc_q30_r2']
+
+                elif demux_stats_file.is_file() and adapter_metrics_file.is_file():
+                    # Lane,SampleID,Index,# Reads,# Perfect Index Reads,# One Mismatch Index Reads,# of >= Q30 Bases (PF),Mean Quality Score (PF)
+                    demux_stats = parseDemuxStats(demux_stats_file)
+                    run['filtered_clusters'] = demux_stats['total_reads']
+                    run['avg_quality'] = demux_stats['mean_qual_score_pf']
+
+
+                    adapter_stats = parseAdapterMetrics(adapter_metrics_file)
+                    run['perc_bases_q30'] = (demux_stats['nr_bases_q30_pf']/adapter_stats['total_bases'])*100
 
                 if summary_stats_file.is_file():
                     summary_stats = parseRunSummary(summary_stats_file)
@@ -228,8 +323,10 @@ def getProjectDetails( lims, project,run_dirs ):
                 'sequencing_succesful': None,
                 'raw_clusters' : None,
                 'filtered_clusters' : None,
+                'avg_quality' : None,
                 'avg_quality_r1' : None,
                 'avg_quality_r2' : None,
+                'perc_bases_q30' : None,
                 'perc_bases_q30_r1' : None,
                 'perc_bases_q30_r2' : None,
                 'cluster_density' : None,
@@ -269,39 +366,43 @@ def loadProjectOverview( ovw_file ):
 
 
 def updateProjectOverview( lims, ovw ):
+    print('Retrieving projects')
     projects = lims.get_projects()
+
     new_ovw = {}
 
     run_dirs = {}
     p = Path(STAT_PATH)
+    print('Getting run directories')
     for d in p.glob('*/*'):
 
         flowcell = d.name.split("_")[-1].split("-")[-1]
         run_dirs[flowcell] = d
         run_dirs[flowcell[1:]] = d
-
+    # c = 0
+    print('Processing projects')
     for pr in projects[::-1]:
+
         try:
             application = pr.udf['Application']
-            # print (pr,application)
-            if application not in PROJECT_TYPES:
+            print (pr,application)
+            if application not in PROJECT_TYPES.values():
                 continue
         except KeyError:
             continue
 
-        print (f"Working on {pr.id} ")
+        print (f"Working on {pr.id}")
         if pr.id in ovw:
             if not ovw[pr.id]['close-date'] :
-                # print ('really working on it')
                 new_ovw[pr.id] = getProjectDetails(lims, pr,run_dirs)
             else:
                 new_ovw[pr.id] = ovw[pr.id]
         else:
             new_ovw[pr.id] = getProjectDetails(lims, pr,run_dirs)
-            print(new_ovw[pr.id])
+            # print('test',new_ovw[pr.id])
         # c+=1
         # # print (c)
-        # if c==50:
+        # if c==5:
         #     break
     return new_ovw
 
@@ -319,8 +420,10 @@ def writeProjectOverview( ovw, ovw_file ):
                     'sequencing_succesful': run['sequencing_succesful'],
                     'raw_clusters' : run['raw_clusters'],
                     'filtered_clusters' : run['filtered_clusters'],
+                    'avg_quality' : run.get('avg_quality',None),
                     'avg_quality_r1' : run['avg_quality_r1'],
                     'avg_quality_r2' : run['avg_quality_r2'],
+                    'perc_bases_q30' : run.get('perc_bases_q30',None),
                     'perc_bases_q30_r1' : run['perc_bases_q30_r1'],
                     'perc_bases_q30_r2' : run['perc_bases_q30_r2'],
                     'cluster_density' : run['cluster_density'],
@@ -362,8 +465,10 @@ def writeProjectOverview( ovw, ovw_file ):
                 'sequencing_succesful': None,
                 'raw_clusters' : None,
                 'filtered_clusters' : None,
+                'avg_quality' : None,
                 'avg_quality_r1' : None,
                 'avg_quality_r2' : None,
+                'perc_bases_q30' : None,
                 'perc_bases_q30_r1' : None,
                 'perc_bases_q30_r2' : None,
                 'cluster_density' : None,
@@ -417,7 +522,7 @@ def run(lims, overview_file):
     project_ovw = loadProjectOverview( overview_file )
 
     # #update project info from non-closed projects
-    project_ovw = updateProjectOverview( lims, overview_file )
+    project_ovw = updateProjectOverview( lims, project_ovw )
 
     # #write new project info overview
     writeProjectOverview( project_ovw, overview_file )

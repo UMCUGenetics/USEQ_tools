@@ -6,6 +6,8 @@ account_website,{{account_website}}
 account_BudgetNrs,{{account_BudgetNrs}}
 account_VATNr,{{account_VATNr}}
 account_DEBNr,{{account_DEBNr}}
+account_SupEmail,{{account_SupEmail}}
+account_FinEmail,{{account_FinEmail}}
 
 [billing-address]
 billing_street,{{billing_street}}
