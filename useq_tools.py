@@ -25,7 +25,7 @@ def client_mail(args):
 
 def share_data(args):
     """Encrypt and Share one or more datasets"""
-    utilities.useq_share_run.run(lims, args.ids, args.username, args.dir)
+    utilities.useq_share_run.run(lims, args.ids, args.username, args.dir, args.fid)
 
 def budget_overview(args):
     utilities.useq_budget_overview.run(lims, args.budgetnrs, args.output_file)
@@ -115,6 +115,7 @@ if __name__ == "__main__":
     parser_share_data.add_argument('-i', '--ids', help='One or more Project ID(s) to share, separated by comma.')
     parser_share_data.add_argument('-u', '--username', help='Username to share data with.', default=None)
     parser_share_data.add_argument('-d', '--dir', help='Directory containing data to share.', default=None)
+    parser_share_data.add_argument('-f', '--fid', help='Overrides the Flowcell ID found in the LIMS, ONLY use when the Flowcell ID in the LIMS is wrong (ROOOBIIIIN!!).', default=None)
     parser_share_data.set_defaults(func=share_data)
 
     parser_budget_ovw = subparser_utilities.add_parser('budget_overview', help='Get an overview of all costs booked to supplied budget numbers.')
