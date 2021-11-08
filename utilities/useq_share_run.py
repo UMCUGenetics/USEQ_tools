@@ -11,14 +11,16 @@ from modules.useq_illumina_parsers import getExpectedReads
 from modules.useq_nextcloud import NextcloudUtil
 from modules.useq_mail import sendMail
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
+from itertools import islice
 import sys
 import tarfile
 from pathlib import Path
 import re
+import csv
 
 def parseConversionStats(lims, dir, pid):
-    demux_stats = f'{dir}/Demultiplex_Stats.csv'
-    top_unknown = f'{dir}/Top_Unknown_Barcodes.csv'
+    demux_stats = f'{dir}/Conversion/Reports/Demultiplex_Stats.csv'
+    top_unknown = f'{dir}/Conversion/Reports/Top_Unknown_Barcodes.csv'
     samples = lims.get_samples(projectlimsid=pid)
     sample_names = [x.name for x in samples]
     stats = {
@@ -165,18 +167,23 @@ def shareRaw(lims, project_id,project_info):
     print (f"{name}\tStarting")
 
     conversion_stats = None
-    if Path(f'{project_info["dir"]}/Conversion/FastQ/Reports/Demultiplex_Stats.csv').is_file():
-        conversion_stats = parseConversionStats(lims, {project_info['dir']},pid )
+    if Path(f'{project_info["dir"]}/Conversion/Reports/Demultiplex_Stats.csv').is_file():
+        conversion_stats = parseConversionStats(lims, project_info['dir'] ,project_id )
 
     expected_yield = getExpectedReads( f"{project_info['dir']}/RunParameters.xml" )
     if not expected_yield:
         print (f"{name}\tError : No RunParameters.xml file could be found in {project_info['dir']}!")
         return
 
+    file_list = nextcloud_util.simpleFileList(project_id)
+    if not file_list:
+        print (f"{name}\tError : No files found in nextcloud dir  {project_id}!")
+        return
+
     print (f"{name}\tSharing run {project_info['data']} with {project_info['researcher'].email}")
     share_response = nextcloud_util.share(project_info['data'], project_info['researcher'].email)
     if "ERROR" in share_response:
-        print (f"{name}\tError : Failed to share {run_encrypted} with message:\n\t{share_response['ERROR']}")
+        print (f"{name}\tError : Failed to share {project_id} with message:\n\t{share_response['ERROR']}")
         return
     else:
         share_id = share_response["SUCCES"][0]
@@ -187,6 +194,7 @@ def shareRaw(lims, project_id,project_info):
             'phone' : project_info['researcher'].phone,
             'nextcloud_host' : NEXTCLOUD_HOST,
             'share_id' : share_id,
+            'file_list' : file_list,
             # 'expected_reads' : expected_yield,
             # 'total_reads' : conversion_stats['total_reads'],
             # 'filtered_reads' : conversion_stats['total_reads'],
@@ -196,10 +204,10 @@ def shareRaw(lims, project_id,project_info):
         mail_content = renderTemplate('share_raw_template.html', template_data)
         mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
-        # sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-        print (pw)
-        # os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+        # print (pw)
+        os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
 
     return
 
@@ -359,8 +367,8 @@ def shareDataById(lims, ids):
         run_dir = getRawData(lims, project_name)
 
         print(run_dir)
-        print ( f'{project_id}-raw.tar')
-        if not nextcloud_util.checkExists( f'{project_id}-raw.tar' ) or not run_dir:
+        print ( f'{project_id}')
+        if not nextcloud_util.checkExists( f'{project_id}' ) or not run_dir:
             print (f'Error : {project_id} was not uploaded to Nextcloud yet.')
             continue
 
@@ -368,7 +376,7 @@ def shareDataById(lims, ids):
 
             'researcher' : researcher,
             'project_name' : project_name,
-            'data' : f'{project_id}-raw.tar',
+            'data' : f'{project_id}',
             'dir' : run_dir
         }
 

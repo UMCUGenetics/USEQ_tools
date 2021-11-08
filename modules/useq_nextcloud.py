@@ -31,6 +31,16 @@ class NextcloudUtil(object):
         self.run_dir = run_dir
         self.recipient = recipient
 
+    def simpleFileList(self, dir):
+        files = []
+        for file in self.webdav.ls(self.webdav_root+self.run_dir+'/'+dir):
+            if not file.contenttype: continue #directories
+
+            file_path = file.name.replace(self.webdav_root,'')
+            file_path = file_path.split("/")[-1]
+
+            files.append(file_path)
+        return files
     def fileList(self):
         files = {}
         #Check in log files if file was downloaded
@@ -110,7 +120,6 @@ class NextcloudUtil(object):
 
     def checkExists(self,file):
         remote_path = f'{self.webdav_root}/{self.run_dir}/{file}'
-        print(remote_path)
         return self.webdav.exists(remote_path)
 
     def delete(self,file):
