@@ -444,11 +444,11 @@ def uploadToHPC(lims, run_dir, projectIDs, error_file, log_file):
 
 def uploadToArchive(run_dir, error_file, log_file):
     updateLog(log_file, "Upload to archive : Running")
-    # machine = run_dir.parents[0].name
-    # rsync_command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {ARCHIVE_DIR}/{machine} 1> /dev/null 2>> {error_file}"
-    # exit_code = os.system(rsync_command)
-    # if exit_code:
-    #     return False
+    machine = run_dir.parents[0].name
+    rsync_command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {ARCHIVE_DIR}/{machine} 1> /dev/null 2>> {error_file}"
+    exit_code = os.system(rsync_command)
+    if exit_code:
+        return False
 
     updateLog(log_file, "Upload to archive : Done")
     return True
@@ -604,7 +604,7 @@ def manageRuns(lims):
                         raise RuntimeError('Transfer to archive storage failed.',run_dir, projectIDs)
 
                     if status['Conversion'] and status['Transfer-nc'] and status['Transfer-hpc'] and status['Archive']:
-                        # cleanup(run_dir, error_file, log_file)
+                        cleanup(run_dir, error_file, log_file)
                         statusMail('Processing finished', run_dir,projectIDs)
                         running_file.unlink()
                         done_file.touch()
