@@ -25,7 +25,7 @@ def convertBCL(run_dir, sample_sheet, log_file, error_file):
 
     # Start conversion
     os.system(f'date >> {log_file}')
-    command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {sample_sheet} --first-tile-only true 1'
+    command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {sample_sheet} 1 > /dev/null'
     command = f'{command} 1>> /dev/null 2>> {error_file}'
     exit_code = os.system(command)
 
