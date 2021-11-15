@@ -33,7 +33,9 @@ def createSamplesheet(lims, step_uri):
         'samples' : []
     }
     process_id = uri_parts[-1]
+
     process = Process(lims, id=process_id)
+    # print(process.type.name)
     # step = Step(lims, uri=step_uri)
     technician = process.technician
     samplesheet_data['investigator_name'] = f"{technician.first_name} {technician.last_name}"
@@ -49,6 +51,7 @@ def createSamplesheet(lims, step_uri):
     for io in pooling_process.input_output_maps:
         if io[1]['limsid'] != pool.id: continue
         a = io[0]['uri']
+        # print(a)
         s = {
             'Sample_ID' : a.name,
             'index' : None,
@@ -57,6 +60,7 @@ def createSamplesheet(lims, step_uri):
         }
         index_name = a.reagent_labels[0]
         reagent = lims.get_reagent_types(name=index_name)[0]
+        # print(reagent.sequence)
         if '-' in reagent.sequence:
             s['index'],s['index2'] = reagent.sequence.split('-')
             samplesheet_data['index1_cycles'] = len(s['index'])
@@ -66,11 +70,14 @@ def createSamplesheet(lims, step_uri):
             samplesheet_data['index1_cycles'] = len(s['index'])
 
         samplesheet_data['samples'].append(s)
-
+    # print(samplesheet_data['index1_cycles'],samplesheet_data['index2_cycles'])
     samplesheet_data['override_cycles'] = f'Y{ samplesheet_data["read1_cycles"] };'
     if samplesheet_data['index1_cycles'] == 17:
-        samplesheet_data['override_cycles'] += 'I8U9;'
-        samplesheet_data['trim_umi'] = True
+        if process.type.name in ['NextSeq2000','NovaSeq']:
+            samplesheet_data['override_cycles'] += 'I8U9;'
+            samplesheet_data['trim_umi'] = True
+        else:
+            samplesheet_data['override_cycles'] += 'I8;'
     else:
         samplesheet_data['override_cycles'] += f'I{ samplesheet_data["index1_cycles"] };'
     if samplesheet_data['index2_cycles']:

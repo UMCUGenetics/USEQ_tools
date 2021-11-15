@@ -105,6 +105,7 @@ def getSampleSheet(lims, container_name, sample_sheet_path):
     for reagent_kit_artifact in lims.get_artifacts(containername=container_name):
         process = reagent_kit_artifact.parent_process
         for artifact in process.result_files():
+            # print (artifact.name)
             if artifact.name == 'SampleSheet csv' and artifact.files:
                 file_id = artifact.files[0].id
                 sample_sheet = lims.get_file_contents(id=file_id)
@@ -527,7 +528,7 @@ def manageRuns(lims):
 
                     if not sample_sheet.is_file():
                         updateLog(log_file,'No SampleSheet.csv found.')
-                        if [x for x in run_dir.glob("*csv")][0]: #Check if samplesheet with different name exists
+                        if [x for x in run_dir.glob("*csv")]: #Check if samplesheet with different name exists
                             s = [x for x in run_dir.glob("*csv")][0]
                             updateLog(log_file,f'Found {s} , renaming to SampleSheet.csv.')
                             s.rename(f'{run_dir}/SampleSheet.csv')
@@ -535,6 +536,8 @@ def manageRuns(lims):
                             updateLog(log_file,f'Tring to find SampleSheet.csv in LIMS.')
                             getSampleSheet(lims, lims_container_name, sample_sheet)
 
+                    if not sample_sheet.is_file():
+                        raise RuntimeError('No SampleSheet found.',run_dir, [])
 
                     if status['Demux-check'] == False:
                         status['Demux-check']  = demux_check( run_dir, log_file, error_file )
