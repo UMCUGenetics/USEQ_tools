@@ -153,10 +153,10 @@ def parseConversionStats(dir):
             samples_tmp[ row['SampleID'] ]['Mean Quality Score (PF)']  += float(row['Mean Quality Score (PF)'])
             # stats['samples'].append(row)
     for sampleID in samples_tmp:
-        samples_tmp[sampleID]['# Reads'] = samples_tmp[sampleID]['# Reads'] / samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['# Perfect Index Reads'] = samples_tmp[sampleID]['# Perfect Index Reads'] / samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads'] / samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] = samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
+        samples_tmp[sampleID]['# Reads'] = samples_tmp[sampleID]['# Reads'] #/ samples_tmp[ row['SampleID'] ]['Lane']
+        samples_tmp[sampleID]['# Perfect Index Reads'] = samples_tmp[sampleID]['# Perfect Index Reads'] #/ samples_tmp[ row['SampleID'] ]['Lane']
+        samples_tmp[sampleID]['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads'] #/ samples_tmp[ row['SampleID'] ]['Lane']
+        samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] = samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] #/ samples_tmp[ row['SampleID'] ]['Lane']
         samples_tmp[sampleID]['Mean Quality Score (PF)'] = samples_tmp[sampleID]['Mean Quality Score (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
         stats['samples'].append(
             {'SampleID':sampleID,
@@ -199,7 +199,7 @@ def statusMail(message, run_dir, projectIDs):
     conversion_stats = parseConversionStats(f'{run_dir}/Conversion/Reports')
 
     attachments = {
-        'zip_file': f'{run_dir}/{run_dir.name}_Reports.zip',
+        # 'zip_file': f'{run_dir}/{run_dir.name}_Reports.zip',
         'basepercent_by_cycle_plot': str(basepercent_by_cycle_plot) if basepercent_by_cycle_plot.is_file else None,
         'intensity_by_cycle_plot': str(intensity_by_cycle_plot) if intensity_by_cycle_plot.is_file else None,
         'clusterdensity_by_lane_plot': str(clusterdensity_by_lane_plot) if clusterdensity_by_lane_plot.is_file else None,
