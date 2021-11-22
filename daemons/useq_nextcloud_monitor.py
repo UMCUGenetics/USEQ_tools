@@ -15,6 +15,7 @@ def convertFileSize(size,precision=2):
 
 def checkUsage():
 	files = nextcloud_util.fileList()
+
 	files_to_delete =[]
 	total_size = 0
 

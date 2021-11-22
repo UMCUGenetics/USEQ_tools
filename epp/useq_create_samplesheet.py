@@ -72,8 +72,9 @@ def createSamplesheet(lims, step_uri):
         samplesheet_data['samples'].append(s)
     # print(samplesheet_data['index1_cycles'],samplesheet_data['index2_cycles'])
     samplesheet_data['override_cycles'] = f'Y{ samplesheet_data["read1_cycles"] };'
+    print (process.type.name)
     if samplesheet_data['index1_cycles'] == 17:
-        if process.type.name in ['NextSeq2000','NovaSeq']:
+        if 'NextSeq2000' in process.type.name or 'NovaSeq' in process.type.name:
             samplesheet_data['override_cycles'] += 'I8U9;'
             samplesheet_data['trim_umi'] = True
         else:

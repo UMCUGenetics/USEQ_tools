@@ -1,9 +1,9 @@
 #!/bin/sh
 
 RAW_DATA_PATH=/hpc/useq/raw_data/
-USEQ_TOOLS=/hpc/local/CentOS7/cog_bioinf/USEQ_tools-sms/
+USEQ_TOOLS=/hpc/local/CentOS7/cog_bioinf/USEQ_tools-portal/
 RUNSTATS_PATH=/hpc/useq/raw_data/runstats/
-WEBLOC=sitkaspar:/var/www/html/USEQ-Overview-dev
+WEBLOC=sitkaspar:/var/www/html/USEQ-Overview
 #GATHER RUN STATS
 
 cd $RAW_DATA_PATH
@@ -25,10 +25,10 @@ for dir in $DIRS;do
 done
 
 #UPDATE RUN OVERVIEW
-cd $USEQ_TOOLS
-. env/bin/activate
-
-python useq_tools.py daemons run_overview -o $RUNSTATS_PATH/overview.json
+# cd $USEQ_TOOLS
+# . env/bin/activate
+#
+# python useq_tools.py daemons run_overview -o $RUNSTATS_PATH/overview.json
 
 #COPY UPDATED OVERVIEW TO WEBHOST
 scp -i ~/.ssh/sitkaspar-id $RUNSTATS_PATH/overview* $WEBLOC
