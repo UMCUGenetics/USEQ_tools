@@ -5,6 +5,7 @@ import re
 import json
 import csv
 import sys
+
 from config import DATA_DIRS_RAW,DATA_DIR_HPC,ARCHIVE_DIR,MAIL_SENDER,MAIL_ADMINS,INTEROP_PATH,RUNTYPE_YIELDS,BCLCONVERT_PATH,BCLCONVERT_PROCESSING_THREADS,BCLCONVERT_WRITING_THREADS,STAGING_DIR,NEXTCLOUD_DATA_ROOT,NEXTCLOUD_PW,NEXTCLOUD_USER,NEXTCLOUD_HOST,NEXTCLOUD_RAW_DIR,NEXTCLOUD_WEBDAV_ROOT
 from modules.useq_mail import sendMail
 from modules.useq_illumina_parsers import getExpectedReads,parseSampleSheet
@@ -183,6 +184,7 @@ def statusMail(message, run_dir, projectIDs):
     flowcell_intensity_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_flowcell-Intensity.png')
     q_heatmap_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_q-heat-map.png')
     q_histogram_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_q-histogram.png')
+    demux_stats = Path(f'{run_dir}/Conversion/Reports/Demultiplex_Stats.csv')
 
     status = None
     log = None
@@ -196,7 +198,9 @@ def statusMail(message, run_dir, projectIDs):
         error = e.read()
 
     expected_reads = getExpectedReads(f'{run_dir}/RunParameters.xml')
-    conversion_stats = parseConversionStats(f'{run_dir}/Conversion/Reports')
+    conversion_stats = {}
+    if demux_stats.is_file():
+        conversion_stats = parseConversionStats(f'{run_dir}/Conversion/Reports')
 
     attachments = {
         # 'zip_file': f'{run_dir}/{run_dir.name}_Reports.zip',
@@ -213,7 +217,7 @@ def statusMail(message, run_dir, projectIDs):
         'error' : error,
         'projectIDs': ",".join(projectIDs),
         'run_dir': run_dir.name,
-        'nr_reads' : f'{conversion_stats["total_reads"]:,} / {expected_reads:,}',
+        'nr_reads' : f'{conversion_stats["total_reads"]:,} / {expected_reads:,}' if 'total_reads' in conversion_stats else 0,
         'stats_summary': conversion_stats,
     }
 
@@ -227,13 +231,14 @@ def updateLog(file,msg):
         print (f'{datetime.now()} : {msg}')
 
 
-def updateStatus(file, status, step):
-    status[step] = True
+def updateStatus(file, status, step, bool):
+
+    status[step] = bool
     with open(file, 'w') as f:
         f.write(json.dumps(status))
 
 
-def demux_check(run_dir, log_file, error_file):
+def demuxCheck(run_dir, log_file, error_file):
     Path(f'{run_dir}/Conversion/Demux-check').mkdir(parents=True, exist_ok=True)
     skip_demux = False
 
@@ -269,7 +274,8 @@ def demux_check(run_dir, log_file, error_file):
     command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/1 --sample-sheet {sample_sheet} --bcl-sampleproject-subdirectories true --force --first-tile-only true 1 > /dev/null'
     os.system(command)
     stats = parseConversionStats(f'{run_dir}/Conversion/Demux-check/1/Reports')
-    if stats['undetermined_reads'] / stats['total_reads'] < 0.25:
+    print(stats['undetermined_reads'], stats['total_reads'])
+    if stats['undetermined_reads'] / stats['total_reads'] < 0.40:
         updateLog(log_file, 'Checking original samplesheet : Done')
         return True
 
@@ -277,13 +283,16 @@ def demux_check(run_dir, log_file, error_file):
     command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/2 --sample-sheet {sample_sheet_rev} --bcl-sampleproject-subdirectories true --force --first-tile-only true 1 > /dev/null'
     os.system(command)
     stats = parseConversionStats(f'{run_dir}/Conversion/Demux-check/2/Reports')
-    if stats['undetermined_reads'] / stats['total_reads'] < 0.25:
+    print(stats['undetermined_reads'], stats['total_reads'])
+    if stats['undetermined_reads'] / stats['total_reads'] < 0.40:
         updateLog(log_file, 'Note : Reverse complemented index2')
         updateLog(log_file, 'Checking original samplesheet : Done')
 
         # return (True, sample_sheet_rev)
         sample_sheet_rev.rename(sample_sheet)
+        # sys.exit()
         return True
+    # sys.exit()
     return False
 
 def filterStats(lims, pid, pid_staging, report_dir):
@@ -346,7 +355,7 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
 
 
     else:
-        pid = projectIDs[0]
+        pid = list(projectIDs)[0]
         pid_staging = Path(f'{STAGING_DIR}/{pid}')
         pid_staging.mkdir(parents=True, exist_ok=True)
 
@@ -373,11 +382,12 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
             updateLog(log_file, f'Compressing {pid} to tar : Done')
             zip_done.touch()
 
-    #Filter stats files per PID
-    for pid in projectIDs:
-        pid_staging = Path(f'{STAGING_DIR}/{pid}')
-        report_dir = Path(f'{run_dir}/Conversion/Reports')
-        filterStats(lims, pid, pid_staging, report_dir)
+    if mode == 'fastq':
+        #Filter stats files per PID
+        for pid in projectIDs:
+            pid_staging = Path(f'{STAGING_DIR}/{pid}')
+            report_dir = Path(f'{run_dir}/Conversion/Reports')
+            filterStats(lims, pid, pid_staging, report_dir)
 
     #Create md5sums for .tar files
     for pid in projectIDs:
@@ -401,7 +411,8 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
 
         transfer_command ="set -eo pipefail && "
         transfer_command += f"scp -r {pid_staging}/*.tar {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/{pid} 1>> {log_file} 2>> {error_file} && "
-        transfer_command += f"scp -r {pid_staging}/*.csv {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/{pid} 1>> {log_file} 2>> {error_file} && "
+        if mode == 'fastq':
+            transfer_command += f"scp -r {pid_staging}/*.csv {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/{pid} 1>> {log_file} 2>> {error_file} && "
         transfer_command += f"scp -r {pid_staging}/*.txt {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/{pid} 1>> {log_file} 2>> {error_file}"
         updateLog(log_file, f'Transferring {pid} to nextcloud : Running')
         exit_code = os.system(transfer_command)
@@ -540,8 +551,8 @@ def manageRuns(lims):
                         raise RuntimeError('No SampleSheet found.',run_dir, [])
 
                     if status['Demux-check'] == False:
-                        status['Demux-check']  = demux_check( run_dir, log_file, error_file )
-                        updateStatus(status_file, status, 'Demux-check')
+                        status['Demux-check']  = demuxCheck( run_dir, log_file, error_file )
+                        updateStatus(status_file, status, 'Demux-check', status['Demux-check'])
 
                     projectIDs = set()
                     sheet = parseSampleSheet(sample_sheet)
@@ -562,7 +573,7 @@ def manageRuns(lims):
                                 if sum(generateRunStats(run_dir, log_file, error_file)) > 0:
                                     raise RuntimeError(f'Demultiplexing probably failed, failed to create conversion statistics. If this is ok please set Conversion to True in {status_file} and remove {failed_file}.',run_dir, experiment_name, project_name)
                                 else:
-                                    updateStatus(status_file, status, 'Conversion')
+                                    updateStatus(status_file, status, 'Conversion', True)
                                 zip_file = zipConversionReport(run_dir,log_file, error_file)
                             else:
                                 raise RuntimeError('Demultiplexing failed with unknown error.',run_dir, projectIDs)
@@ -571,39 +582,44 @@ def manageRuns(lims):
                             if not status['Transfer-nc']:
                                 status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'fastq',projectIDs,log_file, error_file)
                             if status['Transfer-nc'] :
-                                updateStatus(status_file, status, 'Transfer-nc')
+                                updateStatus(status_file, status, 'Transfer-nc', status['Transfer-nc'])
                             else:
+                                updateStatus(status_file, status, 'Transfer-nc', status['Transfer-nc'])
                                 raise RuntimeError('Transfer to nextcloud failed.',run_dir, projectIDs)
 
                             if not status['Transfer-hpc']:
                                 status['Transfer-hpc'] = uploadToHPC(lims, run_dir, projectIDs,error_file, log_file)
                             if status['Transfer-hpc']:
-                                updateStatus(status_file, status, 'Transfer-hpc')
+                                updateStatus(status_file, status, 'Transfer-hpc', status['Transfer-hpc'])
                             else:
+                                updateStatus(status_file, status, 'Transfer-hpc', status['Transfer-hpc'])
                                 raise RuntimeError('Transfer to hpc failed.',run_dir, projectIDs)
 
                     else: #Skip straight to transfer
                         updateLog(log_file,f'Pre demultiplexing check failed, skipping demultiplexing.')
                         if not status['Transfer-nc']:
-                            status['Transfer-nc'] = uploadToNextcloud(run_dir, 'fastq',projectIDs,log_file, error_file)
+                            status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'bcl',projectIDs,log_file, error_file)
                         if status['Transfer-nc'] :
-                            updateStatus(status_file, status, 'Transfer-nc')
+                            updateStatus(status_file, status, 'Transfer-nc',status['Transfer-nc'])
                             # cleanup(run_dir)
                         else:
+                            updateStatus(status_file, status, 'Transfer-nc',status['Transfer-nc'])
                             raise RuntimeError('Transfer to nextcloud failed.',run_dir, projectIDs)
 
                         if not status['Transfer-hpc']:
                             status['Transfer-hpc'] = uploadToHPC(lims, run_dir, projectIDs,error_file, log_file)
                         if status['Transfer-hpc']:
-                            updateStatus(status_file, status, 'Transfer-hpc')
+                            updateStatus(status_file, status, 'Transfer-hpc',status['Transfer-hpc'])
                         else:
+                            updateStatus(status_file, status, 'Transfer-hpc',status['Transfer-hpc'])
                             raise RuntimeError('Transfer to hpc failed.',run_dir, projectIDs)
 
                     if not status['Archive']:
                         status['Archive'] = uploadToArchive(run_dir, error_file, log_file)
                     if status['Archive']:
-                        updateStatus(status_file, status, 'Archive')
+                        updateStatus(status_file, status, 'Archive',status['Archive'])
                     else:
+                        updateStatus(status_file, status, 'Archive',status['Archive'])
                         raise RuntimeError('Transfer to archive storage failed.',run_dir, projectIDs)
 
                     if status['Conversion'] and status['Transfer-nc'] and status['Transfer-hpc'] and status['Archive']:
@@ -611,7 +627,11 @@ def manageRuns(lims):
                         statusMail('Processing finished', run_dir,projectIDs)
                         running_file.unlink()
                         done_file.touch()
-
+                    elif status['Transfer-nc'] and status['Transfer-hpc'] and status['Archive']:
+                        cleanup(run_dir, error_file, log_file)
+                        statusMail('Processing finished', run_dir,projectIDs)
+                        running_file.unlink()
+                        done_file.touch()
                 except RuntimeError as e:
                     print(e)
                     statusMail(e.args[0],e.args[1],e.args[2])
