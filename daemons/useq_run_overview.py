@@ -104,12 +104,21 @@ def parseConversionStats( conversion_stats_file ):
         conversion_stats['perc_q30_r2'] = (conversion_stats['yield_q30_r2'] / float( conversion_stats['yield_r2']) ) * 100
         conversion_stats['avg_quality_r2'] = conversion_stats['qsum_r2'] / float( conversion_stats['yield_r2'])
 
+    conversion_stats['raw_clusters'] = conversion_stats['raw_clusters']/2
+    conversion_stats['filtered_clusters'] = conversion_stats['filtered_clusters']/2
 
     return conversion_stats
 
 def parseRunSummary( summary ):
-    stats = {'phix_aligned' : [],'cluster_density':0}
+    stats = {
+        'phix_aligned' : [],
+        'cluster_density':0,
+        'perc_q30' :0,
+        'perc_occupied':0
+    }
     densities = []
+    occupied_scores = []
+    q30_scores = []
     with open(summary, 'r') as sumcsv:
         lines = sumcsv.readlines()
         line_nr = 0
@@ -117,6 +126,7 @@ def parseRunSummary( summary ):
         while line_nr < len(lines):
             line = lines[line_nr].rstrip()
             if not line: line_nr+=1;continue
+
             if line.startswith('Level'):
                 for sub_line in lines[line_nr+1:line_nr+5]:
                     # print (line)
@@ -130,13 +140,16 @@ def parseRunSummary( summary ):
                 cols = line.split(",")
                 # print(cols)
                 if len(cols) > 4 and 'nan' not in cols[3]:
-
+                    q30_scores.append(float(cols[10].split("+")[0].rstrip()))
+                    occupied_scores.append(float(cols[18].split("+")[0].rstrip()))
                     densities.append(int(cols[3].split("+")[0].rstrip()))
                 line_nr += 1
             else:
                 line_nr += 1
     #print(densities)
     stats['cluster_density'] = sum(densities) / len(densities)
+    stats['perc_q30'] = sum(q30_scores) / len(q30_scores)
+    stats['perc_occupied'] = sum(occupied_scores) / len(occupied_scores)
     return stats
 
 def parseDemuxStats(demux_stats):
@@ -182,6 +195,7 @@ def parseAdapterMetrics(adapter_metrics):
     return stats
 
 def getProjectDetails( lims, project,run_dirs ):
+    # print(run_dirs['AHKHMNBGXK'])
     project_details = {}
     project_details['runs'] = []
 
@@ -232,7 +246,7 @@ def getProjectDetails( lims, project,run_dirs ):
         project_details['library_prep_nr'] = project_details['sample_nr']
 
     print (f'Getting processes start {datetime.now()}' )
-    print (project.name)
+    # print (project.name)
     project_processes = lims.get_processes(type=ILL_SEQUENCING_STEPS+NAN_SEQUENCING_STEPS+['USEQ - BCL to FastQ','USEQ - Ready for billing'], projectname=project.name)
 
     print (f'Getting processes stop {datetime.now()}' )
@@ -241,7 +255,7 @@ def getProjectDetails( lims, project,run_dirs ):
 
     for process_nr, process in enumerate(project_processes):
         # print (f'Getting processes start 1{process.type.name} {datetime.now()}' )
-        print (process)
+        # print (process)
 
         if process.type.name in ILL_SEQUENCING_STEPS:
 
@@ -274,18 +288,19 @@ def getProjectDetails( lims, project,run_dirs ):
                         run['sequencing_succesful'] = getUDF(io[1]['uri'], 'Sequencing Succesful')
                         run['data_send'] = project_processes[process_nr + 1].date_run
                         break
-            print(run)
 
+            # print(run_dirs)
             if run['flowcell'] in run_dirs:
+                # print('test',run['flowcell'])
                 conversion_stats_file = Path(f"{run_dirs[run['flowcell']]}/ConversionStats.xml")
                 demux_stats_file = Path(f"{run_dirs[run['flowcell']]}/Demultiplex_Stats.csv")
                 adapter_metrics_file = Path(f"{run_dirs[run['flowcell']]}/Adapter_Metrics.csv")
                 summary_stats_file = Path(f"{run_dirs[run['flowcell']]}/{ Path(run_dirs[run['flowcell']]).name }_summary.csv")
                 # print(summary_stats_file)
+                run['name'] = Path(run_dirs[run['flowcell']]).name
                 if conversion_stats_file.is_file():
                     conversion_stats = parseConversionStats(conversion_stats_file)
 
-                    run['name'] = Path(run_dirs[run['flowcell']]).name
                     run['raw_clusters'] = conversion_stats['raw_clusters']
                     run['filtered_clusters'] = conversion_stats['filtered_clusters']
                     run['avg_quality_r1'] = conversion_stats['avg_quality_r1']
@@ -296,16 +311,18 @@ def getProjectDetails( lims, project,run_dirs ):
                 elif demux_stats_file.is_file() and adapter_metrics_file.is_file():
                     # Lane,SampleID,Index,# Reads,# Perfect Index Reads,# One Mismatch Index Reads,# of >= Q30 Bases (PF),Mean Quality Score (PF)
                     demux_stats = parseDemuxStats(demux_stats_file)
-                    run['filtered_clusters'] = demux_stats['total_reads']
+                    run['filtered_clusters'] = int(demux_stats['total_reads'])
                     run['avg_quality'] = demux_stats['mean_qual_score_pf']
 
 
-                    adapter_stats = parseAdapterMetrics(adapter_metrics_file)
-                    run['perc_bases_q30'] = (demux_stats['nr_bases_q30_pf']/adapter_stats['total_bases'])*100
+                    # adapter_stats = parseAdapterMetrics(adapter_metrics_file)
+                    # run['perc_bases_q30'] = (demux_stats['nr_bases_q30_pf']/adapter_stats['total_bases'])*100
 
                 if summary_stats_file.is_file():
                     summary_stats = parseRunSummary(summary_stats_file)
                     run['cluster_density'] = summary_stats['cluster_density']
+                    run['perc_bases_q30'] = summary_stats['perc_q30']
+                    # run['perc_occupied'] = summary_stats['perc_occupied']
                     run['phix_aligned_r1'] = summary_stats['phix_aligned'][0]
                     if len(summary_stats['phix_aligned']) > 1: run['phix_aligned_r2'] = summary_stats['phix_aligned'][1]
 
@@ -374,9 +391,13 @@ def updateProjectOverview( lims, ovw ):
     run_dirs = {}
     p = Path(STAT_PATH)
     print('Getting run directories')
+    # print(p)
     for d in p.glob('*/*'):
 
         flowcell = d.name.split("_")[-1].split("-")[-1]
+        # print(flowcell)
+        # print(flowcell[1:])
+        # print(d)
         run_dirs[flowcell] = d
         run_dirs[flowcell[1:]] = d
     # c = 0
@@ -394,6 +415,7 @@ def updateProjectOverview( lims, ovw ):
         print (f"Working on {pr.id}")
         if pr.id in ovw:
             if not ovw[pr.id]['close-date'] :
+                # print('really')
                 new_ovw[pr.id] = getProjectDetails(lims, pr,run_dirs)
             else:
                 new_ovw[pr.id] = ovw[pr.id]

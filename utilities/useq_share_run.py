@@ -58,10 +58,10 @@ def parseConversionStats(lims, dir, pid):
             # stats['samples'].append(row)
     for sampleID in samples_tmp:
         if sampleID not in sample_names:continue
-        samples_tmp[sampleID]['# Reads'] = samples_tmp[sampleID]['# Reads'] / samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['# Perfect Index Reads'] = samples_tmp[sampleID]['# Perfect Index Reads'] / samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads'] / samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] = samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
+        samples_tmp[sampleID]['# Reads'] = samples_tmp[sampleID]['# Reads'] #/ samples_tmp[ row['SampleID'] ]['Lane']
+        samples_tmp[sampleID]['# Perfect Index Reads'] = samples_tmp[sampleID]['# Perfect Index Reads'] #/ samples_tmp[ row['SampleID'] ]['Lane']
+        samples_tmp[sampleID]['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads'] #/ samples_tmp[ row['SampleID'] ]['Lane']
+        samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] = samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] #/ samples_tmp[ row['SampleID'] ]['Lane']
         samples_tmp[sampleID]['Mean Quality Score (PF)'] = samples_tmp[sampleID]['Mean Quality Score (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
         stats['samples'].append(
             {'SampleID':sampleID,

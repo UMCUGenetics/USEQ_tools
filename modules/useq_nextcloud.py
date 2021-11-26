@@ -41,6 +41,7 @@ class NextcloudUtil(object):
 
             files.append(file_path)
         return files
+
     def fileList(self):
         files = {}
         #Check in log files if file was downloaded
@@ -49,11 +50,12 @@ class NextcloudUtil(object):
         for file in self.webdav.ls(self.webdav_root+"log/"):
 
             if not file.contenttype: continue #directories
-
+        #
             response = requests.get("https://{0}/{1}".format(self.hostname,file.name),auth=(self.user, self.password))
             for line in response.text.split('\n'):
-
+                # print(line)
                 if not line.rstrip():continue
+
                 columns = line.split('"')
 
                 if not columns[2].startswith(' 200'):continue
@@ -84,15 +86,21 @@ class NextcloudUtil(object):
 
                 if ip_match:
                     download_ids[download_id]['downloaded_from'].append(ip_match.country)
-
-
-
+        # print(download_ids)
         for file in self.webdav.ls(self.webdav_root+self.run_dir):
-            if not file.contenttype: continue #directories
-
             file_path = file.name.replace(self.webdav_root,'')
+            if file_path.endswith('.done') or file_path.endswith('raw_data/') or file_path.endswith('other_data/'):continue
+            size = 0
+            if file.contenttype:
+                size = file.size
+            else: #directories
+                for subfile in self.webdav.ls(self.webdav_root+file_path):
+                    size += subfile.size
+                file_path = file_path[:-1]
+
+
             files[file_path] = {
-                'size' : file.size,
+                'size' : size,
                 'mtime' : file.mtime,
                 'share_id' : '',
                 'downloaded' : False,
@@ -100,7 +108,8 @@ class NextcloudUtil(object):
                 'downloaded_from' : [],
                 'download_dates' : []
             }
-        # Get file share ID
+        # # Get file share ID
+        # print(files)
         response = requests.get("https://{0}/ocs/v2.php/apps/files_sharing/api/v1/shares".format(self.hostname), auth=(self.user, self.password), headers={'OCS-APIRequest':'true'})
         response_DOM = parseString( response.text )
 
@@ -111,6 +120,7 @@ class NextcloudUtil(object):
             share_id = element.getElementsByTagName("token")[0].firstChild.data
 
             if file_path in files:
+                # print(file_path, share_id)
                 files[file_path]['share_id'] = share_id
 
                 if share_id in download_ids:

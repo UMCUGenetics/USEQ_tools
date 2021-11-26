@@ -246,6 +246,9 @@ def getSeqFinance(lims, step_uri):
 						if sample.udf['Sample Type'].startswith('RNA'):
 							analysis_step_costs += float(all_costs['mapping rna']['date_step_costs'][ billing_date ])
 							analysis_personell_costs += float(all_costs['mapping rna']['date_personell_costs'][ billing_date ])
+						elif 'Targeted' in sample.udf['Analysis']:
+							analysis_step_costs += float(all_costs['mapping (targeted selection / chip-seq)']['date_step_costs'][ billing_date ])
+							analysis_personell_costs += float(all_costs['mapping (targeted selection / chip-seq)']['date_personell_costs'][ billing_date ])
 						else:
 							analysis_step_costs += float(all_costs['mapping wgs']['date_step_costs'][ billing_date ])
 							analysis_personell_costs += float(all_costs['mapping wgs']['date_personell_costs'][ billing_date ])

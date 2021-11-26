@@ -19,7 +19,7 @@
 <h3>Errors</h3>
 {{error | replace("\n", "<br>")}}
 <br>
-{% if stats_summary['total_reads'] > 0 %}
+{% if 'total_reads' in stats_summary %}
 <h3>Summary</h3>
 <table class='useq_table'>
 <tr> <td><b>Output (filtered) / Output (expected)</b></td> <td>{{nr_reads}}</td> </tr>
