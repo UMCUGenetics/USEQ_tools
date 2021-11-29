@@ -151,11 +151,11 @@ def shareManual(researcher,dir):
         mail_content = renderTemplate('share_manual_template.html', template_data)
         mail_subject = "USEQ has shared a file with you."
 
-        # sendMail(mail_subject,mail_content, MAIL_SENDER ,researcher.email)
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-        print (pw)
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,researcher.email)
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+        # print (pw)
         # print()
-        # os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_{dir.name}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
+        os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_{dir.name}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
         run_zip.unlink()
         zip_done.unlink()
 
