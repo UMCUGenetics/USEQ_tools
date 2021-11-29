@@ -211,6 +211,11 @@ def shareRaw(lims, project_id,project_info):
 
     return
 
+def chunkify(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
 def check(  ):
     yes = set(['yes','y'])
     no = set(['no','n'])
@@ -222,6 +227,8 @@ def check(  ):
     else:
        sys.stdout.write("Please respond with '(y)es' or '(n)o'")
     return choice
+
+
 
 def getRawData( lims, project_name, fid ):
     """Get the most recent raw run info based on project name and allowed RUN_PROCESSES"""
@@ -299,9 +306,14 @@ def shareDataByUser(lims, username, dir):
 
     if len(possible_samples.keys()):
         print (f"Trying to link samples to existing projectIDs.")
-        lims_samples = lims.get_samples(name=list(possible_samples.keys()))
+        sample_chunks = chunkify(list(possible_samples.keys()), 100)
+        lims_samples = []
+        for chunk in sample_chunks:
+            lims_samples.extend(lims.get_samples(name=chunk))
+        # lims_samples = lims.get_samples( name=list(possible_samples.keys()) )
         lims_projects = {}
         for sample in lims_samples:
+
             sample_project = sample.project
             # print(sample_project)
             user = None
