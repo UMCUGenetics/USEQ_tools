@@ -1,6 +1,5 @@
 from genologics.entities import Project
 from config import RUN_PROCESSES, RAW_DIR, PROCESSED_DIR, NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,NEXTCLOUD_PROCESSED_DIR,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER, NEXTCLOUD_USER, NEXTCLOUD_PW,DATA_DIRS_RAW,SMS_SERVER,NEXTCLOUD_DATA_ROOT
-from os.path import expanduser, exists
 from texttable import Texttable
 import datetime
 import os
@@ -17,6 +16,7 @@ import tarfile
 from pathlib import Path
 import re
 import csv
+import glob
 
 def parseConversionStats(lims, dir, pid):
     demux_stats = f'{dir}/Conversion/Reports/Demultiplex_Stats.csv'
@@ -161,7 +161,7 @@ def shareManual(researcher,dir):
 
     return
 
-def shareRaw(lims, project_id,project_info):
+def shareRaw(lims, project_id,project_info, link_portal):
 
     name = multiprocessing.current_process().name
     print (f"{name}\tStarting")
@@ -169,6 +169,8 @@ def shareRaw(lims, project_id,project_info):
     conversion_stats = None
     if Path(f'{project_info["dir"]}/Conversion/Reports/Demultiplex_Stats.csv').is_file():
         conversion_stats = parseConversionStats(lims, project_info['dir'] ,project_id )
+
+
 
     expected_yield = getExpectedReads( f"{project_info['dir']}/RunParameters.xml" )
     if not expected_yield:
@@ -204,11 +206,24 @@ def shareRaw(lims, project_id,project_info):
         mail_content = renderTemplate('share_raw_template.html', template_data)
         mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
-        # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-        # print (pw)
-        os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+        print (pw)
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
+        # os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
 
+        if link_portal:
+            from sqlalchemy.ext.automap import automap_base
+            from sqlalchemy.orm import Session
+            from sqlalchemy import create_engine
+            from xml.dom.minidom import parse
+            from config import FILE_STORAGE, SQLALCHEMY_DATABASE_URI
+            run_info = parse(Path(f"{project_info['dir']}/RunInfo.xml"))
+            flowcell_id = run_info.getElementsByTagName('Flowcell')[0].firstChild.nodeValue
+
+            with open( Path(f"{project_info['dir']}/Conversion/Reports/multiqc_data/multiqc_bclconvert_bysample.json", 'r') as s:
+                general_stats = s.read()
+# ssh sitkaspar "mkdir -p /home/cog/sboymans/useq_portal/filestore/test/"
+            # os.system("ssh")
     return
 
 def chunkify(lst, n):
@@ -359,7 +374,7 @@ def shareDataByUser(lims, username, dir):
             process.join()
 
 
-def shareDataById(lims, ids, fid):
+def shareDataById(lims, ids, fid, link_portal):
     """Get's the run names, encrypts the run data and sends it to the appropriate client"""
     project_ids = ids.split(",")
     run_info = {}
@@ -411,7 +426,7 @@ def shareDataById(lims, ids, fid):
             for project_id in run_info:
                 share_process = None
 
-                share_process = multiprocessing.Process(name=f"Process_{project_id}", target=shareRaw, args=(lims,project_id, run_info[project_id]) )
+                share_process = multiprocessing.Process(name=f"Process_{project_id}", target=shareRaw, args=(lims,project_id, run_info[project_id], link_portal) )
 
                 share_processes.append(share_process)
                 share_process.start()
@@ -419,7 +434,7 @@ def shareDataById(lims, ids, fid):
             for process in share_processes:
                 process.join()
 
-def run(lims, ids, username, dir, fid):
+def run(lims, ids, username, dir, fid, link_portal):
     """Runs raw, processed or manual function based on mode"""
 
     global nextcloud_util
@@ -430,7 +445,7 @@ def run(lims, ids, username, dir, fid):
 
     if ids:
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,MAIL_SENDER )
-        shareDataById(lims, ids, fid)
+        shareDataById(lims, ids, fid, link_portal)
 
     elif username and dir:
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER )
