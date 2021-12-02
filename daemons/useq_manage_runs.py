@@ -24,6 +24,10 @@ def convertBCL(run_dir, sample_sheet, log_file, error_file):
     updateLog(log_file, 'Conversion : Running')
     """Convert bcl files from run to fastq.gz files."""
 
+    # run_info = xml.dom.minidom.parse(f'{run_dir}/RunInfo.xml')
+    # first_tile = run_info.getElementsByTagName('Tile')[0].firstChild.nodeValue
+    # first_tile = first_tile.split("_")[-1]
+
     # Start conversion
     os.system(f'date >> {log_file}')
     command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {sample_sheet} 1 > /dev/null'
@@ -88,7 +92,7 @@ def generateRunStats(run_dir, log_file, error_file):
     # QScore histogram plot
     exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_qscore_histogram {run_dir} | gnuplot'))
     #print (exit_codes)
-    exit_codes.append(os.system(f'multiqc {run_dir}/Conversion/FastQ {run_dir}/Conversion/Logs {run_dir}/Conversion/Reports -o {stats_dir} -k json --quiet 1>> /dev/null 2>> {error_file}'))
+    # exit_codes.append(os.system(f'multiqc {run_dir}/Conversion/FastQ {run_dir}/Conversion/Logs {run_dir}/Conversion/Reports -o {stats_dir} -k json --quiet 1>> /dev/null 2>> {error_file}'))
     updateLog(log_file, 'Generate run stats : Done')
     return exit_codes
 
@@ -119,6 +123,7 @@ def getSampleSheet(lims, container_name, sample_sheet_path):
 
 def parseConversionStats(dir):
     demux_stats = f'{dir}/Demultiplex_Stats.csv'
+    qual_metrics = f'{dir}/Quality_Metrics.csv'
     top_unknown = f'{dir}/Top_Unknown_Barcodes.csv'
     stats = {
         'total_reads' : 0,
@@ -142,31 +147,42 @@ def parseConversionStats(dir):
                     '# Reads' : 0,
                     '# Perfect Index Reads' : 0,
                     '# One Mismatch Index Reads' : 0,
-                    '# of >= Q30 Bases (PF)' : 0,
-                    'Mean Quality Score (PF)' : 0
                 }
             samples_tmp[ row['SampleID'] ]['Index'] = row['Index']
             samples_tmp[ row['SampleID'] ]['Lane'] = int(row['Lane'])
             samples_tmp[ row['SampleID'] ]['# Reads'] += int(row['# Reads'])
             samples_tmp[ row['SampleID'] ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
             samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
-            samples_tmp[ row['SampleID'] ]['# of >= Q30 Bases (PF)']  += int(row['# of >= Q30 Bases (PF)'])
-            samples_tmp[ row['SampleID'] ]['Mean Quality Score (PF)']  += float(row['Mean Quality Score (PF)'])
-            # stats['samples'].append(row)
+
+    with open(qual_metrics,'r') as q:
+        csv_reader = csv.DictReader(q)
+        for row in csv_reader:
+
+            mqs = f'Read {row["ReadNumber"]} Mean Quality Score (PF)'
+            q30 = f'Read {row["ReadNumber"]} % Q30'
+            if mqs not in samples_tmp[ row['SampleID'] ]:
+                samples_tmp[ row['SampleID'] ][mqs] = 0
+            if q30 not in samples_tmp[ row['SampleID'] ]:
+                samples_tmp[ row['SampleID'] ][q30] = 0
+
+            samples_tmp[ row['SampleID'] ][mqs] += float(row['Mean Quality Score (PF)'])
+            samples_tmp[ row['SampleID'] ][q30] += float(row['% Q30'])
+
+
     for sampleID in samples_tmp:
-        samples_tmp[sampleID]['# Reads'] = samples_tmp[sampleID]['# Reads'] #/ samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['# Perfect Index Reads'] = samples_tmp[sampleID]['# Perfect Index Reads'] #/ samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads'] #/ samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] = samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] #/ samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['Mean Quality Score (PF)'] = samples_tmp[sampleID]['Mean Quality Score (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
-        stats['samples'].append(
-            {'SampleID':sampleID,
-            'Index' : samples_tmp[sampleID]['Index'],
-            '# Reads' :  samples_tmp[sampleID]['# Reads'],
-            '# Perfect Index Reads' : samples_tmp[sampleID]['# Perfect Index Reads'],
-            '# One Mismatch Index Reads' : samples_tmp[sampleID]['# One Mismatch Index Reads'],
-            '# of >= Q30 Bases (PF)' : samples_tmp[sampleID]['# of >= Q30 Bases (PF)'],
-            'Mean Quality Score (PF)' : samples_tmp[sampleID]['Mean Quality Score (PF)'] })
+
+        sample = {}
+        for read_number in ['1','2','I1','I2']:
+            if f'Read {read_number} Mean Quality Score (PF)' in samples_tmp[sampleID]:
+                sample[f'Read {read_number} Mean Quality Score (PF)'] = samples_tmp[sampleID][f'Read {read_number} Mean Quality Score (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
+            if f'Read {read_number} % Q30' in samples_tmp[sampleID]:
+                sample[f'Read {read_number} % Q30'] = (samples_tmp[sampleID][f'Read {read_number} % Q30'] / samples_tmp[ row['SampleID'] ]['Lane'])*100
+        sample['SampleID'] = sampleID
+        sample['Index'] = samples_tmp[sampleID]['Index']
+        sample['# Reads'] = samples_tmp[sampleID]['# Reads']
+        sample['# Perfect Index Reads'] = samples_tmp[sampleID]['# Perfect Index Reads']
+        sample['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads']
+        stats['samples'].append(sample)
 
     with open(top_unknown, 'r') as t:
         csv_reader = csv.DictReader(t)
@@ -249,6 +265,13 @@ def demuxCheck(run_dir, log_file, error_file):
     rev_samples = []
     header = sample_sheet_parsed['header']
 
+    run_info = xml.dom.minidom.parse(f'{run_dir}/RunInfo.xml')
+    first_tile = run_info.getElementsByTagName('Tile')[0].firstChild.nodeValue
+    first_tile = first_tile.split("_")[-1]
+    print('First Tile : ',first_tile)
+#
+# if run_parameters.getElementsByTagName('ReagentKitSerial'):  # NextSeq
+#     lims_container_name = run_parameters.getElementsByTagName('ReagentKitSerial')[0].firstChild.nodeValue
     if len(samples) > 1:
         # With 1 sample customers probably want the BCL files, demux will clear this up. For more samples cleanup samplesheet before demux
         for sample in samples:
@@ -269,9 +292,10 @@ def demuxCheck(run_dir, log_file, error_file):
         writeSampleSheet(sample_sheet_rev, header, rev_samples, sample_sheet_parsed['top'])
 
 
+
     #Samplesheet is OK first try
     updateLog(log_file, 'Checking original samplesheet : Running')
-    command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/1 --sample-sheet {sample_sheet} --bcl-sampleproject-subdirectories true --force --first-tile-only true 1 > /dev/null'
+    command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/1 --sample-sheet {sample_sheet} --bcl-sampleproject-subdirectories true --force --tiles {first_tile} 1 > /dev/null'
     os.system(command)
     stats = parseConversionStats(f'{run_dir}/Conversion/Demux-check/1/Reports')
     print(stats['undetermined_reads'], stats['total_reads'])
@@ -280,7 +304,7 @@ def demuxCheck(run_dir, log_file, error_file):
         return True
 
     #Try revcomp samplesheet
-    command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/2 --sample-sheet {sample_sheet_rev} --bcl-sampleproject-subdirectories true --force --first-tile-only true 1 > /dev/null'
+    command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/2 --sample-sheet {sample_sheet_rev} --bcl-sampleproject-subdirectories true --force --tiles {first_tile} 1 > /dev/null'
     os.system(command)
     stats = parseConversionStats(f'{run_dir}/Conversion/Demux-check/2/Reports')
     print(stats['undetermined_reads'], stats['total_reads'])
@@ -571,7 +595,7 @@ def manageRuns(lims):
                                 md5sumFastq(run_dir,log_file, error_file)
 
                                 if sum(generateRunStats(run_dir, log_file, error_file)) > 0:
-                                    raise RuntimeError(f'Demultiplexing probably failed, failed to create conversion statistics. If this is ok please set Conversion to True in {status_file} and remove {failed_file}.',run_dir, experiment_name, project_name)
+                                    raise RuntimeError(f'Demultiplexing probably failed, failed to create conversion statistics. If this is ok please set Conversion to True in {status_file} and remove {failed_file}.',run_dir, [])
                                 else:
                                     updateStatus(status_file, status, 'Conversion', True)
                                 zip_file = zipConversionReport(run_dir,log_file, error_file)
