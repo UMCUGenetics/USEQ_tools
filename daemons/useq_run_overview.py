@@ -159,8 +159,8 @@ def parseDemuxStats(demux_stats):
         'total_reads' : 0,
         'perfect_index_reads' : 0,
         'one_mm_index_reads' : 0,
-        'nr_bases_q30_pf' : 0,
-        'mean_qual_score_pf' : 0
+        # 'nr_bases_q30_pf' : 0,
+        # 'mean_qual_score_pf' : 0
     }
 
     with open(demux_stats, 'r') as d:
@@ -169,11 +169,11 @@ def parseDemuxStats(demux_stats):
             stats['total_reads'] += float(row['# Reads'])
             stats['perfect_index_reads'] += float(row['# Perfect Index Reads'])
             stats['one_mm_index_reads'] += float(row['# One Mismatch Index Reads'])
-            stats['nr_bases_q30_pf'] += float(row['# of >= Q30 Bases (PF)'])
-            stats['mean_qual_score_pf'] += float(row['Mean Quality Score (PF)'])
+            # stats['nr_bases_q30_pf'] += float(row['# of >= Q30 Bases (PF)'])
+            # stats['mean_qual_score_pf'] += float(row['Mean Quality Score (PF)'])
             stats['nr_rows'] +=1
 
-    stats['mean_qual_score_pf'] = stats['mean_qual_score_pf']/stats['nr_rows']
+    # stats['mean_qual_score_pf'] = stats['mean_qual_score_pf']/stats['nr_rows']
 
     return stats
 
@@ -193,6 +193,36 @@ def parseAdapterMetrics(adapter_metrics):
                 stats['r2_bases'] += float(row['R2_SampleBases'])
                 stats['total_bases'] += float(row['R2_SampleBases'])
     return stats
+
+def parseQualityMetrics(qual_metrics):
+    stats = {
+        'avg_quality_r1' : 0,
+        'avg_quality_r2' : 0,
+        'perc_q30_r1' : 0,
+        'perc_q30_r2' : 0
+    }
+    rows = 0
+    with open(qual_metrics, 'r') as q:
+        csv_reader = csv.DictReader(q)
+        for row in csv_reader:
+            if row['ReadNumber'] == 1:
+                rows +=1
+                stats['avg_quality_r1'] += float(row['Mean Quality Score (PF)'])
+                stats['perc_q30_r1'] += float(row['% Q30'])
+            elif row['ReadNumber'] ==2:
+                stats['avg_quality_r2'] += float(row['Mean Quality Score (PF)'])
+                stats['perc_q30_r2'] += float(row['% Q30'])
+    stats['avg_quality_r1'] = stats['avg_quality_r1']/rows
+    stats['perc_q30_r1'] = stats['perc_q30_r1']/rows
+    stats['avg_quality_r2'] = stats['avg_quality_r2']/rows
+    stats['perc_q30_r2'] = stats['perc_q30_r2']/rows
+
+    return stats
+#
+# run['avg_quality_r1'] = qual_metrics['avg_quality_r1']
+# run['avg_quality_r2'] = qual_metrics['avg_quality_r2']
+# run['perc_bases_q30_r1'] = qual_metrics['perc_q30_r1']
+# run['perc_bases_q30_r2'] = qual_metrics['perc_q30_r2']
 
 def getProjectDetails( lims, project,run_dirs ):
     # print(run_dirs['AHKHMNBGXK'])
@@ -294,6 +324,7 @@ def getProjectDetails( lims, project,run_dirs ):
                 # print('test',run['flowcell'])
                 conversion_stats_file = Path(f"{run_dirs[run['flowcell']]}/ConversionStats.xml")
                 demux_stats_file = Path(f"{run_dirs[run['flowcell']]}/Demultiplex_Stats.csv")
+                qual_metrics_file = Path(f"{run_dirs[run['flowcell']]}/Quality_Metrics.csv")
                 adapter_metrics_file = Path(f"{run_dirs[run['flowcell']]}/Adapter_Metrics.csv")
                 summary_stats_file = Path(f"{run_dirs[run['flowcell']]}/{ Path(run_dirs[run['flowcell']]).name }_summary.csv")
                 # print(summary_stats_file)
@@ -308,11 +339,18 @@ def getProjectDetails( lims, project,run_dirs ):
                     run['perc_bases_q30_r1'] = conversion_stats['perc_q30_r1']
                     run['perc_bases_q30_r2'] = conversion_stats['perc_q30_r2']
 
-                elif demux_stats_file.is_file() and adapter_metrics_file.is_file():
+                elif demux_stats_file.is_file():
                     # Lane,SampleID,Index,# Reads,# Perfect Index Reads,# One Mismatch Index Reads,# of >= Q30 Bases (PF),Mean Quality Score (PF)
                     demux_stats = parseDemuxStats(demux_stats_file)
                     run['filtered_clusters'] = int(demux_stats['total_reads'])
-                    run['avg_quality'] = demux_stats['mean_qual_score_pf']
+
+                    if qual_metrics_file.is_file():
+                        qual_metrics = parseQualityMetrics(qual_metrics_file)
+                        run['avg_quality_r1'] = qual_metrics['avg_quality_r1']
+                        run['avg_quality_r2'] = qual_metrics['avg_quality_r2']
+                        run['perc_bases_q30_r1'] = qual_metrics['perc_q30_r1']
+                        run['perc_bases_q30_r2'] = qual_metrics['perc_q30_r2']
+                    # run['avg_quality'] = demux_stats['mean_qual_score_pf']
 
 
                     # adapter_stats = parseAdapterMetrics(adapter_metrics_file)
