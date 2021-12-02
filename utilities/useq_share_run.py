@@ -21,6 +21,8 @@ import csv
 def parseConversionStats(lims, dir, pid):
     demux_stats = f'{dir}/Conversion/Reports/Demultiplex_Stats.csv'
     top_unknown = f'{dir}/Conversion/Reports/Top_Unknown_Barcodes.csv'
+    qual_metrics = f'{dir}/Conversion/Reports/Quality_Metrics.csv'
+
     samples = lims.get_samples(projectlimsid=pid)
     sample_names = [x.name for x in samples]
     stats = {
@@ -45,32 +47,41 @@ def parseConversionStats(lims, dir, pid):
                     '# Reads' : 0,
                     '# Perfect Index Reads' : 0,
                     '# One Mismatch Index Reads' : 0,
-                    '# of >= Q30 Bases (PF)' : 0,
-                    'Mean Quality Score (PF)' : 0
                 }
             samples_tmp[ row['SampleID'] ]['Index'] = row['Index']
             samples_tmp[ row['SampleID'] ]['Lane'] = int(row['Lane'])
             samples_tmp[ row['SampleID'] ]['# Reads'] += int(row['# Reads'])
             samples_tmp[ row['SampleID'] ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
             samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
-            samples_tmp[ row['SampleID'] ]['# of >= Q30 Bases (PF)']  += int(row['# of >= Q30 Bases (PF)'])
-            samples_tmp[ row['SampleID'] ]['Mean Quality Score (PF)']  += float(row['Mean Quality Score (PF)'])
             # stats['samples'].append(row)
+    with open(qual_metrics,'r') as q:
+        csv_reader = csv.DictReader(q)
+        for row in csv_reader:
+
+            mqs = f'Read {row["ReadNumber"]} Mean Quality Score (PF)'
+            q30 = f'Read {row["ReadNumber"]} % Q30'
+            if mqs not in samples_tmp[ row['SampleID'] ]:
+                samples_tmp[ row['SampleID'] ][mqs] = 0
+            if q30 not in samples_tmp[ row['SampleID'] ]:
+                samples_tmp[ row['SampleID'] ][q30] = 0
+
+            samples_tmp[ row['SampleID'] ][mqs] += float(row['Mean Quality Score (PF)'])
+            samples_tmp[ row['SampleID'] ][q30] += float(row['% Q30'])
+
     for sampleID in samples_tmp:
         if sampleID not in sample_names:continue
-        samples_tmp[sampleID]['# Reads'] = samples_tmp[sampleID]['# Reads'] #/ samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['# Perfect Index Reads'] = samples_tmp[sampleID]['# Perfect Index Reads'] #/ samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads'] #/ samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] = samples_tmp[sampleID]['# of >= Q30 Bases (PF)'] #/ samples_tmp[ row['SampleID'] ]['Lane']
-        samples_tmp[sampleID]['Mean Quality Score (PF)'] = samples_tmp[sampleID]['Mean Quality Score (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
-        stats['samples'].append(
-            {'SampleID':sampleID,
-            'Index' : samples_tmp[sampleID]['Index'],
-            '# Reads' :  samples_tmp[sampleID]['# Reads'],
-            '# Perfect Index Reads' : samples_tmp[sampleID]['# Perfect Index Reads'],
-            '# One Mismatch Index Reads' : samples_tmp[sampleID]['# One Mismatch Index Reads'],
-            '# of >= Q30 Bases (PF)' : samples_tmp[sampleID]['# of >= Q30 Bases (PF)'],
-            'Mean Quality Score (PF)' : samples_tmp[sampleID]['Mean Quality Score (PF)'] })
+        sample = {}
+        for read_number in ['1','2','I1','I2']:
+            if f'Read {read_number} Mean Quality Score (PF)' in samples_tmp[sampleID]:
+                sample[f'Read {read_number} Mean Quality Score (PF)'] = samples_tmp[sampleID][f'Read {read_number} Mean Quality Score (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
+            if f'Read {read_number} % Q30' in samples_tmp[sampleID]:
+                sample[f'Read {read_number} % Q30'] = (samples_tmp[sampleID][f'Read {read_number} % Q30'] / samples_tmp[ row['SampleID'] ]['Lane'])*100
+        sample['SampleID'] = sampleID
+        sample['Index'] = samples_tmp[sampleID]['Index']
+        sample['# Reads'] = samples_tmp[sampleID]['# Reads']
+        sample['# Perfect Index Reads'] = samples_tmp[sampleID]['# Perfect Index Reads']
+        sample['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads']
+        stats['samples'].append(sample)
 
     with open(top_unknown, 'r') as t:
         csv_reader = csv.DictReader(t)
@@ -195,19 +206,16 @@ def shareRaw(lims, project_id,project_info):
             'nextcloud_host' : NEXTCLOUD_HOST,
             'share_id' : share_id,
             'file_list' : file_list,
-            # 'expected_reads' : expected_yield,
-            # 'total_reads' : conversion_stats['total_reads'],
-            # 'filtered_reads' : conversion_stats['total_reads'],
             'conversion_stats' : conversion_stats
         }
 
         mail_content = renderTemplate('share_raw_template.html', template_data)
         mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
-        # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-        # print (pw)
-        os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+        print (pw)
+        # os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
 
     return
 
