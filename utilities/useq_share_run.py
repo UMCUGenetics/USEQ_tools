@@ -17,7 +17,7 @@ from pathlib import Path
 import re
 import csv
 import glob
-
+import json
 def parseConversionStats(lims, dir, pid):
     demux_stats = f'{dir}/Conversion/Reports/Demultiplex_Stats.csv'
     top_unknown = f'{dir}/Conversion/Reports/Top_Unknown_Barcodes.csv'
@@ -170,7 +170,7 @@ def shareRaw(lims, project_id,project_info, link_portal):
     if Path(f'{project_info["dir"]}/Conversion/Reports/Demultiplex_Stats.csv').is_file():
         conversion_stats = parseConversionStats(lims, project_info['dir'] ,project_id )
 
-
+    print(conversion_stats)
 
     expected_yield = getExpectedReads( f"{project_info['dir']}/RunParameters.xml" )
     if not expected_yield:
@@ -183,31 +183,29 @@ def shareRaw(lims, project_id,project_info, link_portal):
         return
 
     print (f"{name}\tSharing run {project_info['data']} with {project_info['researcher'].email}")
-    share_response = nextcloud_util.share(project_info['data'], project_info['researcher'].email)
+    # share_response = nextcloud_util.share(project_info['data'], project_info['researcher'].email)
+    share_response = ''
     if "ERROR" in share_response:
         print (f"{name}\tError : Failed to share {project_id} with message:\n\t{share_response['ERROR']}")
         return
     else:
-        share_id = share_response["SUCCES"][0]
-        pw = share_response["SUCCES"][1]
+        # share_id = share_response["SUCCES"][0]
+        # pw = share_response["SUCCES"][1]
+        #
+        # template_data = {
+        #     'project_id' : project_id,
+        #     'phone' : project_info['researcher'].phone,
+        #     'nextcloud_host' : NEXTCLOUD_HOST,
+        #     'share_id' : share_id,
+        #     'file_list' : file_list,
+        #     'conversion_stats' : conversion_stats
+        # }
+        #
+        # mail_content = renderTemplate('share_raw_template.html', template_data)
+        # mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
+
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
         # print (pw)
-        template_data = {
-            'project_id' : project_id,
-            'phone' : project_info['researcher'].phone,
-            'nextcloud_host' : NEXTCLOUD_HOST,
-            'share_id' : share_id,
-            'file_list' : file_list,
-            # 'expected_reads' : expected_yield,
-            # 'total_reads' : conversion_stats['total_reads'],
-            # 'filtered_reads' : conversion_stats['total_reads'],
-            'conversion_stats' : conversion_stats
-        }
-
-        mail_content = renderTemplate('share_raw_template.html', template_data)
-        mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
-
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-        print (pw)
         # sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
         # os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
 
@@ -216,14 +214,77 @@ def shareRaw(lims, project_id,project_info, link_portal):
             from sqlalchemy.orm import Session
             from sqlalchemy import create_engine
             from xml.dom.minidom import parse
-            from config import FILE_STORAGE, SQLALCHEMY_DATABASE_URI
-            run_info = parse(Path(f"{project_info['dir']}/RunInfo.xml"))
-            flowcell_id = run_info.getElementsByTagName('Flowcell')[0].firstChild.nodeValue
+            from config import FILE_STORAGE, SQLALCHEMY_DATABASE_URI,WEBHOST
 
-            with open( Path(f"{project_info['dir']}/Conversion/Reports/multiqc_data/multiqc_bclconvert_bysample.json", 'r') as s:
-                general_stats = s.read()
-# ssh sitkaspar "mkdir -p /home/cog/sboymans/useq_portal/filestore/test/"
-            # os.system("ssh")
+            Base = automap_base()
+            # engine, suppose it has two tables 'user' and 'run' set up
+            engine = create_engine(SQLALCHEMY_DATABASE_URI)
+
+            # reflect the tables
+            Base.prepare(engine, reflect=True)
+            run_dir = Path(project_info['dir'])
+            # mapped classes are now created with names by default
+            # matching that of the table name.
+            # User = Base.classes.user
+            Run = Base.classes.run
+            print(dir(Base.classes))
+            IlluminaSequencingStats = Base.classes.illumina_sequencing_stats
+            session = Session(engine)
+
+            run_info = parse(f"{run_dir}/RunInfo.xml")
+            flowcell_id = run_info.getElementsByTagName('Flowcell')[0].firstChild.nodeValue
+            # print (f"{run_dir}/Conversion/Reports/multiqc_data/multiqc_bclconvert_bysample.json")
+            # with open( f"{run_dir}/Conversion/Reports/multiqc_data/multiqc_bclconvert_bysample.json", 'r') as s:
+            #     general_stats = s.read()
+                # general_stats = "".join(general_stats.split())
+            general_stats = json.dumps( conversion_stats['samples'] )
+            # print(general_stats)
+
+            rsync_command =''
+            if WEBHOST:
+                os.system(f'ssh {WEBHOST} "mkdir -p {FILE_STORAGE}/{project_id}/{flowcell_id}"')
+                rsync_command = f"/usr/bin/rsync {run_dir}/Conversion/Reports/multiqc_plots/png/*.png {run_dir}/Conversion/Reports/*png {WEBHOST}:{FILE_STORAGE}/{project_id}/{flowcell_id}"
+            else:#For local testing purposes
+                os.system(f'mkdir -p {FILE_STORAGE}/{project_id}/{flowcell_id}')
+                rsync_command = f"/usr/bin/rsync {run_dir}/Conversion/Reports/multiqc_plots/png/*.png {run_dir}/Conversion/Reports/*png {FILE_STORAGE}/{project_id}/{flowcell_id}"
+
+            exit_code = os.system(rsync_command)
+            if exit_code :
+                sys.exit(f'Error: Failed tot copy plots to {FILE_STORAGE}')
+
+            run = session.query(Run).filter_by(run_id=project_id).all()[0]
+            ill_stats = session.query(IlluminaSequencingStats).filter_by(run_id=run.id,flowcell_id=flowcell_id ).all()
+            # print(ill_stats[0].flowcell_id)
+            # ill_stats = ''
+            # ill_stats = run.illumina_stats.filter_by(flowcell_id=flowcell_id).all()
+            if ill_stats:
+                ill_stats[0].general_stats=general_stats
+                ill_stats[0].flowcell_intensity_plot = f'{run_dir.name}_flowcell-Intensity.png'
+                ill_stats[0].flowcell_density_plot = f'{run_dir.name}_Clusters-by-lane.png'
+                ill_stats[0].total_qscore_lanes_plot = f'{run_dir.name}_q-histogram.png'
+                ill_stats[0].cycle_qscore_lanes_plot = f'{run_dir.name}_q-heat-map.png'
+                ill_stats[0].cycle_base_plot = f'{run_dir.name}_BasePercent-by-cycle_BasePercent.png'
+                ill_stats[0].cycle_intensity_plot = f'{run_dir.name}_Intensity-by-cycle_Intensity.png'
+                ill_stats[0].lane_counts_plot = 'mqc_bcl2fastq_lane_counts_1.png'
+                ill_stats[0].sample_counts_plot = 'mqc_bcl2fastq_sample_counts_Index_mismatches.png'
+                ill_stats[0].undetermined_plot = 'mqc_bcl2fastq_undetermined_1.png'
+            else:
+                ill_stats = IlluminaSequencingStats(
+                    flowcell_id=flowcell_id,
+                    general_stats=general_stats,
+                    flowcell_intensity_plot = f'{run_dir.name}_flowcell-Intensity.png',
+                    flowcell_density_plot = f'{run_dir.name}_Clusters-by-lane.png',
+                    total_qscore_lanes_plot = f'{run_dir.name}_q-histogram.png',
+                    cycle_qscore_lanes_plot = f'{run_dir.name}_q-heat-map.png',
+                    cycle_base_plot = f'{run_dir.name}_BasePercent-by-cycle_BasePercent.png',
+                    cycle_intensity_plot = f'{run_dir.name}_Intensity-by-cycle_Intensity.png',
+                    lane_counts_plot = 'mqc_bcl2fastq_lane_counts_1.png',
+                    sample_counts_plot = 'mqc_bcl2fastq_sample_counts_Index_mismatches.png',
+                    undetermined_plot = 'mqc_bcl2fastq_undetermined_1.png',
+                    run_id=run.id
+                )
+                session.add(ill_stats)
+            session.commit()
     return
 
 def chunkify(lst, n):
