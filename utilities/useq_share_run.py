@@ -212,10 +212,10 @@ def shareRaw(lims, project_id,project_info):
         mail_content = renderTemplate('share_raw_template.html', template_data)
         mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
-        # sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-        print (pw)
-        # os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
+        sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+        # print (pw)
+        os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
 
     return
 
