@@ -32,8 +32,15 @@
     <th><b># Reads</b></th>
     <th><b># Perfect Index Reads</b></th>
     <th><b># One Mismatch Index Reads</b></th>
-    <th><b># of >= Q30 Bases (PF)</b></th>
-    <th><b>Mean Quality Score (PF)</b></th>
+    <!-- f'Read {row['ReadNumber']} Mean Quality Score (PF)' -->
+    {% for read_nr in ['1','2','I1','I2'] -%}
+      {% if 'Read '+read_nr+' Mean Quality Score (PF)' in stats_summary.samples[0] %}
+        <th><b>Read {{read_nr}} Mean Quality Score (PF)</b></th>
+      {% endif %}
+      {% if 'Read '+read_nr+' % Q30' in stats_summary.samples[0] %}
+        <th><b>Read {{read_nr}} % Q30</b></th>
+      {% endif %}
+    {% endfor %}
   </tr>
   {% for sample in stats_summary.samples %}
   <tr>
@@ -42,8 +49,15 @@
     <td>{{ "{:,.0f}".format(sample['# Reads']) }}</td>
     <td>{{ "{:,.0f}".format(sample['# Perfect Index Reads']) }}</td>
     <td>{{ "{:,.0f}".format(sample['# One Mismatch Index Reads']) }}</td>
-    <td>{{ "{:,.0f}".format(sample['# of >= Q30 Bases (PF)']) }}</td>
-    <td>{{ "{:,.2f}".format(sample['Mean Quality Score (PF)']) }}</td>
+    {% for read_nr in ['1','2','I1','I2'] -%}
+      {% if 'Read '+read_nr+' Mean Quality Score (PF)' in sample -%}
+        <td>{{ "{:,.2f}".format(sample['Read '+read_nr+' Mean Quality Score (PF)']) }}</td>
+      {% endif %}
+      {% if 'Read '+read_nr+' % Q30' in sample -%}
+        <td>{{ "{:,.2f}".format(sample['Read '+read_nr+' % Q30']) }}</td>
+      {% endif %}
+    {% endfor %}
+
   </tr>
   {% endfor %}
 </table>
