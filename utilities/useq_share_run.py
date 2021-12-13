@@ -208,7 +208,7 @@ def shareRaw(lims, project_id,project_info):
             'file_list' : file_list,
             'conversion_stats' : conversion_stats
         }
-
+        # print (conversion_stats)
         mail_content = renderTemplate('share_raw_template.html', template_data)
         mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 

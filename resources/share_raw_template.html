@@ -10,7 +10,7 @@
 Please also be aware that we're able to store your sequencing data for a maximum of two months, after which it is automatically deleted from our servers.</p>
 
 <h3>Sample Details</h3>
-
+{% if conversion_stats.samples %}
 <table class='useq_table'>
   <tr>
     <th><b>SampleID</b></th>
@@ -45,10 +45,13 @@ Please also be aware that we're able to store your sequencing data for a maximum
         <td>{{ "{:,.2f}".format(sample['Read '+read_nr+' % Q30']) }}</td>
       {% endif %}
     {% endfor %}
-  
+
   </tr>
   {% endfor %}
 </table>
+{% else %}
+<p>NA</p>
+{% endif %}
 <h3>Available files</h3>
 <ol>
 {% for file in file_list %}
