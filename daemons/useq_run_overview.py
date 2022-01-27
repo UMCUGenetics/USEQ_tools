@@ -311,10 +311,12 @@ def getProjectDetails( lims, project,run_dirs ):
                 'loading_conc_pm' : getUDF(process.input_output_maps[0][0]['uri'],"Loading Conc. (pM)" )
 
             }
-
+            print(process.type.name, process_nr, project_processes)
             if (process_nr + 1) < len(project_processes):
                 for io in project_processes[process_nr + 1].input_output_maps:
-                    if samples[0].id == io[0]['uri'].samples[0].id:
+
+                    if samples[0].id == io[0]['uri'].samples[0].id and io[1]:
+
                         run['sequencing_succesful'] = getUDF(io[1]['uri'], 'Sequencing Succesful')
                         run['data_send'] = project_processes[process_nr + 1].date_run
                         break

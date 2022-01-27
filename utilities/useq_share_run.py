@@ -54,19 +54,20 @@ def parseConversionStats(lims, dir, pid):
             samples_tmp[ row['SampleID'] ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
             samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
             # stats['samples'].append(row)
-    with open(qual_metrics,'r') as q:
-        csv_reader = csv.DictReader(q)
-        for row in csv_reader:
+    if Path(qual_metrics).is_file():
+        with open(qual_metrics,'r') as q:
+            csv_reader = csv.DictReader(q)
+            for row in csv_reader:
 
-            mqs = f'Read {row["ReadNumber"]} Mean Quality Score (PF)'
-            q30 = f'Read {row["ReadNumber"]} % Q30'
-            if mqs not in samples_tmp[ row['SampleID'] ]:
-                samples_tmp[ row['SampleID'] ][mqs] = 0
-            if q30 not in samples_tmp[ row['SampleID'] ]:
-                samples_tmp[ row['SampleID'] ][q30] = 0
+                mqs = f'Read {row["ReadNumber"]} Mean Quality Score (PF)'
+                q30 = f'Read {row["ReadNumber"]} % Q30'
+                if mqs not in samples_tmp[ row['SampleID'] ]:
+                    samples_tmp[ row['SampleID'] ][mqs] = 0
+                if q30 not in samples_tmp[ row['SampleID'] ]:
+                    samples_tmp[ row['SampleID'] ][q30] = 0
 
-            samples_tmp[ row['SampleID'] ][mqs] += float(row['Mean Quality Score (PF)'])
-            samples_tmp[ row['SampleID'] ][q30] += float(row['% Q30'])
+                samples_tmp[ row['SampleID'] ][mqs] += float(row['Mean Quality Score (PF)'])
+                samples_tmp[ row['SampleID'] ][q30] += float(row['% Q30'])
 
     for sampleID in samples_tmp:
         if sampleID not in sample_names:continue
@@ -87,6 +88,7 @@ def parseConversionStats(lims, dir, pid):
         csv_reader = csv.DictReader(t)
         for row in islice(csv_reader,0,20):
             stats['top_unknown'].append(row)
+    # print (stats)
     return stats
 
 def zipRun( dir, dir_info=None):
@@ -389,7 +391,7 @@ def shareDataById(lims, ids, fid):
 
         run_dir = getRawData(lims, project_name, fid)
 
-        print(run_dir)
+        print('Run dir:',run_dir)
         print ( f'{project_id}')
         if not nextcloud_util.checkExists( f'{project_id}' ) or not run_dir:
             print (f'Error : {project_id} was not uploaded to Nextcloud yet.')
