@@ -7,14 +7,89 @@ import os
 import multiprocessing
 import subprocess
 import time
-from modules.useq_illumina_parsers import parseConversionStats, parseRunParameters
+from modules.useq_illumina_parsers import getExpectedReads
 from modules.useq_nextcloud import NextcloudUtil
 from modules.useq_mail import sendMail
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
+from itertools import islice
 import sys
 import tarfile
 from pathlib import Path
 import re
+import csv
+
+def parseConversionStats(lims, dir, pid):
+    demux_stats = f'{dir}/Conversion/Reports/Demultiplex_Stats.csv'
+    top_unknown = f'{dir}/Conversion/Reports/Top_Unknown_Barcodes.csv'
+    qual_metrics = f'{dir}/Conversion/Reports/Quality_Metrics.csv'
+
+    samples = lims.get_samples(projectlimsid=pid)
+    sample_names = [x.name for x in samples]
+    stats = {
+        'total_reads' : 0,
+        'undetermined_reads' : 0,
+        'samples' : [],
+        'top_unknown' : []
+    }
+    samples_tmp = {}
+    with open(demux_stats, 'r') as d:
+        csv_reader = csv.DictReader(d)
+        for row in csv_reader:
+            if row['SampleID'] == 'Undetermined':
+                stats['undetermined_reads'] += float(row['# Reads'])
+                stats['total_reads'] += float(row['# Reads'])
+            else:
+                stats['total_reads'] += float(row['# Reads'])
+
+            if row['SampleID'] not in samples_tmp:
+                samples_tmp[ row['SampleID'] ] = {
+                    'Index' : None,
+                    '# Reads' : 0,
+                    '# Perfect Index Reads' : 0,
+                    '# One Mismatch Index Reads' : 0,
+                }
+            samples_tmp[ row['SampleID'] ]['Index'] = row['Index']
+            samples_tmp[ row['SampleID'] ]['Lane'] = int(row['Lane'])
+            samples_tmp[ row['SampleID'] ]['# Reads'] += int(row['# Reads'])
+            samples_tmp[ row['SampleID'] ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
+            samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
+            # stats['samples'].append(row)
+    if Path(qual_metrics).is_file():
+        with open(qual_metrics,'r') as q:
+            csv_reader = csv.DictReader(q)
+            for row in csv_reader:
+
+                mqs = f'Read {row["ReadNumber"]} Mean Quality Score (PF)'
+                q30 = f'Read {row["ReadNumber"]} % Q30'
+                if mqs not in samples_tmp[ row['SampleID'] ]:
+                    samples_tmp[ row['SampleID'] ][mqs] = 0
+                if q30 not in samples_tmp[ row['SampleID'] ]:
+                    samples_tmp[ row['SampleID'] ][q30] = 0
+
+                samples_tmp[ row['SampleID'] ][mqs] += float(row['Mean Quality Score (PF)'])
+                samples_tmp[ row['SampleID'] ][q30] += float(row['% Q30'])
+
+    for sampleID in samples_tmp:
+        if sampleID not in sample_names:continue
+        sample = {}
+        for read_number in ['1','2','I1','I2']:
+            if f'Read {read_number} Mean Quality Score (PF)' in samples_tmp[sampleID]:
+                sample[f'Read {read_number} Mean Quality Score (PF)'] = samples_tmp[sampleID][f'Read {read_number} Mean Quality Score (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
+            if f'Read {read_number} % Q30' in samples_tmp[sampleID]:
+                sample[f'Read {read_number} % Q30'] = (samples_tmp[sampleID][f'Read {read_number} % Q30'] / samples_tmp[ row['SampleID'] ]['Lane'])*100
+        sample['SampleID'] = sampleID
+        sample['Index'] = samples_tmp[sampleID]['Index']
+        sample['# Reads'] = samples_tmp[sampleID]['# Reads']
+        sample['# Perfect Index Reads'] = samples_tmp[sampleID]['# Perfect Index Reads']
+        sample['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads']
+        stats['samples'].append(sample)
+
+    with open(top_unknown, 'r') as t:
+        csv_reader = csv.DictReader(t)
+        for row in islice(csv_reader,0,20):
+            stats['top_unknown'].append(row)
+    # print (stats)
+    return stats
 
 def zipRun( dir, dir_info=None):
     run_name = os.path.basename(dir)
@@ -99,25 +174,29 @@ def shareManual(researcher,dir):
 
     return
 
-def shareRaw(project_id,project_info):
+def shareRaw(lims, project_id,project_info):
 
     name = multiprocessing.current_process().name
     print (f"{name}\tStarting")
 
-    conversion_stats = parseConversionStats( f"{project_info['dir']}/Data/Intensities/BaseCalls/Stats/ConversionStats.xml" )
-    if not conversion_stats:
-        print (f"{name}\tError : No ConversionStats.xml file could be found in {project_info['dir']}/Data/Intensities/BaseCalls/Stats/!")
-        return
+    conversion_stats = None
+    if Path(f'{project_info["dir"]}/Conversion/Reports/Demultiplex_Stats.csv').is_file():
+        conversion_stats = parseConversionStats(lims, project_info['dir'] ,project_id )
 
-    expected_yield = parseRunParameters( f"{project_info['dir']}/RunParameters.xml" )
+    expected_yield = getExpectedReads( f"{project_info['dir']}/RunParameters.xml" )
     if not expected_yield:
         print (f"{name}\tError : No RunParameters.xml file could be found in {project_info['dir']}!")
+        return
+
+    file_list = nextcloud_util.simpleFileList(project_id)
+    if not file_list:
+        print (f"{name}\tError : No files found in nextcloud dir  {project_id}!")
         return
 
     print (f"{name}\tSharing run {project_info['data']} with {project_info['researcher'].email}")
     share_response = nextcloud_util.share(project_info['data'], project_info['researcher'].email)
     if "ERROR" in share_response:
-        print (f"{name}\tError : Failed to share {run_encrypted} with message:\n\t{share_response['ERROR']}")
+        print (f"{name}\tError : Failed to share {project_id} with message:\n\t{share_response['ERROR']}")
         return
     else:
         share_id = share_response["SUCCES"][0]
@@ -128,12 +207,10 @@ def shareRaw(project_id,project_info):
             'phone' : project_info['researcher'].phone,
             'nextcloud_host' : NEXTCLOUD_HOST,
             'share_id' : share_id,
-            'expected_reads' : expected_yield,
-            'raw_reads' : conversion_stats['total_reads_raw'],
-            'filtered_reads' : conversion_stats['total_reads'],
+            'file_list' : file_list,
             'conversion_stats' : conversion_stats
         }
-
+        # print (conversion_stats)
         mail_content = renderTemplate('share_raw_template.html', template_data)
         mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
@@ -143,6 +220,11 @@ def shareRaw(project_id,project_info):
         os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
 
     return
+
+def chunkify(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
 def check(  ):
     yes = set(['yes','y'])
@@ -155,6 +237,8 @@ def check(  ):
     else:
        sys.stdout.write("Please respond with '(y)es' or '(n)o'")
     return choice
+
+
 
 def getRawData( lims, project_name, fid ):
     """Get the most recent raw run info based on project name and allowed RUN_PROCESSES"""
@@ -232,9 +316,14 @@ def shareDataByUser(lims, username, dir):
 
     if len(possible_samples.keys()):
         print (f"Trying to link samples to existing projectIDs.")
-        lims_samples = lims.get_samples(name=list(possible_samples.keys()))
+        sample_chunks = chunkify(list(possible_samples.keys()), 100)
+        lims_samples = []
+        for chunk in sample_chunks:
+            lims_samples.extend(lims.get_samples(name=chunk))
+        # lims_samples = lims.get_samples( name=list(possible_samples.keys()) )
         lims_projects = {}
         for sample in lims_samples:
+
             sample_project = sample.project
             # print(sample_project)
             user = None
@@ -302,9 +391,9 @@ def shareDataById(lims, ids, fid):
 
         run_dir = getRawData(lims, project_name, fid)
 
-        print(run_dir)
-        print ( f'{project_id}-raw.tar')
-        if not nextcloud_util.checkExists( f'{project_id}-raw.tar' ) or not run_dir:
+        print('Run dir:',run_dir)
+        print ( f'{project_id}')
+        if not nextcloud_util.checkExists( f'{project_id}' ) or not run_dir:
             print (f'Error : {project_id} was not uploaded to Nextcloud yet.')
             continue
 
@@ -312,7 +401,7 @@ def shareDataById(lims, ids, fid):
 
             'researcher' : researcher,
             'project_name' : project_name,
-            'data' : f'{project_id}-raw.tar',
+            'data' : f'{project_id}',
             'dir' : run_dir
         }
 
@@ -332,7 +421,7 @@ def shareDataById(lims, ids, fid):
             for project_id in run_info:
                 share_process = None
 
-                share_process = multiprocessing.Process(name=f"Process_{project_id}", target=shareRaw, args=(project_id, run_info[project_id]) )
+                share_process = multiprocessing.Process(name=f"Process_{project_id}", target=shareRaw, args=(lims,project_id, run_info[project_id]) )
 
                 share_processes.append(share_process)
                 share_process.start()

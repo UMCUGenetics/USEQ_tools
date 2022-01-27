@@ -21,5 +21,7 @@
   <udf:field type="Text" name="BudgetNrs">{{account_BudgetNrs}}</udf:field>
   <udf:field type="Text" name="UMCU_DebNr">{{account_DEBNr}}</udf:field>
   <udf:field type="Text" name="UMCU_VATNr">{{account_VATNr}}</udf:field>
+  <udf:field type="Text" name="Supervisor Email">{{account_SupEmail}}</udf:field>
+  <udf:field type="Text" name="Finance Department Email">{{account_FinEmail}}</udf:field>
   <website>{{account_website}}</website>
 </lab:lab>

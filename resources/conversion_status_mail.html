@@ -1,0 +1,99 @@
+{% extends "useq_mail_template.html" %}
+{% block content %}
+<table class='useq_table'>
+  <tr> <td><b>projectID(s)</b></td>  <td>{{projectIDs}}</td> </tr>
+  <tr> <td><b>Run Name</b></td>  <td>{{run_dir}}</td> </tr>
+</table>
+<h3>Status</h3>
+<table class='useq_table'>
+  <tr> <td><b>Demultiplexing Check</b></td>  <td>{{status['Demux-check']}}</td> </tr>
+  <tr> <td><b>Conversion</b></td>  <td>{{status['Conversion']}}</td> </tr>
+  <tr> <td><b>Transfer to NextCloud</b></td>  <td>{{status['Transfer-nc']}}</td> </tr>
+  <tr> <td><b>Transfer to HPC</b></td>  <td>{{status['Transfer-hpc']}}</td> </tr>
+  <tr> <td><b>Transfer to Archive</b></td>  <td>{{status['Archive']}}</td> </tr>
+</table>
+<br>
+<h3>Logs</h3>
+{{log | replace("\n", "<br>")}}
+<br>
+<h3>Errors</h3>
+{{error | replace("\n", "<br>")}}
+<br>
+{% if 'total_reads' in stats_summary %}
+<h3>Summary</h3>
+<table class='useq_table'>
+<tr> <td><b>Output (filtered) / Output (expected)</b></td> <td>{{nr_reads}}</td> </tr>
+</table>
+<h3>Samples</h3>
+<table class='useq_table'>
+  <tr>
+    <th><b>SampleID</b></th>
+    <th><b>Index</b></th>
+    <th><b># Reads</b></th>
+    <th><b># Perfect Index Reads</b></th>
+    <th><b># One Mismatch Index Reads</b></th>
+    <!-- f'Read {row['ReadNumber']} Mean Quality Score (PF)' -->
+    {% for read_nr in ['1','2','I1','I2'] -%}
+      {% if 'Read '+read_nr+' Mean Quality Score (PF)' in stats_summary.samples[0] %}
+        <th><b>Read {{read_nr}} Mean Quality Score (PF)</b></th>
+      {% endif %}
+      {% if 'Read '+read_nr+' % Q30' in stats_summary.samples[0] %}
+        <th><b>Read {{read_nr}} % Q30</b></th>
+      {% endif %}
+    {% endfor %}
+  </tr>
+  {% for sample in stats_summary.samples %}
+  <tr>
+    <td>{{ sample['SampleID'] }}</td>
+    <td>{{ sample['Index'] }}</td>
+    <td>{{ "{:,.0f}".format(sample['# Reads']) }}</td>
+    <td>{{ "{:,.0f}".format(sample['# Perfect Index Reads']) }}</td>
+    <td>{{ "{:,.0f}".format(sample['# One Mismatch Index Reads']) }}</td>
+    {% for read_nr in ['1','2','I1','I2'] -%}
+      {% if 'Read '+read_nr+' Mean Quality Score (PF)' in sample -%}
+        <td>{{ "{:,.2f}".format(sample['Read '+read_nr+' Mean Quality Score (PF)']) }}</td>
+      {% endif %}
+      {% if 'Read '+read_nr+' % Q30' in sample -%}
+        <td>{{ "{:,.2f}".format(sample['Read '+read_nr+' % Q30']) }}</td>
+      {% endif %}
+    {% endfor %}
+
+  </tr>
+  {% endfor %}
+</table>
+<br>
+<h3>Top Unknown Barcodes</h3>
+<table class='useq_table'>
+  <tr>
+    <th><b>Lane</b></th>
+    <th><b>index</b></th>
+    {% if 'index2' in stats_summary['top_unknown'][0] %}<th><b>index2</b></th>{% endif %}
+    <th><b># Reads</b></th>
+  </tr>
+  {% for unk in stats_summary['top_unknown'] %}
+  <tr>
+    <td>{{ unk['Lane'] }}</td>
+    <td>{{ unk['index'] }}</td>
+    {% if 'index2' in unk %}<td>{{ unk['index2'] }}</td>{% endif %}
+    <td>{{ unk['# Reads'] }}</td>
+  </tr>
+  {% endfor %}
+</table>
+<br>
+<!-- PRETTY(ISH) PLOTS -->
+<table>
+  <tr>
+    <td><img src='cid:flowcell_intensity_plot'></td>
+    <td><img src='cid:clusterdensity_by_lane_plot'></td>
+  </tr>
+  <tr>
+    <td><img src='cid:q_histogram_plot'></td>
+    <td><img src='cid:q_heatmap_plot'></td>
+  </tr>
+  <tr>
+    <td><img src='cid:basepercent_by_cycle_plot'></td>
+    <td><img src='cid:intensity_by_cycle_plot'></td>
+  </tr>
+</table>
+{% endif %}
+{% endblock %}

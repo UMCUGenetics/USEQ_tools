@@ -33,9 +33,11 @@ def budget_overview(args):
 def get_researchers(args):
     utilities.useq_get_researchers.run(lims)
 
+def manage_runids(args):
+    utilities.useq_manage_runids.run(lims, args.csv, args.mode)
 
-def create_runids(args):
-    utilities.useq_create_runids.run(lims, args.userid, args.application, args.nr)
+def link_run_results(args):
+    utilities.useq_link_run_results.run(args.runid, args.rundir)
 
 #Clarity epp scripts
 def run_status_mail(args):
@@ -60,12 +62,15 @@ def route_artifacts(args):
 
 def close_projects(args):
     """Close all projects included in the current step"""
-    epp.useq_close_projects.run(lims, args.step)
+    epp.useq_close_projects.run(lims, args.step, args.pid)
 
 def create_recipe(args):
     """Create Novaseq run recipe"""
     epp.useq_create_recipe.run(lims, args.step,args.output_file)
 
+def create_samplesheet(args):
+    """Create generic v2 samplesheet"""
+    epp.useq_create_samplesheet.run(lims, args.step,args.output_file)
 
 #Daemon scripts
 def nextcloud_monitor(args):
@@ -74,7 +79,7 @@ def nextcloud_monitor(args):
 
 def manage_runs(args):
     """Script responsible for starting conversion, transfer, cleanup and archiving of sequencing runs"""
-    daemons.useq_manage_runs.run(lims, args.missing_bcl, args.barcode_mismatches, args.fastq_for_index, args.short_reads, args.use_bases_mask)
+    daemons.useq_manage_runs.run(lims)
 
 def run_overview(args):
     """Creates json file intended for the USEQ-Overview website"""
@@ -90,7 +95,7 @@ if __name__ == "__main__":
     subparser = parser.add_subparsers()
 
     #Utility parsers
-    parser_utilities = subparser.add_parser('utilities',help="Utility functions: manage_accounts, client_mail, share_run")
+    parser_utilities = subparser.add_parser('utilities',help="Utility functions: manage_accounts, client_mail, share_data, budget_overview , manage_runids,link_run_results, get_researchers")
     subparser_utilities = parser_utilities.add_subparsers()
 
     parser_manage_accounts = subparser_utilities.add_parser('manage_accounts', help='Create, Edit & Retrieve accounts (labs)')
@@ -118,11 +123,15 @@ if __name__ == "__main__":
     parser_budget_ovw.add_argument('-b', '--budgetnrs', required=True)
     parser_budget_ovw.set_defaults(func=budget_overview)
 
-    parser_create_runids = subparser_utilities.add_parser('create_runids', help='Create one or multiple runIDs for a user.')
-    parser_create_runids.add_argument('-u', '--userid', required=True)
-    parser_create_runids.add_argument('-a', '--application', choices=['Sequencing','Fingerprinting'] ,required=True)
-    parser_create_runids.add_argument('-n', '--nr', type=int,required=True)
-    parser_create_runids.set_defaults(func=create_runids)
+    parser_manage_runids = subparser_utilities.add_parser('manage_runids', help='Link or unlink one or multiple runIDs for a user.')
+    parser_manage_runids.add_argument('-c', '--csv', help='Path to csv file', nargs='?' ,type=argparse.FileType('r') ,required=True)
+    parser_manage_runids.add_argument('-m', '--mode', choices=['link','unlink'] ,required=True)
+    parser_manage_runids.set_defaults(func=manage_runids)
+
+    parser_link_run_results = subparser_utilities.add_parser('link_run_results', help='Link the run results for a runID.')
+    parser_link_run_results.add_argument('-i', '--runid', help='LIMS runID', required=True)
+    parser_link_run_results.add_argument('-p', '--rundir', help='Path the run directory', required=True)
+    parser_link_run_results.set_defaults(func=link_run_results)
 
     parser_get_researchers = subparser_utilities.add_parser('get_researchers', help='Get all info for all researchers')
     parser_get_researchers.set_defaults(func=get_researchers)
@@ -159,7 +168,8 @@ if __name__ == "__main__":
     parser_route_artifacts.set_defaults(func=route_artifacts)
 
     parser_close_projects = subparser_epp.add_parser('close_projects', help='Close all projects included in the specified step')
-    parser_close_projects.add_argument('-s', '--step', help='Step URI', required=True)
+    parser_close_projects.add_argument('-s', '--step', help='Step URI', required=False)
+    parser_close_projects.add_argument('-p', '--pid', required=False, default=None, help='ProjectID, Overrides Step URI')
     parser_close_projects.set_defaults(func=close_projects)
 
     parser_create_recipe = subparser_epp.add_parser('create_recipe', help='Creates a novaseq run recipe. Can only be started from the USEQ - Denature, Dilute and Load (Novaseq) step.')
@@ -167,6 +177,10 @@ if __name__ == "__main__":
     parser_create_recipe.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
     parser_create_recipe.set_defaults(func=create_recipe)
 
+    parser_create_samplesheet = subparser_epp.add_parser('create_samplesheet', help='Creates a v2 samplesheet.')
+    parser_create_samplesheet.add_argument('-s', '--step', help='Step URI', required=True)
+    parser_create_samplesheet.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
+    parser_create_samplesheet.set_defaults(func=create_samplesheet)
     #Daemon parsers
     parser_daemons = subparser.add_parser('daemons', help='USEQ daemon scripts: check_nextcloud_storage,manage_runs ')
     subparser_daemons = parser_daemons.add_subparsers()
@@ -175,11 +189,11 @@ if __name__ == "__main__":
     parser_nextcloud_monitor.set_defaults(func=nextcloud_monitor)
 
     parser_manage_runs = subparser_daemons.add_parser('manage_runs', help='Daemon responsible for starting conversion, transfer, cleanup and archiving of sequencing runs')
-    parser_manage_runs.add_argument('-m', '--missing_bcl', help='Run conversion with --ignore-missing-bcls flag', default=False)
-    parser_manage_runs.add_argument('-b', '--barcode_mismatches', help='Run conversion with n mismatches allowed in index', default=1)
-    parser_manage_runs.add_argument('-f', '--fastq_for_index', help='Create FastQ for index reads', default=False)
-    parser_manage_runs.add_argument('-s', '--short_reads', help='Sets --minimum-trimmed-read-length and --mask-short-adapter-reads to 0 allowing short reads to pass filter', default=False)
-    parser_manage_runs.add_argument('-u', '--use_bases_mask', help='Use this base mask', default=None)
+    # parser_manage_runs.add_argument('-m', '--missing_bcl', help='Run conversion with --ignore-missing-bcls flag', default=False)
+    # parser_manage_runs.add_argument('-b', '--barcode_mismatches', help='Run conversion with n mismatches allowed in index', default=1)
+    # parser_manage_runs.add_argument('-f', '--fastq_for_index', help='Create FastQ for index reads', default=False)
+    # parser_manage_runs.add_argument('-s', '--short_reads', help='Sets --minimum-trimmed-read-length and --mask-short-adapter-reads to 0 allowing short reads to pass filter', default=False)
+    # parser_manage_runs.add_argument('-u', '--use_bases_mask', help='Use this base mask', default=None)
     parser_manage_runs.set_defaults(func=manage_runs)
 
     parser_run_overview = subparser_daemons.add_parser('run_overview', help='Daemon responsible for updating the run overview json file used in the USEQ-Overview website.')
