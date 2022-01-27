@@ -1,6 +1,5 @@
 from genologics.entities import Project
 from config import RUN_PROCESSES, RAW_DIR, PROCESSED_DIR, NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,NEXTCLOUD_PROCESSED_DIR,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER, NEXTCLOUD_USER, NEXTCLOUD_PW,DATA_DIRS_RAW,SMS_SERVER,NEXTCLOUD_DATA_ROOT
-from os.path import expanduser, exists
 from texttable import Texttable
 import datetime
 import os
@@ -17,7 +16,8 @@ import tarfile
 from pathlib import Path
 import re
 import csv
-
+import glob
+import json
 def parseConversionStats(lims, dir, pid):
     demux_stats = f'{dir}/Conversion/Reports/Demultiplex_Stats.csv'
     top_unknown = f'{dir}/Conversion/Reports/Top_Unknown_Barcodes.csv'
@@ -174,7 +174,7 @@ def shareManual(researcher,dir):
 
     return
 
-def shareRaw(lims, project_id,project_info):
+def shareRaw(lims, project_id,project_info, link_portal):
 
     name = multiprocessing.current_process().name
     print (f"{name}\tStarting")
@@ -182,6 +182,8 @@ def shareRaw(lims, project_id,project_info):
     conversion_stats = None
     if Path(f'{project_info["dir"]}/Conversion/Reports/Demultiplex_Stats.csv').is_file():
         conversion_stats = parseConversionStats(lims, project_info['dir'] ,project_id )
+
+    print(conversion_stats)
 
     expected_yield = getExpectedReads( f"{project_info['dir']}/RunParameters.xml" )
     if not expected_yield:
@@ -194,7 +196,8 @@ def shareRaw(lims, project_id,project_info):
         return
 
     print (f"{name}\tSharing run {project_info['data']} with {project_info['researcher'].email}")
-    share_response = nextcloud_util.share(project_info['data'], project_info['researcher'].email)
+    # share_response = nextcloud_util.share(project_info['data'], project_info['researcher'].email)
+    share_response = ''
     if "ERROR" in share_response:
         print (f"{name}\tError : Failed to share {project_id} with message:\n\t{share_response['ERROR']}")
         return
@@ -215,10 +218,88 @@ def shareRaw(lims, project_id,project_info):
         mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
         sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
+
         # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
         # print (pw)
-        os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
+        # sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
+        # os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
 
+        if link_portal:
+            from sqlalchemy.ext.automap import automap_base
+            from sqlalchemy.orm import Session
+            from sqlalchemy import create_engine
+            from xml.dom.minidom import parse
+            from config import FILE_STORAGE, SQLALCHEMY_DATABASE_URI,WEBHOST
+
+            Base = automap_base()
+            # engine, suppose it has two tables 'user' and 'run' set up
+            engine = create_engine(SQLALCHEMY_DATABASE_URI)
+
+            # reflect the tables
+            Base.prepare(engine, reflect=True)
+            run_dir = Path(project_info['dir'])
+            # mapped classes are now created with names by default
+            # matching that of the table name.
+            # User = Base.classes.user
+            Run = Base.classes.run
+            print(dir(Base.classes))
+            IlluminaSequencingStats = Base.classes.illumina_sequencing_stats
+            session = Session(engine)
+
+            run_info = parse(f"{run_dir}/RunInfo.xml")
+            flowcell_id = run_info.getElementsByTagName('Flowcell')[0].firstChild.nodeValue
+            # print (f"{run_dir}/Conversion/Reports/multiqc_data/multiqc_bclconvert_bysample.json")
+            # with open( f"{run_dir}/Conversion/Reports/multiqc_data/multiqc_bclconvert_bysample.json", 'r') as s:
+            #     general_stats = s.read()
+                # general_stats = "".join(general_stats.split())
+            general_stats = json.dumps( conversion_stats['samples'] )
+            # print(general_stats)
+
+            rsync_command =''
+            if WEBHOST:
+                os.system(f'ssh {WEBHOST} "mkdir -p {FILE_STORAGE}/{project_id}/{flowcell_id}"')
+                rsync_command = f"/usr/bin/rsync {run_dir}/Conversion/Reports/multiqc_plots/png/*.png {run_dir}/Conversion/Reports/*png {WEBHOST}:{FILE_STORAGE}/{project_id}/{flowcell_id}"
+            else:#For local testing purposes
+                os.system(f'mkdir -p {FILE_STORAGE}/{project_id}/{flowcell_id}')
+                rsync_command = f"/usr/bin/rsync {run_dir}/Conversion/Reports/multiqc_plots/png/*.png {run_dir}/Conversion/Reports/*png {FILE_STORAGE}/{project_id}/{flowcell_id}"
+
+            exit_code = os.system(rsync_command)
+            if exit_code :
+                sys.exit(f'Error: Failed tot copy plots to {FILE_STORAGE}')
+
+            run = session.query(Run).filter_by(run_id=project_id).all()[0]
+            ill_stats = session.query(IlluminaSequencingStats).filter_by(run_id=run.id,flowcell_id=flowcell_id ).all()
+            # print(ill_stats[0].flowcell_id)
+            # ill_stats = ''
+            # ill_stats = run.illumina_stats.filter_by(flowcell_id=flowcell_id).all()
+            if ill_stats:
+                ill_stats[0].general_stats=general_stats
+                ill_stats[0].flowcell_intensity_plot = f'{run_dir.name}_flowcell-Intensity.png'
+                ill_stats[0].flowcell_density_plot = f'{run_dir.name}_Clusters-by-lane.png'
+                ill_stats[0].total_qscore_lanes_plot = f'{run_dir.name}_q-histogram.png'
+                ill_stats[0].cycle_qscore_lanes_plot = f'{run_dir.name}_q-heat-map.png'
+                ill_stats[0].cycle_base_plot = f'{run_dir.name}_BasePercent-by-cycle_BasePercent.png'
+                ill_stats[0].cycle_intensity_plot = f'{run_dir.name}_Intensity-by-cycle_Intensity.png'
+                ill_stats[0].lane_counts_plot = 'mqc_bcl2fastq_lane_counts_1.png'
+                ill_stats[0].sample_counts_plot = 'mqc_bcl2fastq_sample_counts_Index_mismatches.png'
+                ill_stats[0].undetermined_plot = 'mqc_bcl2fastq_undetermined_1.png'
+            else:
+                ill_stats = IlluminaSequencingStats(
+                    flowcell_id=flowcell_id,
+                    general_stats=general_stats,
+                    flowcell_intensity_plot = f'{run_dir.name}_flowcell-Intensity.png',
+                    flowcell_density_plot = f'{run_dir.name}_Clusters-by-lane.png',
+                    total_qscore_lanes_plot = f'{run_dir.name}_q-histogram.png',
+                    cycle_qscore_lanes_plot = f'{run_dir.name}_q-heat-map.png',
+                    cycle_base_plot = f'{run_dir.name}_BasePercent-by-cycle_BasePercent.png',
+                    cycle_intensity_plot = f'{run_dir.name}_Intensity-by-cycle_Intensity.png',
+                    lane_counts_plot = 'mqc_bcl2fastq_lane_counts_1.png',
+                    sample_counts_plot = 'mqc_bcl2fastq_sample_counts_Index_mismatches.png',
+                    undetermined_plot = 'mqc_bcl2fastq_undetermined_1.png',
+                    run_id=run.id
+                )
+                session.add(ill_stats)
+            session.commit()
     return
 
 def chunkify(lst, n):
@@ -369,7 +450,7 @@ def shareDataByUser(lims, username, dir):
             process.join()
 
 
-def shareDataById(lims, ids, fid):
+def shareDataById(lims, ids, fid, link_portal):
     """Get's the run names, encrypts the run data and sends it to the appropriate client"""
     project_ids = ids.split(",")
     run_info = {}
@@ -421,7 +502,7 @@ def shareDataById(lims, ids, fid):
             for project_id in run_info:
                 share_process = None
 
-                share_process = multiprocessing.Process(name=f"Process_{project_id}", target=shareRaw, args=(lims,project_id, run_info[project_id]) )
+                share_process = multiprocessing.Process(name=f"Process_{project_id}", target=shareRaw, args=(lims,project_id, run_info[project_id], link_portal) )
 
                 share_processes.append(share_process)
                 share_process.start()
@@ -429,7 +510,7 @@ def shareDataById(lims, ids, fid):
             for process in share_processes:
                 process.join()
 
-def run(lims, ids, username, dir, fid):
+def run(lims, ids, username, dir, fid, link_portal):
     """Runs raw, processed or manual function based on mode"""
 
     global nextcloud_util
@@ -440,7 +521,7 @@ def run(lims, ids, username, dir, fid):
 
     if ids:
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,MAIL_SENDER )
-        shareDataById(lims, ids, fid)
+        shareDataById(lims, ids, fid, link_portal)
 
     elif username and dir:
         nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER )
