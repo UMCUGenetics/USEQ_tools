@@ -37,7 +37,7 @@ def manage_runids(args):
     utilities.useq_manage_runids.run(lims, args.csv, args.mode)
 
 def link_run_results(args):
-    utilities.useq_link_run_results.run(args.runid, args.rundir)
+    utilities.useq_link_run_results.run(lims, args.runid)
 
 #Clarity epp scripts
 def run_status_mail(args):
@@ -130,8 +130,8 @@ if __name__ == "__main__":
     parser_manage_runids.set_defaults(func=manage_runids)
 
     parser_link_run_results = subparser_utilities.add_parser('link_run_results', help='Link the run results for a runID.')
-    parser_link_run_results.add_argument('-i', '--runid', help='LIMS runID', required=True)
-    parser_link_run_results.add_argument('-p', '--rundir', help='Path the run directory', required=True)
+    parser_link_run_results.add_argument('-i', '--runid', help='LIMS runID', default=None)
+    # parser_link_run_results.add_argument('-p', '--rundir', help='Path the run directory', required=True)
     parser_link_run_results.set_defaults(func=link_run_results)
 
     parser_get_researchers = subparser_utilities.add_parser('get_researchers', help='Get all info for all researchers')
