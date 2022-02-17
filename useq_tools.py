@@ -25,7 +25,7 @@ def client_mail(args):
 
 def share_data(args):
     """Encrypt and Share one or more datasets"""
-    utilities.useq_share_run.run(lims, args.ids, args.username, args.dir, args.fid)
+    utilities.useq_share_run.run(lims, args.ids, args.username, args.dir, args.fid, args.link_portal)
 
 def budget_overview(args):
     utilities.useq_budget_overview.run(lims, args.budgetnrs, args.output_file)
@@ -37,7 +37,7 @@ def manage_runids(args):
     utilities.useq_manage_runids.run(lims, args.csv, args.mode)
 
 def link_run_results(args):
-    utilities.useq_link_run_results.run(args.runid, args.rundir)
+    utilities.useq_link_run_results.run(lims, args.runid)
 
 #Clarity epp scripts
 def run_status_mail(args):
@@ -116,6 +116,7 @@ if __name__ == "__main__":
     parser_share_data.add_argument('-u', '--username', help='Username to share data with.', default=None)
     parser_share_data.add_argument('-d', '--dir', help='Directory containing data to share.', default=None)
     parser_share_data.add_argument('-f', '--fid', help='Overrides the Flowcell ID found in the LIMS, ONLY use when the Flowcell ID in the LIMS is wrong (ROOOBIIIIN!!).', default=None)
+    parser_share_data.add_argument('-l', '--link_portal', help='Try and link run results to portal instance of run. Only works in combination with --ids.', default=None)
     parser_share_data.set_defaults(func=share_data)
 
     parser_budget_ovw = subparser_utilities.add_parser('budget_overview', help='Get an overview of all costs booked to supplied budget numbers.')
@@ -129,8 +130,8 @@ if __name__ == "__main__":
     parser_manage_runids.set_defaults(func=manage_runids)
 
     parser_link_run_results = subparser_utilities.add_parser('link_run_results', help='Link the run results for a runID.')
-    parser_link_run_results.add_argument('-i', '--runid', help='LIMS runID', required=True)
-    parser_link_run_results.add_argument('-p', '--rundir', help='Path the run directory', required=True)
+    parser_link_run_results.add_argument('-i', '--runid', help='LIMS runID', default=None)
+    # parser_link_run_results.add_argument('-p', '--rundir', help='Path the run directory', required=True)
     parser_link_run_results.set_defaults(func=link_run_results)
 
     parser_get_researchers = subparser_utilities.add_parser('get_researchers', help='Get all info for all researchers')
