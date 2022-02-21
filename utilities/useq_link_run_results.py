@@ -2,13 +2,14 @@ from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from xml.dom.minidom import parse
-from config import FILE_STORAGE, SQLALCHEMY_DATABASE_URI,STAT_PATH,RUN_PROCESSES
+from config import FILE_STORAGE, SQLALCHEMY_DATABASE_URI,STAT_PATH,RUN_PROCESSES, DATA_DIRS_RAW
 from genologics.entities import Project
 from pathlib import Path
 import os
 import glob
 import sys
 import xml.etree.cElementTree as ET
+import csv
 # total_reads
 # total_mean_qual
 # total_q30
@@ -57,8 +58,8 @@ def parseConversionStatsType1( conversion_stats_file ):
             'Read 2 Mean Quality Score (PF)' : 0,
             'Read 1 % Q30': 0,
             'Read 2 % Q30': 0,
-            'Read I1 % Q30': None,
-            'Read I2 % Q30': None,
+            'Read I1 % Q30': 0,
+            'Read I2 % Q30': 0,
         }
 
 
@@ -103,8 +104,8 @@ def parseConversionStatsType1( conversion_stats_file ):
     return stats
 
 
-def parseConversionStatsType2(lims, pid, demux_stats,qual_metrics):
-
+def parseConversionStatsType2(lims, pid, qual_metrics,demux_stats):
+    # print(demux_stats,qual_metrics)
     samples = lims.get_samples(projectlimsid=pid)
     sample_names = [x.name for x in samples]
     stats = {
@@ -118,7 +119,7 @@ def parseConversionStatsType2(lims, pid, demux_stats,qual_metrics):
     with open(demux_stats, 'r') as d:
         csv_reader = csv.DictReader(d)
         for row in csv_reader:
-
+            # print(row)
             stats['total_reads'] += float(row['# Reads'])
 
             if row['SampleID'] not in samples_tmp:
@@ -131,8 +132,8 @@ def parseConversionStatsType2(lims, pid, demux_stats,qual_metrics):
                     'Read 2 Mean Quality Score (PF)' : 0,
                     'Read 1 % Q30': 0,
                     'Read 2 % Q30': 0,
-                    'Read I1 % Q30': None,
-                    'Read I2 % Q30': None,
+                    'Read I1 % Q30': 0,
+                    'Read I2 % Q30': 0,
                 }
             samples_tmp[ row['SampleID'] ]['Index'] = row['Index']
             samples_tmp[ row['SampleID'] ]['Lane'] = int(row['Lane'])
@@ -145,7 +146,8 @@ def parseConversionStatsType2(lims, pid, demux_stats,qual_metrics):
         with open(qual_metrics,'r') as q:
             csv_reader = csv.DictReader(q)
             for row in csv_reader:
-
+                # print(row)
+                # print(row['Mean Quality Score (PF)'], row['% Q30'])
                 mqs = f'Read {row["ReadNumber"]} Mean Quality Score (PF)'
                 q30 = f'Read {row["ReadNumber"]} % Q30'
                 if mqs not in samples_tmp[ row['SampleID'] ]:
@@ -153,7 +155,9 @@ def parseConversionStatsType2(lims, pid, demux_stats,qual_metrics):
                 if q30 not in samples_tmp[ row['SampleID'] ]:
                     samples_tmp[ row['SampleID'] ][q30] = 0
 
+
                 samples_tmp[ row['SampleID'] ][mqs] += float(row['Mean Quality Score (PF)'])
+                # print(row['SampleID'], q30, samples_tmp[ row['SampleID'] ][q30], row['% Q30'])
                 samples_tmp[ row['SampleID'] ][q30] += float(row['% Q30'])
 
     for sampleID in samples_tmp:
@@ -172,13 +176,7 @@ def parseConversionStatsType2(lims, pid, demux_stats,qual_metrics):
         stats['samples'].append(sample)
 
     return stats
-            #
-            # 'Read 1 Mean Quality Score (PF)' : 0,
-            # 'Read 2 Mean Quality Score (PF)' : 0,
-            # 'Read 1 % Q30': 0,
-            # 'Read 2 % Q30': 0,
-            # 'Read I1 % Q30': None,
-            # 'Read I2 % Q30': None,
+
 
 def parseConversionStatsType3(lims, pid, adapter_metrics, demux_stats):
     samples = lims.get_samples(projectlimsid=pid)
@@ -192,22 +190,13 @@ def parseConversionStatsType3(lims, pid, adapter_metrics, demux_stats):
     }
     samples_tmp = {}
 
-    r1_bases = 0
-    r2_bases = 0
+    # r1_bases = 0
+    # r2_bases = 0
     with open(adapter_metrics, 'r') as a:
         csv_reader = csv.DictReader(a)
         for row in csv_reader:
-            r1_bases += int(row['R1_SampleBases'])
-            r2_bases += int(row['R2_SampleBases'])
-
-    with open(demux_stats, 'r') as d:
-        csv_reader = csv.DictReader(d)
-        for row in csv_reader:
-
-            stats['total_reads'] += float(row['# Reads'])
-
-            if row['SampleID'] not in samples_tmp:
-                samples_tmp[ row['SampleID'] ] = {
+            if row['Sample_ID'] not in samples_tmp:
+                samples_tmp[ row['Sample_ID'] ] = {
                     'Index' : None,
                     '# Reads' : 0,
                     '# Perfect Index Reads' : 0,
@@ -216,28 +205,46 @@ def parseConversionStatsType3(lims, pid, adapter_metrics, demux_stats):
                     'Read 2 Mean Quality Score (PF)' : 0,
                     'Read 1 % Q30': 0,
                     'Read 2 % Q30': 0,
-                    'Read I1 % Q30': None,
-                    'Read I2 % Q30': None,
+                    'Read I1 % Q30': 0,
+                    'Read I2 % Q30': 0,
+                    'Read 1 Bases' : 0,
+                    'Read 2 Bases' : 0,
                 }
+
+            samples_tmp[ row['Sample_ID'] ]['Read 1 Bases'] += int(row['R1_SampleBases'])
+            if int(row['R2_SampleBases']) > 0:
+                samples_tmp[ row['Sample_ID'] ]['Read 2 Bases'] += int(row['R2_SampleBases'])
+    with open(demux_stats, 'r') as d:
+        csv_reader = csv.DictReader(d)
+        for row in csv_reader:
+
+            stats['total_reads'] += float(row['# Reads'])
+
             samples_tmp[ row['SampleID'] ]['Index'] = row['Index']
             samples_tmp[ row['SampleID'] ]['Lane'] = int(row['Lane'])
             samples_tmp[ row['SampleID'] ]['# Reads'] += int(row['# Reads'])
             samples_tmp[ row['SampleID'] ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
             samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
-            samples_tmp[ row['SampleID'] ]['Read 1 Mean Quality Score (PF)'] += int(row['Mean Quality Score (PF)'])
+            samples_tmp[ row['SampleID'] ]['Read 1 Mean Quality Score (PF)'] += float(row['Mean Quality Score (PF)'])
             samples_tmp[ row['SampleID'] ]['Read 1 % Q30'] += int(row['# of >= Q30 Bases (PF)'])
-            if r2_bases > 0:
-                samples_tmp[ row['SampleID'] ]['Read 2 Mean Quality Score (PF)'] += int(row['Mean Quality Score (PF)'])
+            if samples_tmp[ row['SampleID'] ]['Read 2 Bases'] > 0:
+                samples_tmp[ row['SampleID'] ]['Read 2 Mean Quality Score (PF)'] += float(row['Mean Quality Score (PF)'])
                 samples_tmp[ row['SampleID'] ]['Read 2 % Q30'] += int(row['# of >= Q30 Bases (PF)'])
+
 
     for sampleID in samples_tmp:
         if sampleID not in sample_names:continue
         sample = {}
-        for read_number in ['1','2','I1','I2']:
-            if samples_tmp[sampleID][f'Read {read_number} Mean Quality Score (PF)']:
+
+        # print (f"SampleID : {sampleID} R1 Q30 Bases : {samples_tmp[sampleID]['Read 1 % Q30']} R1 Bases : {samples_tmp[sampleID]['Read 1 Bases']}")
+        for read_number in ['1','2']:
+            if f'Read {read_number} Mean Quality Score (PF)' in samples_tmp[sampleID]:
                 sample[f'Read {read_number} Mean Quality Score (PF)'] = samples_tmp[sampleID][f'Read {read_number} Mean Quality Score (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
-            if samples_tmp[sampleID][f'Read {read_number} % Q30']:
-                sample[f'Read {read_number} % Q30'] = (samples_tmp[sampleID][f'Read {read_number} % Q30'] / (r1_bases + r2_bases) )*100
+            if f'Read {read_number} % Q30' in samples_tmp[sampleID]:
+                sample[f'Read {read_number} # Q30 Bases'] = samples_tmp[sampleID][f'Read {read_number} % Q30']
+        #         r1_bases = samples_tmp[ row['SampleID'] ][f'Read {read_number} Bases']
+        #
+        #         sample[f'Read {read_number} % Q30'] = (samples_tmp[sampleID][f'Read {read_number} % Q30'] / (r1_bases) )*100
         sample['SampleID'] = sampleID
         sample['Index'] = samples_tmp[sampleID]['Index']
         sample['# Reads'] = samples_tmp[sampleID]['# Reads']
@@ -306,7 +313,7 @@ def link_results(lims, run_id):
         runs = session.query(Run).all()
 
     for run in runs:
-        print(run.run_id)
+        # print(run.run_id)
         project = None
         try:
             project = Project(lims, id=run.run_id)
@@ -321,7 +328,7 @@ def link_results(lims, run_id):
 
         for seq_result in seq_results:
             if not seq_result['run_dir'] : continue
-            print (seq_result['run_dir'])
+            run_name = Path(seq_result['run_dir']).name
             conversion_stats_file = Path(f"{seq_result['run_dir']}/ConversionStats.xml")
             demux_stats_file = Path(f"{seq_result['run_dir']}/Demultiplex_Stats.csv")
             qual_metrics_file = Path(f"{seq_result['run_dir']}/Quality_Metrics.csv")
@@ -329,20 +336,40 @@ def link_results(lims, run_id):
             summary_stats_file = Path(f"{seq_result['run_dir']}/{ Path(seq_result['run_dir']).name }_summary.csv")
             stats = None
             if conversion_stats_file.is_file():
-                print(1)
                 stats = parseConversionStatsType1(conversion_stats_file) #bcl2fastq conversion
 
+                # print('opt1', stats)
             elif qual_metrics_file.is_file():
-                print(2)
                 stats = parseConversionStatsType2(lims, run.run_id, qual_metrics_file,demux_stats_file) #bcl-convert >= 3.9
-
+                # print('opt2', stats)
             elif adapter_metrics_file.is_file():
-                print(3)
                 stats = parseConversionStatsType3(lims, run.run_id, adapter_metrics_file,demux_stats_file) #bcl-convert < 3.9
+                # print('opt3', stats)
 
-            # print(stats)
+            for dir in DATA_DIRS_RAW:
+                possible_img_dir = Path(f'{dir}/{run_name}')
+                if possible_img_dir.is_dir():
+                    base = None
+                    if Path(f'{dir}/{run_name}/Data/Intensities/BaseCalls/Stats/{run_name}_summary.csv').is_file():
+                        print(f'OLD {dir}/{run_name}/Data/Intensities/BaseCalls/Stats/{run_name}_summary.csv')
+                        base = f'{dir}/{run_name}/Data/Intensities/BaseCalls/Stats/{run_name}'
+
+                    elif Path(f'{dir}/{run_name}/Conversion/Reports/{run_name}_summary.csv').is_file():
+                        print(f'{dir}/{run_name}/Conversion/Reports/{run_name}_summary.csv')
+                        base = f'{dir}/{run_name}/Conversion/Reports/{run_name}'
+
+                    if base:
+                        flowcell_intensity_plot = f'{base}_flowcell-Intensity.png',
+                        flowcell_density_plot = f'{base}_Clusters-by-lane.png',
+                        total_qscore_lanes_plot = f'{base}_q-histogram.png',
+                        cycle_qscore_lanes_plot = f'{base}_q-heat-map.png',
+                        cycle_base_plot = f'{base}_BasePercent-by-cycle_BasePercent.png',
+                        cycle_intensity_plot = f'{base}_Intensity-by-cycle_Intensity.png',
+
+
 
     # flowcell_id = None
+
     # illumina_info = os.path.join(run_dir, 'RunInfo.xml')
     # run_name = os.path.basename(os.path.normpath(run_dir))
     # nanopore_info = glob.glob('final_summary_*.txt')
