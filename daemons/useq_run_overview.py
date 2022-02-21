@@ -148,8 +148,10 @@ def parseRunSummary( summary ):
                     if cols[3].split("+")[0].rstrip() != 'nan':
                         densities.append(int(cols[3].split("+")[0].rstrip()))
                 elif len(cols) == 19 and 'nan' not in cols[3]:
-                    q30_scores.append(float(cols[10].split("+")[0].rstrip()))
-                    densities.append(int(cols[3].split("+")[0].rstrip()))
+                    if cols[10].split("+")[0].rstrip() != 'nan':
+                        q30_scores.append(float(cols[10].split("+")[0].rstrip()))
+                    if cols[3].split("+")[0].rstrip() != 'nan':
+                        densities.append(int(cols[3].split("+")[0].rstrip()))
                 line_nr += 1
             else:
                 line_nr += 1
@@ -386,6 +388,7 @@ def getProjectDetails( lims, project,run_dirs ):
 
                 if summary_stats_file.is_file():
                     summary_stats = parseRunSummary(summary_stats_file)
+                    print(summary_stats)
                     run['cluster_density'] = summary_stats['cluster_density']
                     run['perc_bases_q30'] = summary_stats['perc_q30']
                     run['perc_occupied'] = summary_stats['perc_occupied']
@@ -451,7 +454,7 @@ def loadProjectOverview( ovw_file ):
 
 def updateProjectOverview( lims, ovw ):
     # print('Retrieving projects')
-    projects = lims.get_projects()
+    projects = lims.get_projects(name='JKIN131')
 
     new_ovw = {}
 
