@@ -2,7 +2,7 @@ from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from xml.dom.minidom import parse
-from config import FILE_STORAGE, SQLALCHEMY_DATABASE_URI,STAT_PATH,RUN_PROCESSES, DATA_DIRS_RAW
+from config import FILE_STORAGE, SQLALCHEMY_DATABASE_URI,STAT_PATH,RUN_PROCESSES, DATA_DIRS_RAW, TMP_DIR
 from genologics.entities import Project
 from pathlib import Path
 import os
@@ -10,20 +10,10 @@ import glob
 import sys
 import xml.etree.cElementTree as ET
 import csv
-# total_reads
-# total_mean_qual
-# total_q30
-#
-#
-# 'Index' : None,
-# '# Reads' : 0,
-# '# Perfect Index Reads' : 0,
-# '# One Mismatch Index Reads' : 0,
-# Mean Quality Score (PF)
-# q30 = f'Read  % Q30'
-
-
-def parseConversionStatsType1( conversion_stats_file ):
+import json
+import shutil
+from datetime import datetime
+def parseConversionStatsType1( conversion_stats_xml_file ):
     total_yield = 0
 
     stats = {
@@ -44,7 +34,7 @@ def parseConversionStatsType1( conversion_stats_file ):
                 root.clear() # preserve memory
 
 
-    for sample in getelements(conversion_stats_file, "Sample"):
+    for sample in getelements(conversion_stats_xml_file, "Sample"):
         if sample.attrib['name'] == 'all':continue
         sample_yield1 = 0
         sample_yield2 = 0
@@ -52,14 +42,10 @@ def parseConversionStatsType1( conversion_stats_file ):
             'SampleID' : sample.attrib['name'],
             'Index' : sample.find("./Barcode").attrib['name'],
             '# Reads' : 0,
-            '# Perfect Index Reads' : None,
-            '# One Mismatch Index Reads' :None,
             'Read 1 Mean Quality Score (PF)' : 0,
             'Read 2 Mean Quality Score (PF)' : 0,
             'Read 1 % Q30': 0,
             'Read 2 % Q30': 0,
-            'Read I1 % Q30': 0,
-            'Read I2 % Q30': 0,
         }
 
 
@@ -142,10 +128,12 @@ def parseConversionStatsType2(lims, pid, qual_metrics,demux_stats):
             samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
             # stats['samples'].append(row)
     if Path(qual_metrics).is_file():
-
+        rows = 0
         with open(qual_metrics,'r') as q:
+
             csv_reader = csv.DictReader(q)
             for row in csv_reader:
+                rows +=1
                 # print(row)
                 # print(row['Mean Quality Score (PF)'], row['% Q30'])
                 mqs = f'Read {row["ReadNumber"]} Mean Quality Score (PF)'
@@ -159,7 +147,11 @@ def parseConversionStatsType2(lims, pid, qual_metrics,demux_stats):
                 samples_tmp[ row['SampleID'] ][mqs] += float(row['Mean Quality Score (PF)'])
                 # print(row['SampleID'], q30, samples_tmp[ row['SampleID'] ][q30], row['% Q30'])
                 samples_tmp[ row['SampleID'] ][q30] += float(row['% Q30'])
+                stats['total_q30'] += float(row['% Q30'])
+                stats['total_mean_qual'] += float(row['Mean Quality Score (PF)'])
 
+        stats['total_q30'] = (stats['total_q30']/rows) * 100
+        stats['total_mean_qual'] = stats['total_mean_qual'] / rows
     for sampleID in samples_tmp:
         if sampleID not in sample_names:continue
         sample = {}
@@ -216,8 +208,9 @@ def parseConversionStatsType3(lims, pid, adapter_metrics, demux_stats):
                 samples_tmp[ row['Sample_ID'] ]['Read 2 Bases'] += int(row['R2_SampleBases'])
     with open(demux_stats, 'r') as d:
         csv_reader = csv.DictReader(d)
+        rows = 0
         for row in csv_reader:
-
+            rows +=1
             stats['total_reads'] += float(row['# Reads'])
 
             samples_tmp[ row['SampleID'] ]['Index'] = row['Index']
@@ -227,10 +220,14 @@ def parseConversionStatsType3(lims, pid, adapter_metrics, demux_stats):
             samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
             samples_tmp[ row['SampleID'] ]['Read 1 Mean Quality Score (PF)'] += float(row['Mean Quality Score (PF)'])
             samples_tmp[ row['SampleID'] ]['Read 1 % Q30'] += int(row['# of >= Q30 Bases (PF)'])
+            stats['total_q30'] += int(row['# of >= Q30 Bases (PF)'])
+            stats['total_mean_qual'] += float(row['Mean Quality Score (PF)'])
             if samples_tmp[ row['SampleID'] ]['Read 2 Bases'] > 0:
                 samples_tmp[ row['SampleID'] ]['Read 2 Mean Quality Score (PF)'] += float(row['Mean Quality Score (PF)'])
                 samples_tmp[ row['SampleID'] ]['Read 2 % Q30'] += int(row['# of >= Q30 Bases (PF)'])
 
+        stats['total_q30'] = stats['total_q30']/rows
+        stats['total_mean_qual'] = stats['total_mean_qual']/rows
 
     for sampleID in samples_tmp:
         if sampleID not in sample_names:continue
@@ -253,12 +250,44 @@ def parseConversionStatsType3(lims, pid, adapter_metrics, demux_stats):
         stats['samples'].append(sample)
 
     return stats
-def getSequencingResults( lims, project_name):
+
+def getNanoporeStats():
+    #Gather nanopore runs
+    nanopore_stats_dir = Path(f"{STAT_PATH}/nanopore")
+    stats = {}
+    for summary in glob.glob(f"{nanopore_stats_dir}/**/*.txt", recursive=True):
+        parent_dir = Path(summary).parent
+        with open(summary, 'r') as s:
+            tmp = {}
+            for line in s.readlines():
+                name,val = line.rstrip().split("=")
+                tmp[name] = val
+            if 'protocol_group_id' in tmp and 'flow_cell_id' in tmp:
+                stats_pdf_search = glob.glob(f"{parent_dir}/*pdf")
+                if tmp['protocol_group_id'] not in stats:
+                    stats[ tmp['protocol_group_id'] ] = []
+                if stats_pdf_search:
+                    stats[ tmp['protocol_group_id'] ].append( {
+                        'flowcell_id' : tmp['flow_cell_id'],
+                        'stats_pdf' : stats_pdf_search[0],
+                        'date' : tmp['started'].split("T")[0]
+                    })
+
+                else:
+                    stats[ tmp['protocol_group_id'] ].append( {
+                        'flowcell_id' : tmp['flow_cell_id'],
+                        'stats_pdf' : None,
+                        'date' : tmp['started'].split("T")[0]
+                    })
+
+    return stats
+
+def getIlluminaSequencingResults( lims, project):
     """Get the most recent raw run info based on project name and allowed RUN_PROCESSES"""
     runs = []
 
     project_processes = lims.get_processes(
-        projectname=project_name,
+        projectname=project.name,
         type=RUN_PROCESSES
     )
 
@@ -268,7 +297,7 @@ def getSequencingResults( lims, project_name):
         if 'Run ID' in process.udf: run_id = process.udf['Run ID']
 
         if 'Flow Cell ID' in process.udf: flowcell_id = process.udf['Flow Cell ID']
-
+        # print(process)
         runs.append({
             'date_run' : process.date_run,
             'run_id' : run_id,
@@ -279,7 +308,7 @@ def getSequencingResults( lims, project_name):
     if not runs:
         return None
 
-
+    # print('Run',runs)
 
     for run in runs:
         # print(run)
@@ -303,17 +332,17 @@ def getSequencingResults( lims, project_name):
 
     return runs
 
-
-
 def link_results(lims, run_id):
     runs = []
+    nanopore_stats = getNanoporeStats()
+    # print(run_id)
     if run_id:
         runs = session.query(Run).filter_by(run_id=run_id).all()
     else:
         runs = session.query(Run).all()
 
-    for run in runs:
-        # print(run.run_id)
+    for run in runs[::-1]:
+        print(run.run_id)
         project = None
         try:
             project = Project(lims, id=run.run_id)
@@ -322,111 +351,158 @@ def link_results(lims, run_id):
             print (f"Error : Project ID {run_id} not found!")
             continue
 
-        seq_results = getSequencingResults(lims, project_name)
 
-        if not seq_results : continue
-
-        for seq_result in seq_results:
-            if not seq_result['run_dir'] : continue
-            run_name = Path(seq_result['run_dir']).name
-            conversion_stats_file = Path(f"{seq_result['run_dir']}/ConversionStats.xml")
-            demux_stats_file = Path(f"{seq_result['run_dir']}/Demultiplex_Stats.csv")
-            qual_metrics_file = Path(f"{seq_result['run_dir']}/Quality_Metrics.csv")
-            adapter_metrics_file = Path(f"{seq_result['run_dir']}/Adapter_Metrics.csv")
-            summary_stats_file = Path(f"{seq_result['run_dir']}/{ Path(seq_result['run_dir']).name }_summary.csv")
-            stats = None
-            if conversion_stats_file.is_file():
-                stats = parseConversionStatsType1(conversion_stats_file) #bcl2fastq conversion
-
-                # print('opt1', stats)
-            elif qual_metrics_file.is_file():
-                stats = parseConversionStatsType2(lims, run.run_id, qual_metrics_file,demux_stats_file) #bcl-convert >= 3.9
-                # print('opt2', stats)
-            elif adapter_metrics_file.is_file():
-                stats = parseConversionStatsType3(lims, run.run_id, adapter_metrics_file,demux_stats_file) #bcl-convert < 3.9
-                # print('opt3', stats)
-
-            for dir in DATA_DIRS_RAW:
-                possible_img_dir = Path(f'{dir}/{run_name}')
-                if possible_img_dir.is_dir():
-                    base = None
-                    if Path(f'{dir}/{run_name}/Data/Intensities/BaseCalls/Stats/{run_name}_summary.csv').is_file():
-                        print(f'OLD {dir}/{run_name}/Data/Intensities/BaseCalls/Stats/{run_name}_summary.csv')
-                        base = f'{dir}/{run_name}/Data/Intensities/BaseCalls/Stats/{run_name}'
-
-                    elif Path(f'{dir}/{run_name}/Conversion/Reports/{run_name}_summary.csv').is_file():
-                        print(f'{dir}/{run_name}/Conversion/Reports/{run_name}_summary.csv')
-                        base = f'{dir}/{run_name}/Conversion/Reports/{run_name}'
-
-                    if base:
-                        flowcell_intensity_plot = f'{base}_flowcell-Intensity.png',
-                        flowcell_density_plot = f'{base}_Clusters-by-lane.png',
-                        total_qscore_lanes_plot = f'{base}_q-histogram.png',
-                        cycle_qscore_lanes_plot = f'{base}_q-heat-map.png',
-                        cycle_base_plot = f'{base}_BasePercent-by-cycle_BasePercent.png',
-                        cycle_intensity_plot = f'{base}_Intensity-by-cycle_Intensity.png',
+        ill_seq_results = getIlluminaSequencingResults(lims, project)
+        nan_seq_results = nanopore_stats.get(project.id, None)
 
 
 
-    # flowcell_id = None
+        if nan_seq_results:
+            for seq_result in nan_seq_results:
+                if not seq_result['flowcell_id']: continue
 
-    # illumina_info = os.path.join(run_dir, 'RunInfo.xml')
-    # run_name = os.path.basename(os.path.normpath(run_dir))
-    # nanopore_info = glob.glob('final_summary_*.txt')
-    #
-    # if os.path.exists( illumina_info ):
-    #     # Illumina run
-    #     run_parameters = parse(os.path.join(run_dir, 'RunParameters.xml'))
-    #     experiment_name = run_parameters.getElementsByTagName('ExperimentName')[0].firstChild.nodeValue
-    #     if experiment_name != run_id:
-    #         sys.exit(f'ExperimentName ins RunParameters.xml does not match {run_id}')
-    #
-    #     run_info = parse(illumina_info)
-    #     flowcell_id = run_info.getElementsByTagName('Flowcell')[0].firstChild.nodeValue
-    #     stats_dir = os.path.join(run_dir, 'Data/Intensities/BaseCalls/Stats')
-    #
-    #     with open( os.path.join(stats_dir, 'multiqc_data/multiqc_bcl2fastq_bysample.json'), 'r') as s:
-    #         general_stats = s.read()
-    #
-    #     # mkdir remotely ssh apenboom mkdir -p existingdir/newdir
-    #     os.system(f"mkdir -p {FILE_STORAGE}/{run_id.upper()}/{flowcell_id.upper()}")
-    #     rsync_command = f'/usr/bin/rsync {stats_dir}/multiqc_plots/png/mqc_bcl2fastq_*.png {stats_dir}/*png {FILE_STORAGE}/{run_id.upper()}/{flowcell_id.upper()}'
-    #     exit_code = os.system(rsync_command)
-    #     if exit_code:
-    #         sys.exit(f'Failed to copy plots to {FILE_STORAGE}')
-    #
-    #     run = session.query(Run).filter_by(run_id=run_id).all()[0]
-    #     ill_stats = IlluminaSequencingStats(
-    #         flowcell_id=flowcell_id,
-    #         general_stats=general_stats,
-    #         flowcell_intensity_plot = f'{run_name}_flowcell-Intensity.png',
-    #         flowcell_density_plot = f'{run_name}_Clusters-by-lane.png',
-    #         total_qscore_lanes_plot = f'{run_name}_q-histogram.png',
-    #         cycle_qscore_lanes_plot = f'{run_name}_q-heat-map.png',
-    #         cycle_base_plot = f'{run_name}_BasePercent-by-cycle_BasePercent.png',
-    #         cycle_intensity_plot = f'{run_name}_Intensity-by-cycle_Intensity.png',
-    #         lane_counts_plot = 'mqc_bcl2fastq_lane_counts_1.png',
-    #         sample_counts_plot = 'mqc_bcl2fastq_sample_counts_Index_mismatches.png',
-    #         undetermined_plot = 'mqc_bcl2fastq_undetermined_1.png',
-    #         run_id=run.id
-    #     )
-    #     session.add(ill_stats)
-    #     session.commit()
-    #
-    # elif nanopore_info:
-    #     # Nanopore run
-    #     flowcell_id = nanopore_info[0].split('_')[2]
-    # else:
-    #     sys.exit('Could not find a RunInfo.xml or final_summary_*.txt file')
+                prev_results = session.query(NanoporeSequencingStats).filter_by(flowcell_id=seq_result['flowcell_id']).first()
+                if prev_results:continue
+                nan_stats = None
+                if seq_result['stats_pdf']:
+                    tmp_stats_dir = Path(f"{TMP_DIR}/{seq_result['flowcell_id']}")
+                    if not tmp_stats_dir.is_dir():
+                        tmp_stats_dir.mkdir()
+
+                    os.system(f"scp {seq_result['stats_pdf']} {tmp_stats_dir}")
+                    os.system(f"scp -r {tmp_stats_dir.as_posix()} {FILE_STORAGE}")
+
+                    nan_stats = NanoporeSequencingStats(
+                        general_stats = Path(seq_result['stats_pdf']).name,
+                        date = seq_result['date'],
+                        flowcell_id = seq_result['flowcell_id'],
+                        run_id=run.id
+                    )
+                    print(seq_result['stats_pdf'],seq_result['date'],seq_result['flowcell_id'],run.id)
+                else:
+                    nan_stats = NanoporeSequencingStats(
+                        date = seq_result['date'],
+                        flowcell_id = seq_result['flowcell_id'],
+                        run_id=run.id
+                    )
+                    print('NA',seq_result['date'],seq_result['flowcell_id'],run.id)
+                session.add(nan_stats)
+                session.commit()
+
+        elif ill_seq_results:
+            for seq_result in ill_seq_results:
+                if not seq_result['flowcell_id']: continue
+
+                prev_results = session.query(IlluminaSequencingStats).filter_by(flowcell_id=seq_result['flowcell_id']).first()
+                if prev_results:continue
+                tmp_stats_dir = Path(f"{TMP_DIR}/{seq_result['flowcell_id']}")
+                conversion_stats_json_file = Path(f"{tmp_stats_dir}/Conversion_Stats.json")
+                if not tmp_stats_dir.is_dir():
+                    tmp_stats_dir.mkdir()
+
+                ill_stats = None
+                if seq_result['run_dir']:
+                    run_name = Path(seq_result['run_dir']).name
+
+                    conversion_stats_xml_file = Path(f"{seq_result['run_dir']}/ConversionStats.xml")
+
+                    demux_stats_file = Path(f"{seq_result['run_dir']}/Demultiplex_Stats.csv")
+                    qual_metrics_file = Path(f"{seq_result['run_dir']}/Quality_Metrics.csv")
+                    adapter_metrics_file = Path(f"{seq_result['run_dir']}/Adapter_Metrics.csv")
+                    summary_stats_file = Path(f"{seq_result['run_dir']}/{ Path(seq_result['run_dir']).name }_summary.csv")
+                    stats = None
+                    if conversion_stats_xml_file.is_file():
+                        stats = parseConversionStatsType1(conversion_stats_xml_file) #bcl2fastq conversion
+
+                        # print('opt1', stats)
+                    elif qual_metrics_file.is_file():
+                        stats = parseConversionStatsType2(lims, run.run_id, qual_metrics_file,demux_stats_file) #bcl-convert >= 3.9
+                        # print('opt2', stats)
+                    elif adapter_metrics_file.is_file():
+                        stats = parseConversionStatsType3(lims, run.run_id, adapter_metrics_file,demux_stats_file) #bcl-convert < 3.9
+                    else:
+                        continue
+
+                    with open (conversion_stats_json_file, 'w') as c:
+                        c.write(json.dumps(stats))
 
 
+
+                    for dir in DATA_DIRS_RAW:
+                        possible_img_dir = Path(f'{dir}/{run_name}')
+
+                        if possible_img_dir.is_dir():
+                            base = None
+                            if Path(f'{dir}/{run_name}/Data/Intensities/BaseCalls/Stats/{run_name}_summary.csv').is_file():
+                                print(f'OLD {dir}/{run_name}/Data/Intensities/BaseCalls/Stats/{run_name}_summary.csv')
+                                base = f'{dir}/{run_name}/Data/Intensities/BaseCalls/Stats/{run_name}'
+
+                            elif Path(f'{dir}/{run_name}/Conversion/Reports/{run_name}_summary.csv').is_file():
+                                print(f'{dir}/{run_name}/Conversion/Reports/{run_name}_summary.csv')
+                                base = f'{dir}/{run_name}/Conversion/Reports/{run_name}'
+
+                            if base:
+                                flowcell_intensity_plot = f'{base}_flowcell-Intensity.png'
+                                flowcell_density_plot = f'{base}_Clusters-by-lane.png'
+                                total_qscore_lanes_plot = f'{base}_q-histogram.png'
+                                cycle_qscore_lanes_plot = f'{base}_q-heat-map.png'
+                                cycle_base_plot = f'{base}_BasePercent-by-cycle_BasePercent.png'
+                                cycle_intensity_plot = f'{base}_Intensity-by-cycle_Intensity.png'
+                                print(base, seq_result['flowcell_id'])
+                                # print(flowcell_intensity_plot)
+                                # os.system(f"scp {flowcell_intensity_plot} {TMP_DIR}/{seq_result['flowcell_id']}")
+                                shutil.copy(flowcell_intensity_plot,tmp_stats_dir.as_posix())
+                                shutil.copy(flowcell_density_plot,tmp_stats_dir.as_posix())
+                                shutil.copy(total_qscore_lanes_plot,tmp_stats_dir.as_posix())
+                                shutil.copy(cycle_qscore_lanes_plot,tmp_stats_dir.as_posix())
+                                shutil.copy(cycle_base_plot,tmp_stats_dir.as_posix())
+                                shutil.copy(cycle_intensity_plot,tmp_stats_dir.as_posix())
+
+                                os.system(f"scp -r {tmp_stats_dir.as_posix()} {FILE_STORAGE}")
+
+                                ill_stats = IlluminaSequencingStats(
+                                    flowcell_id=seq_result['flowcell_id'],
+                                    general_stats="Conversion_Stats.json",
+                                    date = seq_result['date_run'],
+                                    flowcell_intensity_plot = f'{run_name}_flowcell-Intensity.png',
+                                    flowcell_density_plot = f'{run_name}_Clusters-by-lane.png',
+                                    total_qscore_lanes_plot = f'{run_name}_q-histogram.png',
+                                    cycle_qscore_lanes_plot = f'{run_name}_q-heat-map.png',
+                                    cycle_base_plot = f'{run_name}_BasePercent-by-cycle_BasePercent.png',
+                                    cycle_intensity_plot = f'{run_name}_Intensity-by-cycle_Intensity.png',
+                                    run_id=run.id
+                                )
+
+
+
+                os.system(f"scp -r {tmp_stats_dir.as_posix()} {FILE_STORAGE}")
+                if not ill_stats:
+                    if conversion_stats_json_file.is_file():
+                        ill_stats = IlluminaSequencingStats(
+                            flowcell_id=seq_result['flowcell_id'],
+                            general_stats="Conversion_Stats.json",
+                            date = seq_result['date_run'],
+                            run_id=run.id
+                        )
+                        print('No plots')
+                    else:
+                        ill_stats = IlluminaSequencingStats(
+                            flowcell_id=seq_result['flowcell_id'],
+                            date = seq_result['date_run'],
+                            run_id=run.id
+                        )
+                        print('No stats')
+                else:
+                    print('Stats')
+                session.add(ill_stats)
+                session.commit()
 def run(lims, run_id):
 
     global session
     # global User
     global Run
     global IlluminaSequencingStats
-
+    global NanoporeSequencingStats
     Base = automap_base()
 # pymysql.connect(user=DB_USER,password=DB_PWD,database=DB, host='sitkaspar', ssl={'ssl': 1})
     # engine, suppose it has two tables 'user' and 'run' set up
@@ -443,6 +519,7 @@ def run(lims, run_id):
     Run = Base.classes.run
     # print(dir(Base.classes))
     IlluminaSequencingStats = Base.classes.illumina_sequencing_stats
-    #
+    NanoporeSequencingStats = Base.classes.nanopore_sequencing_stats
+
     session = Session(engine)
     link_results(lims,run_id)

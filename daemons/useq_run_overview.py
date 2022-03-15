@@ -454,7 +454,7 @@ def loadProjectOverview( ovw_file ):
 
 def updateProjectOverview( lims, ovw ):
     # print('Retrieving projects')
-    projects = lims.get_projects(name='JKIN131')
+    projects = lims.get_projects()
 
     new_ovw = {}
 

@@ -39,6 +39,9 @@ def manage_runids(args):
 def link_run_results(args):
     utilities.useq_link_run_results.run(lims, args.runid)
 
+def year_overview(args):
+    utilities.useq_year_overview.run(lims, args.year, args.output)
+
 #Clarity epp scripts
 def run_status_mail(args):
     """Send run started mail"""
@@ -95,7 +98,7 @@ if __name__ == "__main__":
     subparser = parser.add_subparsers()
 
     #Utility parsers
-    parser_utilities = subparser.add_parser('utilities',help="Utility functions: manage_accounts, client_mail, share_data, budget_overview , manage_runids,link_run_results, get_researchers")
+    parser_utilities = subparser.add_parser('utilities',help="Utility functions: manage_accounts, client_mail, share_data, budget_overview , manage_runids,link_run_results, get_researchers, year_overview")
     subparser_utilities = parser_utilities.add_subparsers()
 
     parser_manage_accounts = subparser_utilities.add_parser('manage_accounts', help='Create, Edit & Retrieve accounts (labs)')
@@ -136,6 +139,12 @@ if __name__ == "__main__":
 
     parser_get_researchers = subparser_utilities.add_parser('get_researchers', help='Get all info for all researchers')
     parser_get_researchers.set_defaults(func=get_researchers)
+
+    parser_year_overview = subparser_utilities.add_parser('year_overview', help='Create an overview of all USEQ projects in a given year / all years.')
+    parser_year_overview.add_argument('-o', '--output', help='Path to output file', nargs='?' ,type=argparse.FileType('w') , default=sys.stdout)
+    parser_year_overview.add_argument('-y', '--year', help='Year, leave empty for all', default=None)
+    parser_year_overview.set_defaults(func=year_overview)
+    # year_overview
 
     #epp parsers
     parser_epp = subparser.add_parser('epp',help='Clarity epp functions: run_status_mail, modify_samplesheet, group_permissions, finance_overview, route_artifacts, close_projects ')
