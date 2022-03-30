@@ -370,7 +370,7 @@ def link_results(lims, run_id):
                         tmp_stats_dir.mkdir()
 
                     os.system(f"scp {seq_result['stats_pdf']} {tmp_stats_dir}")
-                    os.system(f"scp -r {tmp_stats_dir.as_posix()} {FILE_STORAGE}")
+                    os.system(f"rsync -r {tmp_stats_dir.as_posix()} {FILE_STORAGE}")
 
                     nan_stats = NanoporeSequencingStats(
                         general_stats = Path(seq_result['stats_pdf']).name,
@@ -458,7 +458,7 @@ def link_results(lims, run_id):
                                 shutil.copy(cycle_base_plot,tmp_stats_dir.as_posix())
                                 shutil.copy(cycle_intensity_plot,tmp_stats_dir.as_posix())
 
-                                os.system(f"scp -r {tmp_stats_dir.as_posix()} {FILE_STORAGE}")
+                                os.system(f"rsync -r {tmp_stats_dir.as_posix()} {FILE_STORAGE}")
 
                                 ill_stats = IlluminaSequencingStats(
                                     flowcell_id=seq_result['flowcell_id'],
@@ -475,7 +475,7 @@ def link_results(lims, run_id):
 
 
 
-                os.system(f"scp -r {tmp_stats_dir.as_posix()} {FILE_STORAGE}")
+                os.system(f"rsync -r {tmp_stats_dir.as_posix()} {FILE_STORAGE}")
                 if not ill_stats:
                     if conversion_stats_json_file.is_file():
                         ill_stats = IlluminaSequencingStats(
