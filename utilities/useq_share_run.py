@@ -130,10 +130,7 @@ def shareManual(researcher,dir):
     if exit_code:
         print (f"{name}\tError : Failed to upload {run_zip} . Please look at {transfer_error} for the reason.")
         return
-    #upload_response = nextcloud_util.upload(run_zip)
-    #if "ERROR" in upload_response:
-    #    print (f"{name}\tError : Failed to upload {run_zip} with message:\n\t{upload_response['ERROR']}")
-    #    return
+
     time.sleep(90)
 
     print (f"{name}\tSharing dir {dir} with {researcher.email}")
@@ -419,10 +416,10 @@ def shareDataById(lims, project_id, fid, link_portal):
                 mail_content = renderTemplate('share_nanopore_template.html', template_data)
                 mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
-                # sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
-                # os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
-                sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-                print (pw)
+                sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
+                os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
+                # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+                # print (pw)
 
 
             run_zip.unlink()
@@ -501,11 +498,11 @@ def shareDataById(lims, project_id, fid, link_portal):
                 mail_content = renderTemplate('share_illumina_template.html', template_data)
                 mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
-                # sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
-                # os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
+                sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
+                os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
 
-                sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-                print (pw)
+                # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+                # print (pw)
 
                 print(f'Shared {project_id} with {researcher.email}')
 
