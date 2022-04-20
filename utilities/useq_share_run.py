@@ -1,16 +1,20 @@
 from genologics.entities import Project
-from config import RUN_PROCESSES, RAW_DIR, PROCESSED_DIR, NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,NEXTCLOUD_PROCESSED_DIR,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER, NEXTCLOUD_USER, NEXTCLOUD_PW,DATA_DIRS_RAW,SMS_SERVER,NEXTCLOUD_DATA_ROOT
+from config import RUN_PROCESSES, RAW_DIR, PROCESSED_DIR, NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,NEXTCLOUD_PROCESSED_DIR,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER, NEXTCLOUD_USER, NEXTCLOUD_PW,DATA_DIRS_RAW,SMS_SERVER,NEXTCLOUD_DATA_ROOT,FILE_STORAGE, SQLALCHEMY_DATABASE_URI,WEBHOST,DATA_DIRS_NANOPORE
 from texttable import Texttable
 import datetime
 import os
 import multiprocessing
 import subprocess
 import time
-from modules.useq_illumina_parsers import getExpectedReads
 from modules.useq_nextcloud import NextcloudUtil
 from modules.useq_mail import sendMail
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
 from itertools import islice
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+from xml.dom.minidom import parse
+
 import sys
 import tarfile
 from pathlib import Path
@@ -18,28 +22,34 @@ import re
 import csv
 import glob
 import json
+
+
+
 def parseConversionStats(lims, dir, pid):
-    demux_stats = f'{dir}/Conversion/Reports/Demultiplex_Stats.csv'
-    top_unknown = f'{dir}/Conversion/Reports/Top_Unknown_Barcodes.csv'
-    qual_metrics = f'{dir}/Conversion/Reports/Quality_Metrics.csv'
+    demux_stats = Path(f'{dir}/Conversion/Reports/Demultiplex_Stats.csv')
+    qual_metrics = Path(f'{dir}/Conversion/Reports/Quality_Metrics.csv')
+    if not demux_stats.is_file():
+        sys.exit(f'Error : Could not find {demux_stats} file.')
+
+    if not qual_metrics.is_file():
+        sys.exit(f'Error : Could not find {qual_metrics} file.')
 
     samples = lims.get_samples(projectlimsid=pid)
     sample_names = [x.name for x in samples]
     stats = {
         'total_reads' : 0,
-        'undetermined_reads' : 0,
+        'total_mean_qual' : 0,
+        'total_q30' : 0,
         'samples' : [],
-        'top_unknown' : []
     }
+
+
     samples_tmp = {}
     with open(demux_stats, 'r') as d:
         csv_reader = csv.DictReader(d)
         for row in csv_reader:
-            if row['SampleID'] == 'Undetermined':
-                stats['undetermined_reads'] += float(row['# Reads'])
-                stats['total_reads'] += float(row['# Reads'])
-            else:
-                stats['total_reads'] += float(row['# Reads'])
+
+            stats['total_reads'] += float(row['# Reads'])
 
             if row['SampleID'] not in samples_tmp:
                 samples_tmp[ row['SampleID'] ] = {
@@ -54,20 +64,26 @@ def parseConversionStats(lims, dir, pid):
             samples_tmp[ row['SampleID'] ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
             samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
             # stats['samples'].append(row)
-    if Path(qual_metrics).is_file():
-        with open(qual_metrics,'r') as q:
-            csv_reader = csv.DictReader(q)
-            for row in csv_reader:
 
-                mqs = f'Read {row["ReadNumber"]} Mean Quality Score (PF)'
-                q30 = f'Read {row["ReadNumber"]} % Q30'
-                if mqs not in samples_tmp[ row['SampleID'] ]:
-                    samples_tmp[ row['SampleID'] ][mqs] = 0
-                if q30 not in samples_tmp[ row['SampleID'] ]:
-                    samples_tmp[ row['SampleID'] ][q30] = 0
+    qual_metrics_rows = 0
+    with open(qual_metrics,'r') as q:
+        csv_reader = csv.DictReader(q)
+        for row in csv_reader:
+            qual_metrics_rows += 1
+            mqs = f'Read {row["ReadNumber"]} Mean Quality Score (PF)'
+            q30 = f'Read {row["ReadNumber"]} % Q30'
+            if mqs not in samples_tmp[ row['SampleID'] ]:
+                samples_tmp[ row['SampleID'] ][mqs] = 0
+            if q30 not in samples_tmp[ row['SampleID'] ]:
+                samples_tmp[ row['SampleID'] ][q30] = 0
 
-                samples_tmp[ row['SampleID'] ][mqs] += float(row['Mean Quality Score (PF)'])
-                samples_tmp[ row['SampleID'] ][q30] += float(row['% Q30'])
+            samples_tmp[ row['SampleID'] ][mqs] += float(row['Mean Quality Score (PF)'])
+            samples_tmp[ row['SampleID'] ][q30] += float(row['% Q30'])
+            stats['total_q30'] += float(row['% Q30'])
+            stats['total_mean_qual'] += float(row['Mean Quality Score (PF)'])
+
+    stats['total_q30'] = (stats['total_q30']/qual_metrics_rows) * 100
+    stats['total_mean_qual'] = stats['total_mean_qual'] / qual_metrics_rows
 
     for sampleID in samples_tmp:
         if sampleID not in sample_names:continue
@@ -84,32 +100,7 @@ def parseConversionStats(lims, dir, pid):
         sample['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads']
         stats['samples'].append(sample)
 
-    with open(top_unknown, 'r') as t:
-        csv_reader = csv.DictReader(t)
-        for row in islice(csv_reader,0,20):
-            stats['top_unknown'].append(row)
-    # print (stats)
     return stats
-
-def zipRun( dir, dir_info=None):
-    run_name = os.path.basename(dir)
-    zip_name = None
-    name = multiprocessing.current_process().name
-
-    if dir_info:
-        zip_name = "-".join(dir_info['projects'].keys())
-    else:
-        zip_name = os.path.basename(dir)
-
-    run_zip = "{0}/{1}.tar".format(dir,zip_name)
-    if os.path.isfile(run_zip) and os.path.isfile(f"{run_zip}.done"):
-        print (f"{name}\tSkipping compression step. {run_zip} and {run_zip}.done found. ")
-    else:
-        with tarfile.open(run_zip, "w", dereference=True) as tar:
-            tar.add(dir, arcname=run_name)
-        open(f'{run_zip}.done', 'w').close()
-    return run_zip
-
 
 def shareManual(researcher,dir):
     name = multiprocessing.current_process().name
@@ -139,10 +130,7 @@ def shareManual(researcher,dir):
     if exit_code:
         print (f"{name}\tError : Failed to upload {run_zip} . Please look at {transfer_error} for the reason.")
         return
-    #upload_response = nextcloud_util.upload(run_zip)
-    #if "ERROR" in upload_response:
-    #    print (f"{name}\tError : Failed to upload {run_zip} with message:\n\t{upload_response['ERROR']}")
-    #    return
+
     time.sleep(90)
 
     print (f"{name}\tSharing dir {dir} with {researcher.email}")
@@ -174,133 +162,6 @@ def shareManual(researcher,dir):
 
     return
 
-def shareRaw(lims, project_id,project_info, link_portal):
-
-    name = multiprocessing.current_process().name
-    print (f"{name}\tStarting")
-
-    conversion_stats = None
-    if Path(f'{project_info["dir"]}/Conversion/Reports/Demultiplex_Stats.csv').is_file():
-        conversion_stats = parseConversionStats(lims, project_info['dir'] ,project_id )
-
-    print(conversion_stats)
-
-    expected_yield = getExpectedReads( f"{project_info['dir']}/RunParameters.xml" )
-    if not expected_yield:
-        print (f"{name}\tError : No RunParameters.xml file could be found in {project_info['dir']}!")
-        return
-
-    file_list = nextcloud_util.simpleFileList(project_id)
-    if not file_list:
-        print (f"{name}\tError : No files found in nextcloud dir  {project_id}!")
-        return
-
-    print (f"{name}\tSharing run {project_info['data']} with {project_info['researcher'].email}")
-    # share_response = nextcloud_util.share(project_info['data'], project_info['researcher'].email)
-    share_response = ''
-    if "ERROR" in share_response:
-        print (f"{name}\tError : Failed to share {project_id} with message:\n\t{share_response['ERROR']}")
-        return
-    else:
-        share_id = share_response["SUCCES"][0]
-        pw = share_response["SUCCES"][1]
-        # print (pw)
-        template_data = {
-            'project_id' : project_id,
-            'phone' : project_info['researcher'].phone,
-            'nextcloud_host' : NEXTCLOUD_HOST,
-            'share_id' : share_id,
-            'file_list' : file_list,
-            'conversion_stats' : conversion_stats
-        }
-        # print (conversion_stats)
-        mail_content = renderTemplate('share_raw_template.html', template_data)
-        mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
-
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
-
-        # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
-        # print (pw)
-        # sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
-        # os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
-
-        if link_portal:
-            from sqlalchemy.ext.automap import automap_base
-            from sqlalchemy.orm import Session
-            from sqlalchemy import create_engine
-            from xml.dom.minidom import parse
-            from config import FILE_STORAGE, SQLALCHEMY_DATABASE_URI,WEBHOST
-
-            Base = automap_base()
-            # engine, suppose it has two tables 'user' and 'run' set up
-            engine = create_engine(SQLALCHEMY_DATABASE_URI)
-
-            # reflect the tables
-            Base.prepare(engine, reflect=True)
-            run_dir = Path(project_info['dir'])
-            # mapped classes are now created with names by default
-            # matching that of the table name.
-            # User = Base.classes.user
-            Run = Base.classes.run
-            print(dir(Base.classes))
-            IlluminaSequencingStats = Base.classes.illumina_sequencing_stats
-            session = Session(engine)
-
-            run_info = parse(f"{run_dir}/RunInfo.xml")
-            flowcell_id = run_info.getElementsByTagName('Flowcell')[0].firstChild.nodeValue
-            # print (f"{run_dir}/Conversion/Reports/multiqc_data/multiqc_bclconvert_bysample.json")
-            # with open( f"{run_dir}/Conversion/Reports/multiqc_data/multiqc_bclconvert_bysample.json", 'r') as s:
-            #     general_stats = s.read()
-                # general_stats = "".join(general_stats.split())
-            general_stats = json.dumps( conversion_stats['samples'] )
-            # print(general_stats)
-
-            rsync_command =''
-            if WEBHOST:
-                os.system(f'ssh {WEBHOST} "mkdir -p {FILE_STORAGE}/{project_id}/{flowcell_id}"')
-                rsync_command = f"/usr/bin/rsync {run_dir}/Conversion/Reports/multiqc_plots/png/*.png {run_dir}/Conversion/Reports/*png {WEBHOST}:{FILE_STORAGE}/{project_id}/{flowcell_id}"
-            else:#For local testing purposes
-                os.system(f'mkdir -p {FILE_STORAGE}/{project_id}/{flowcell_id}')
-                rsync_command = f"/usr/bin/rsync {run_dir}/Conversion/Reports/multiqc_plots/png/*.png {run_dir}/Conversion/Reports/*png {FILE_STORAGE}/{project_id}/{flowcell_id}"
-
-            exit_code = os.system(rsync_command)
-            if exit_code :
-                sys.exit(f'Error: Failed tot copy plots to {FILE_STORAGE}')
-
-            run = session.query(Run).filter_by(run_id=project_id).all()[0]
-            ill_stats = session.query(IlluminaSequencingStats).filter_by(run_id=run.id,flowcell_id=flowcell_id ).all()
-            # print(ill_stats[0].flowcell_id)
-            # ill_stats = ''
-            # ill_stats = run.illumina_stats.filter_by(flowcell_id=flowcell_id).all()
-            if ill_stats:
-                ill_stats[0].general_stats=general_stats
-                ill_stats[0].flowcell_intensity_plot = f'{run_dir.name}_flowcell-Intensity.png'
-                ill_stats[0].flowcell_density_plot = f'{run_dir.name}_Clusters-by-lane.png'
-                ill_stats[0].total_qscore_lanes_plot = f'{run_dir.name}_q-histogram.png'
-                ill_stats[0].cycle_qscore_lanes_plot = f'{run_dir.name}_q-heat-map.png'
-                ill_stats[0].cycle_base_plot = f'{run_dir.name}_BasePercent-by-cycle_BasePercent.png'
-                ill_stats[0].cycle_intensity_plot = f'{run_dir.name}_Intensity-by-cycle_Intensity.png'
-                ill_stats[0].lane_counts_plot = 'mqc_bcl2fastq_lane_counts_1.png'
-                ill_stats[0].sample_counts_plot = 'mqc_bcl2fastq_sample_counts_Index_mismatches.png'
-                ill_stats[0].undetermined_plot = 'mqc_bcl2fastq_undetermined_1.png'
-            else:
-                ill_stats = IlluminaSequencingStats(
-                    flowcell_id=flowcell_id,
-                    general_stats=general_stats,
-                    flowcell_intensity_plot = f'{run_dir.name}_flowcell-Intensity.png',
-                    flowcell_density_plot = f'{run_dir.name}_Clusters-by-lane.png',
-                    total_qscore_lanes_plot = f'{run_dir.name}_q-histogram.png',
-                    cycle_qscore_lanes_plot = f'{run_dir.name}_q-heat-map.png',
-                    cycle_base_plot = f'{run_dir.name}_BasePercent-by-cycle_BasePercent.png',
-                    cycle_intensity_plot = f'{run_dir.name}_Intensity-by-cycle_Intensity.png',
-                    lane_counts_plot = 'mqc_bcl2fastq_lane_counts_1.png',
-                    sample_counts_plot = 'mqc_bcl2fastq_sample_counts_Index_mismatches.png',
-                    undetermined_plot = 'mqc_bcl2fastq_undetermined_1.png',
-                    run_id=run.id
-                )
-                session.add(ill_stats)
-            session.commit()
-    return
 
 def chunkify(lst, n):
     """Yield successive n-sized chunks from lst."""
@@ -319,53 +180,78 @@ def check(  ):
        sys.stdout.write("Please respond with '(y)es' or '(n)o'")
     return choice
 
-
-
-def getRawData( lims, project_name, fid ):
-    """Get the most recent raw run info based on project name and allowed RUN_PROCESSES"""
+def getNanoporeRunDetails( lims, project_id, fid ):
     runs = {}
-    print (project_name)
+    for root_dir in DATA_DIRS_NANOPORE:
+
+        for summary_file in glob.glob(f"{root_dir}/**/final_summary_*txt", recursive=True):
+            parent_dir = Path(summary_file).parent
+            with open(summary_file, 'r') as s:
+                tmp = {}
+                for line in s.readlines():
+                    name,val = line.rstrip().split("=")
+                    tmp[name]=val
+                if 'protocol_group_id' in tmp and project_id in tmp['protocol_group_id']:
+                    stats_pdf_search = glob.glob(f"{parent_dir}/*pdf")
+                    run_date = datetime.datetime.strptime(tmp['started'].split("T")[0],"%Y-%m-%d")
+                    if stats_pdf_search:
+                        runs[ run_date ] = {
+                            'flowcell_id' : tmp['flow_cell_id'],
+                            'run_dir' : parent_dir,
+                            'stats_pdf' : stats_pdf_search[0],
+                            'date' : run_date
+                        }
+                    else:
+                        runs[ run_date ] = {
+                            'flowcell_id' : tmp['flow_cell_id'],
+                            'run_dir' : parent_dir,
+                            'stats_pdf' : None,
+                            'date' : run_date
+                        }
+
+    if not runs:
+        return None
+
+
+    latest_date = sorted(runs.keys())[-1]
+    return runs[latest_date]
+
+def getIlluminaRunDetails( lims, project_name, fid ):
+    """Get the most recent raw run info based on project name and allowed RUN_PROCESSES"""
+
+
+    runs = {}
     project_processes = lims.get_processes(
         projectname=project_name,
         type=RUN_PROCESSES
     )
 
     for process in project_processes:
-        run_id = None
         flowcell_id = None
-        print(process)
-        if 'Run ID' in process.udf: run_id = process.udf['Run ID']
+
         if fid:
             flowcell_id = fid
         elif 'Flow Cell ID' in process.udf:
             flowcell_id = process.udf['Flow Cell ID']
-        runs[ process.date_run ] = [  run_id, flowcell_id ]
-    print(runs)
+        runs[ process.date_run ] = flowcell_id
 
     if not runs:
         return None
 
     run_dates = [datetime.datetime.strptime(ts, "%Y-%m-%d") for ts in runs.keys()]
     sorted_run_dates = [datetime.datetime.strftime(ts, "%Y-%m-%d") for ts in sorted(run_dates)]
-    recent_run = runs[sorted_run_dates[-1]] #the most recent run, this is the run we want to share
+    latest_flowcell_id = runs[sorted_run_dates[-1]] #the most recent run, this is the run we want to share
 
     #Try to determine run directory
-    if recent_run[0]:
-        for machine_dir in DATA_DIRS_RAW:
-            md_path = Path(f'{machine_dir}/{recent_run[0]}')
-            if md_path.is_dir():
-                return md_path
-
-    elif recent_run[1]: #run flowcell is known
-        for machine_dir in DATA_DIRS_RAW:
-            md_path = Path(machine_dir)
-            for run_dir in md_path.glob("*"):
-                if run_dir.name.endswith("_000000000-"+recent_run[1]): #MiSeq
-                    return run_dir
-                elif run_dir.name.endswith("_"+recent_run[1]): #NextSeq
-                    return run_dir
-                elif run_dir.name.endswith("A"+recent_run[1]) or run_dir.name.endswith("B"+recent_run[1]): #HiSeq
-                    return run_dir
+    for machine_dir in DATA_DIRS_RAW:
+        md_path = Path(machine_dir)
+        for run_dir in md_path.glob("*"):
+            if run_dir.name.endswith("_000000000-"+latest_flowcell_id): #MiSeq
+                return (Path(run_dir),latest_flowcell_id,sorted_run_dates[-1])
+            elif run_dir.name.endswith("_"+latest_flowcell_id): #NextSeq
+                return (Path(run_dir),latest_flowcell_id,sorted_run_dates[-1])
+            elif run_dir.name.endswith("A"+latest_flowcell_id) or run_dir.name.endswith("B"+latest_flowcell_id): #HiSeq
+                return (Path(run_dir),latest_flowcell_id,sorted_run_dates[-1])
 
     return None
 
@@ -450,70 +336,233 @@ def shareDataByUser(lims, username, dir):
             process.join()
 
 
-def shareDataById(lims, ids, fid, link_portal):
-    """Get's the run names, encrypts the run data and sends it to the appropriate client"""
-    project_ids = ids.split(",")
+def shareDataById(lims, project_id, fid, link_portal):
+
     run_info = {}
+    project = None
+    project_name = ''
 
-    for project_id in project_ids:
-        project = None
-        project_name = ''
-        try:
-            project = Project(lims, id=project_id)
-            project_name = project.name
-        except:
-            print (f"Error : Project ID {project_id} not found!")
-            continue
+    try:
+        project = Project(lims, id=project_id)
+        project_name = project.name
+    except:
+        sys.exit(f"Error : Project ID {project_id} not found in LIMS!")
 
-        researcher = project.researcher
-        if not researcher.phone:
-            print(f'Error : User ID {researcher.username} for project ID {project_id} has not provided a phone number yet.')
-            continue
+    researcher = project.researcher
+    if not researcher.phone:
+        sys.exit(f'Error : User ID {researcher.username} for project ID {project_id} has not provided a phone number yet!')
 
-        run_dir = getRawData(lims, project_name, fid)
+    #Fetch project from Portal DB
+    portal_run = session.query(Run).filter_by(run_id=project_id).first()
+    if not portal_run:
+        sys.exit(f'Error : Project ID {project_id} not found in Portal DB!')
 
-        print('Run dir:',run_dir)
-        print ( f'{project_id}')
-        if not nextcloud_util.checkExists( f'{project_id}' ) or not run_dir:
-            print (f'Error : {project_id} was not uploaded to Nextcloud yet.')
-            continue
 
-        run_info[project_id] = {
 
-            'researcher' : researcher,
-            'project_name' : project_name,
-            'data' : f'{project_id}',
-            'dir' : run_dir
-        }
+    if portal_run.platform == 'Oxford Nanopore':
+        run_info = getNanoporeRunDetails(lims, project_id, fid)
 
-    if not run_info:
-        print ("Error : None of the provided project IDs are able to be processed!")
-    else:
-        print ("\nAre you sure you want to send the following datasets(s) (yes/no): ")
+        run_dir = run_info['run_dir']
+        if not run_info:
+            sys.exit(f'Error : No Nanopore run directory could be found!')
+
+        if nextcloud_util.checkExists( f'{project_id}' ):
+            sys.exit(f'Error : {project_id} was already uploaded to Nextcloud, please delete it first!')
+
+        print ("\nAre you sure you want to send the following dataset (yes/no): ")
         table = Texttable(max_width=0)
         table.add_rows([['Data','Project (ID:Name)','Client Email']])
-        for project_id in run_info:
-            table.add_row( [ run_info[project_id]['data'], f"{project_id}:{run_info[project_id]['project_name']}", run_info[project_id]['researcher'].email])
+        table.add_row( [ run_dir.name, f"{project_id}:{project_name}", researcher.email])
+        print (table.draw())
+        if check():
+            run_zip = Path(f"{run_dir}/{run_dir.name}.tar")
+            zip_done = Path(f"{run_dir}/{run_dir.name}.tar.done")
+            if run_zip.is_file() and zip_done.is_file():
+                print (f"Warning : Skipping compression step. {run_zip} and {zip_done} found. ")
+            else:
+                print (f"Running compression")
+                zip_command = f"cd {run_dir.parent} && tar -chf {run_zip} {run_dir.name} "
+                exit_code = os.system(zip_command)
+                if exit_code:
+                    sys.exit (f"Error: Failed creating {run_zip}.")
+                else:
+                    zip_done.touch()
+
+            print (f"Running upload to NextCloud")
+            transfer_log = f'{run_dir}/transfer.log'
+            transfer_error = f'{run_dir}/transfer.error'
+            transfer_command = f'scp {run_zip} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR} 1>>{transfer_log} 2>>{transfer_error}'
+
+            exit_code = os.system(transfer_command)
+            if exit_code:
+                sys.exit(f"Error : Failed to upload {run_zip} to NextCloud. Please look at {transfer_error} for the reason.")
+
+            time.sleep(90)
+
+            print (f"Sharing dir {run_dir} with {researcher.email}")
+            share_response = nextcloud_util.share(run_zip.name, researcher.email)
+            if "ERROR" in share_response:
+                sys.exit (f"Error : Failed to share {run_zip} with message:\n\t{share_response['ERROR']}")
+
+            else:
+                share_id = share_response["SUCCES"][0]
+                pw = share_response["SUCCES"][1]
+                template_data = {
+                    'project_id' : project_id,
+                    'phone' : researcher.phone,
+                    'nextcloud_host' : NEXTCLOUD_HOST,
+                    'share_id' : share_id,
+                }
+                mail_content = renderTemplate('share_nanopore_template.html', template_data)
+                mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
+
+                sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
+                os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
+                # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+                # print (pw)
+
+
+            run_zip.unlink()
+            zip_done.unlink()
+
+            prev_results = session.query(NanoporeSequencingStats).filter_by(flowcell_id=run_info['flowcell_id']).first()
+            if prev_results:
+                sys.exit(f'Warning : Stats for {run_info["flowcell_id"]} where already uploaded to portal db. Skipping.')
+
+            tmp_dir = Path(f"{run_dir}/{run_info['flowcell_id']}")
+            if not tmp_dir.is_dir():
+                tmp_dir.mkdir()
+            os.system(f"cp {run_info['stats_pdf']} {tmp_dir}")
+
+            rsync_command = f"/usr/bin/rsync -rah {tmp_dir} useq_daemon_dev@{WEBHOST}:{FILE_STORAGE}/"
+            print(rsync_command)
+            exit_code = os.system(rsync_command)
+            if exit_code :
+                sys.exit(f'Error : Failed tot copy stats pdf to {FILE_STORAGE}. Please fix this manually using link_run_results!')
+
+            os.system(f"rm -r {tmp_dir}")
+            nan_stats = NanoporeSequencingStats(
+                general_stats = Path(run_info['stats_pdf']).name,
+                date = run_info['date'],
+                flowcell_id = run_info['flowcell_id'],
+                run_id=portal_run.id
+            )
+            session.add(nan_stats)
+            session.commit()
+            print(f'Uploaded stats for {project_id} to portal db.')
+    else:
+
+        run_dir, flowcell_id, date_run = getIlluminaRunDetails(lims, project_name, fid)
+        if not run_dir:
+            sys.exit(f'Error : No Illumina run directory could be found!')
+
+        if not nextcloud_util.checkExists( f'{project_id}' ):
+            sys.exit(f'Error : {project_id} was not uploaded to Nextcloud yet!')
+
+        file_list = nextcloud_util.simpleFileList(project_id)
+        if not file_list:
+            sys.exit(f"{name}\tError : No files found in nextcloud dir  {project_id}!")
+
+        conversion_stats = parseConversionStats(lims, run_dir ,project_id )
+        if not conversion_stats['total_reads']:
+            print(f'Warning : No read totals could be found in demultiplexing stats {run_dir}!')
+
+
+        print ("\nAre you sure you want to send the following datasets (yes/no): ")
+        table = Texttable(max_width=0)
+        table.add_rows([['Data','Project (ID:Name)','Client Email', '# Samples','Total Reads', '% Q30', 'Mean Quality']])
+        if conversion_stats['total_reads']:
+            table.add_row( [ run_dir.name, f"{project_id}:{project_name}", researcher.email, len(conversion_stats['samples']), conversion_stats['total_reads'],f"{conversion_stats['total_q30']}",conversion_stats['total_mean_qual']])
+        else:
+            table.add_row( [ run_dir.name, f"{project_id}:{project_name}", researcher.email, '?','?','?','?'])
         print (table.draw())
 
         if check():
-            #Start sharing threads
-            share_processes =[]
-            for project_id in run_info:
-                share_process = None
+            share_response = nextcloud_util.share(project_id, researcher.email)
 
-                share_process = multiprocessing.Process(name=f"Process_{project_id}", target=shareRaw, args=(lims,project_id, run_info[project_id], link_portal) )
+            if "ERROR" in share_response:
+                sys.exit (f"{name}\tError : Failed to share {project_id} with message:\n\t{share_response['ERROR']}")
+            else:
+                share_id = share_response["SUCCES"][0]
+                pw = share_response["SUCCES"][1]
 
-                share_processes.append(share_process)
-                share_process.start()
+                template_data = {
+                    'project_id' : project_id,
+                    'phone' : researcher.phone,
+                    'nextcloud_host' : NEXTCLOUD_HOST,
+                    'share_id' : share_id,
+                    'file_list' : file_list,
+                    'conversion_stats' : conversion_stats
+                }
 
-            for process in share_processes:
-                process.join()
+                mail_content = renderTemplate('share_illumina_template.html', template_data)
+                mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
+
+                sendMail(mail_subject,mail_content, MAIL_SENDER ,project_info['researcher'].email)
+                os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{project_info['researcher'].username},_A_link_for_runID_{project_id}_was_send_to_{project_info['researcher'].email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {project_info['researcher'].phone}\"")
+
+                # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+                # print (pw)
+
+                print(f'Shared {project_id} with {researcher.email}')
+
+                prev_results = session.query(IlluminaSequencingStats).filter_by(flowcell_id=flowcell_id).first()
+                if prev_results:
+                    sys.exit(f'Warning : Stats for {flowcell_id} where already uploaded to portal db. Skipping.')
+
+                if len(conversion_stats['samples']) > 0:
+                    tmp_dir = Path(f"{run_dir}/{flowcell_id}")
+                    if not tmp_dir.is_dir():
+                        tmp_dir.mkdir()
+                    conversion_stats_json_file = Path(f"{tmp_dir}/Conversion_Stats.json")
+                    with open(conversion_stats_json_file, 'w') as c:
+                        c.write( json.dumps( conversion_stats['samples'] ) )
+
+                    os.system(f"scp -r {run_dir}/Conversion/Reports/*png {tmp_dir}")
+
+                    rsync_command = f"/usr/bin/rsync -rah {tmp_dir} useq_daemon_dev@{WEBHOST}:{FILE_STORAGE}/"
+                    exit_code = os.system(rsync_command)
+                    if exit_code :
+                        sys.exit(f'Error : Failed tot copy plots to {FILE_STORAGE}. Please fix this manually using link_run_results!')
+
+                    ill_stats = IlluminaSequencingStats(
+                        flowcell_id=flowcell_id,
+                        general_stats=conversion_stats_json_file.name,
+                        date=date_run,
+                        flowcell_intensity_plot = f'{run_dir.name}_flowcell-Intensity.png',
+                        flowcell_density_plot = f'{run_dir.name}_Clusters-by-lane.png',
+                        total_qscore_lanes_plot = f'{run_dir.name}_q-histogram.png',
+                        cycle_qscore_lanes_plot = f'{run_dir.name}_q-heat-map.png',
+                        cycle_base_plot = f'{run_dir.name}_BasePercent-by-cycle_BasePercent.png',
+                        cycle_intensity_plot = f'{run_dir.name}_Intensity-by-cycle_Intensity.png',
+                        run_id=portal_run.id
+                    )
+                    session.add(ill_stats)
+                    session.commit()
+                    print(f'Uploaded stats for {project_id} to portal db.')
+                else:
+                    print(f'Warning : Failed to upload run stats, no samples found in conversion stats. Please fix this manually using link_run_results.')
+
+
 
 def run(lims, ids, username, dir, fid, link_portal):
     """Runs raw, processed or manual function based on mode"""
 
     global nextcloud_util
+    global session
+    global Run
+    global IlluminaSequencingStats
+    global NanoporeSequencingStats
+
+    #Set up portal db connection +
+    Base = automap_base()
+    ssl_args = {'ssl_ca': '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt'}
+    engine = create_engine(SQLALCHEMY_DATABASE_URI, connect_args=ssl_args)
+    Base.prepare(engine, reflect=True)
+    Run = Base.classes.run
+    IlluminaSequencingStats = Base.classes.illumina_sequencing_stats
+    NanoporeSequencingStats = Base.classes.nanopore_sequencing_stats
+    session = Session(engine)
 
     #Set up nextcloud
     nextcloud_util = NextcloudUtil()

@@ -82,6 +82,7 @@ def getAllCosts():
     costs_lower['s4 : 2 x 100 bp'] = costs_lower[ 'novaseq 6000 s4 2 x 100 bp' ]
     costs_lower['s4 : 1 x 35 bp'] = costs_lower['novaseq 6000 s4 1 x 35 bp']
     costs_lower['wgs at hmf'] = costs_lower['novaseq 6000 wgs at hmf']
+    costs_lower['wgs'] = costs_lower['novaseq 6000 wgs at hmf']
     costs_lower['sp : 2 x 100 bp'] = costs_lower['novaseq 6000 sp 2 x 100 bp']
     costs_lower['sp : 2 x 50 bp'] = costs_lower[ 'novaseq 6000 sp 2 x 50 bp' ]
     costs_lower['sp : 2 x 150 bp'] = costs_lower['novaseq 6000 sp 2 x 150 bp' ]
@@ -95,6 +96,7 @@ def getAllCosts():
     costs_lower['1 x 75 bp'] = costs_lower['iseq 100 1 x 75 bp']
     costs_lower['2 x 75 bp'] = costs_lower['iseq 100 2 x 75 bp']
     costs_lower['2 x 150 bp'] = costs_lower['iseq 100 2 x 150 bp']
+    costs_lower['p1 : 1 x 300 bp'] = costs_lower['nextseq2000 1 x 300 bp p1']
     costs_lower['p2 : 2 x 50 bp'] = costs_lower['nextseq2000 2 x 50 bp p2']
     costs_lower['p2 : 2 x 100 bp'] = costs_lower['nextseq2000 2 x 100 bp p2']
     costs_lower['p2 : 2 x 150 bp'] = costs_lower['nextseq2000 2 x 150 bp p2']
@@ -131,198 +133,212 @@ def getStepProtocol(lims, step_id=None, step_uri=None):
 
 
 def getSeqFinance(lims, step_uri):
-	"""Calculates the costs for all sequencing runs included in the step"""
-	seq_finance = []
-	all_costs = getAllCosts()
+    """Calculates the costs for all sequencing runs included in the step"""
+    seq_finance = []
+    all_costs = getAllCosts()
 
-	step_details = Step(lims, uri=step_uri).details
-	runs = {}
-	#Get the input artifacts (which is a pool of samples)
-	for io_map in step_details.input_output_maps:
-		pool = io_map[0]['uri']
-		runs[pool.id] = {
-			'errors' : set(),
-			'platform' : None,
-			'name' : None,'id' : None,'open_date' : None,'nr_samples' : 0,'first_submission_date' : None,'received_date' : set(), 'project_comments' : None,#project fields
-			'pool' : pool.id,
-			'lims_runtype' : None,		'requested_runtype' : set(),		'run_personell_costs' : 0, 'run_step_costs':0,		'run_date' : None,			'succesful' : None, #run fields
-			'lims_isolation' : set(),	'type' : set(),						'isolation_personell_costs' : 0,	'isolation_step_costs':0, 'isolation_date' : set(), #isolation fields
-			'lims_library_prep' : set(),'requested_library_prep' : set(),	'libprep_personell_costs' : 0,	'libprep_step_costs':0,'libprep_date' : set(), #libprep fields
-			'lims_analysis' : set(),	'requested_analysis' : set(),		'analysis_personell_costs' : 0,	'analysis_step_costs': 0,'analysis_date' : set(), #analysis fields
-			'total_step_costs' :0,'total_personell_costs':0,
-			'contact_name' : None,'contact_email' : None,'lab_name' : None,'budget_nr' : None,'institute' : None,'postalcode' : None,'city' : None,'country' : None,'department' : None,'street' : None,
-			'vat_nr' : None, 'deb_nr' : None
+    step_details = Step(lims, uri=step_uri).details
+    runs = {}
+    #Get the input artifacts (which is a pool of samples)
+    for io_map in step_details.input_output_maps:
+        pool = io_map[0]['uri']
+        runs[pool.id] = {
+        }
 
-		}
+        for sample in pool.samples:
+            project_id = sample.project.id
+            if project_id not in runs[pool.id]:
+                runs[pool.id][project_id] = {
+                    'errors' : set(),
+                    'platform' : None,
+                    'name' : None,'id' : None,'open_date' : None,'nr_samples' : 0,'first_submission_date' : None,'received_date' : set(), 'project_comments' : None,#project fields
+                    'pool' : pool.id,
+                    'lims_runtype' : None,		'requested_runtype' : set(),		'run_personell_costs' : 0, 'run_step_costs':0,		'run_date' : None,			'succesful' : None, #run fields
+                    'lims_isolation' : set(),	'type' : set(),						'isolation_personell_costs' : 0,	'isolation_step_costs':0, 'isolation_date' : set(), #isolation fields
+                    'lims_library_prep' : set(),'requested_library_prep' : set(),	'libprep_personell_costs' : 0,	'libprep_step_costs':0,'libprep_date' : set(), #libprep fields
+                    'lims_analysis' : set(),	'requested_analysis' : set(),		'analysis_personell_costs' : 0,	'analysis_step_costs': 0,'analysis_date' : set(), #analysis fields
+                    'total_step_costs' :0,'total_personell_costs':0,
+                    'contact_name' : None,'contact_email' : None,'lab_name' : None,'budget_nr' : None,'institute' : None,'postalcode' : None,'city' : None,'country' : None,'department' : None,'street' : None,
+                    'vat_nr' : None, 'deb_nr' : None
+                }
 
-		for sample in pool.samples:
-			runs[pool.id]['nr_samples'] += 1
-			runs[pool.id]['received_date'].add(sample.date_received)
-			runs[pool.id]['type'].add(sample.udf['Sample Type'])
-			if 'Library prep kit' in sample.udf:
-				runs[pool.id]['requested_library_prep'].add(sample.udf['Library prep kit'])
+            runs[pool.id][project_id]['nr_samples'] += 1
+            runs[pool.id][project_id]['received_date'].add(sample.date_received)
+            runs[pool.id][project_id]['type'].add(sample.udf['Sample Type'])
+            if 'Library prep kit' in sample.udf:
+                runs[pool.id][project_id]['requested_library_prep'].add(sample.udf['Library prep kit'])
 
-			runs[pool.id]['requested_runtype'].add(sample.udf['Sequencing Runtype'])
-			runs[pool.id]['platform'] = sample.udf['Platform']
+            runs[pool.id][project_id]['requested_runtype'].add(sample.udf['Sequencing Runtype'])
+            runs[pool.id][project_id]['platform'] = sample.udf['Platform']
 
-			sample_artifacts = lims.get_artifacts(samplelimsid=sample.id)
+            sample_artifacts = lims.get_artifacts(samplelimsid=sample.id)
+            for sample_artifact in sample_artifacts:
+                if not sample_artifact.parent_process: continue
+                process_name = sample_artifact.parent_process.type.name
+                # print(pool.id, project_id, runs[pool.id][project_id]['type'],runs[pool.id][project_id]['requested_runtype'],process_name)
+                if process_name in ISOLATION_PROCESSES :
+                    isolation_type = "{0} isolation".format(sample_artifact.udf['US Isolation Type'].split(" ")[0].lower())
 
-			for sample_artifact in sample_artifacts:
+                    billing_date = getNearestBillingDate(all_costs, isolation_type , sample_artifact.parent_process.date_run)
 
+                    runs[pool.id][project_id]['isolation_step_costs'] += float(all_costs[ isolation_type ][ 'date_step_costs' ][ billing_date ])
+                    runs[pool.id][project_id]['isolation_personell_costs'] += float(all_costs[ isolation_type ][ 'date_personell_costs' ][ billing_date ])
+                    runs[pool.id][project_id]['total_step_costs']+= float(all_costs[ isolation_type ][ 'date_step_costs' ][ billing_date ])
+                    runs[pool.id][project_id]['total_personell_costs']+= float(all_costs[ isolation_type ][ 'date_personell_costs' ][ billing_date ])
+                    runs[pool.id][project_id]['lims_isolation'].add(sample_artifact.udf['US Isolation Type'])
+                    runs[pool.id][project_id]['isolation_date'].add(sample_artifact.parent_process.date_run)
 
+                    if isolation_type == 'rna isolation' and sample.udf['Sample Type'] != 'RNA unisolated':
+                        runs[pool.id][project_id]['errors'].add("Isolation type {0} in LIMS doesn't match sample type {1}".format(isolation_type, sample.udf['Sample Type']))
+                    elif isolation_type == 'dna isolation' and sample.udf['Sample Type'] != 'DNA unisolated':
+                        runs[pool.id][project_id]['errors'].add("Isolation type {0} in LIMS doesn't match sample type {1}".format(isolation_type, sample.udf['Sample Type']))
 
-				if not sample_artifact.parent_process: continue
-				process_name = sample_artifact.parent_process.type.name
+                elif process_name in LIBPREP_PROCESSES and sample.udf['Sequencing Runtype'] != 'WGS at HMF' and sample.udf['Sequencing Runtype'] != 'WGS':
+                # print (sample.project.id, process_name, runs[pool.id]['requested_runtype'])
+                    lims_library_prep = ''
 
-
-				if process_name in ISOLATION_PROCESSES :
-					isolation_type = "{0} isolation".format(sample_artifact.udf['US Isolation Type'].split(" ")[0].lower())
-
-					billing_date = getNearestBillingDate(all_costs, isolation_type , sample_artifact.parent_process.date_run)
-
-					runs[pool.id]['isolation_step_costs'] += float(all_costs[ isolation_type ][ 'date_step_costs' ][ billing_date ])
-					runs[pool.id]['isolation_personell_costs'] += float(all_costs[ isolation_type ][ 'date_personell_costs' ][ billing_date ])
-					runs[pool.id]['total_step_costs']+= float(all_costs[ isolation_type ][ 'date_step_costs' ][ billing_date ])
-					runs[pool.id]['total_personell_costs']+= float(all_costs[ isolation_type ][ 'date_personell_costs' ][ billing_date ])
-					runs[pool.id]['lims_isolation'].add(sample_artifact.udf['US Isolation Type'])
-					runs[pool.id]['isolation_date'].add(sample_artifact.parent_process.date_run)
-
-					if isolation_type == 'rna isolation' and sample.udf['Sample Type'] != 'RNA unisolated':
-						runs[pool.id]['errors'].add("Isolation type {0} in LIMS doesn't match sample type {1}".format(isolation_type, sample.udf['Sample Type']))
-					elif isolation_type == 'dna isolation' and sample.udf['Sample Type'] != 'DNA unisolated':
-						runs[pool.id]['errors'].add("Isolation type {0} in LIMS doesn't match sample type {1}".format(isolation_type, sample.udf['Sample Type']))
-
-				elif process_name in LIBPREP_PROCESSES and sample.udf['Sequencing Runtype'] != 'WGS at HMF':
-					# print (sample.project.id, process_name, runs[pool.id]['requested_runtype'])
-					lims_library_prep = ''
-
-					if 'flongle' in sample.udf['Sequencing Runtype'].lower():
-						lims_library_prep = 'nanopore flongle library prep'
-						print (lims_library_prep)
-					elif 'minion' in sample.udf['Sequencing Runtype'].lower() or 'promethion' in sample.udf['Sequencing Runtype'].lower():
-						lims_library_prep = 'nanopore minion library prep'
-						print (lims_library_prep)
-					else:
-						protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
-						lims_library_prep = protocol_name.split("-",1)[1].lower().strip()
+                    if 'flongle' in sample.udf['Sequencing Runtype'].lower():
+                        lims_library_prep = 'nanopore flongle library prep'
+                    elif 'minion' in sample.udf['Sequencing Runtype'].lower() or 'promethion' in sample.udf['Sequencing Runtype'].lower():
+                        lims_library_prep = 'nanopore minion library prep'
+                    else:
+                        protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
+                        lims_library_prep = protocol_name.split("-",1)[1].lower().strip()
 
 
-					runs[pool.id]['lims_library_prep'].add(lims_library_prep)
+                    runs[pool.id][project_id]['lims_library_prep'].add(lims_library_prep)
 
-					billing_date = getNearestBillingDate(all_costs, lims_library_prep , sample_artifact.parent_process.date_run)
-					runs[pool.id]['libprep_step_costs'] += float(all_costs[ lims_library_prep][ 'date_step_costs' ][ billing_date ])
-					runs[pool.id]['libprep_personell_costs'] += float(all_costs[ lims_library_prep][ 'date_personell_costs' ][ billing_date ])
-					runs[pool.id]['total_step_costs'] += float(all_costs[ lims_library_prep][ 'date_step_costs' ][ billing_date ])
-					runs[pool.id]['total_personell_costs'] += float(all_costs[ lims_library_prep][ 'date_personell_costs' ][ billing_date ])
-					runs[pool.id]['libprep_date'].add(sample_artifact.parent_process.date_run)
-				elif process_name in RUN_PROCESSES and not runs[pool.id]['lims_runtype']:
-					protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
-					runs[pool.id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
-
-					requested_runtype = sample.udf['Sequencing Runtype'].lower()
-					billing_date = getNearestBillingDate(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
-					if requested_runtype == 'wgs at hmf':
-						runs[pool.id]['run_step_costs'] = float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ]) * len(pool.samples)
-						runs[pool.id]['run_personell_costs'] = float(0)
-						runs[pool.id]['total_step_costs'] += float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ]) * len(pool.samples)
-						runs[pool.id]['run_date'] = sample_artifact.parent_process.date_run
-					else:
-						runs[pool.id]['run_step_costs'] = float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ])
-						runs[pool.id]['run_personell_costs'] = float(all_costs[ requested_runtype ][ 'date_personell_costs' ][ billing_date ])
-						runs[pool.id]['total_step_costs'] += float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ])
-						runs[pool.id]['total_personell_costs'] += float(all_costs[ requested_runtype ][ 'date_personell_costs' ][ billing_date ])
-						runs[pool.id]['run_date'] = sample_artifact.parent_process.date_run
-
-					# if runs[pool.id]['lims_runtype'].split(" ")[0] not in ",".join(runs[pool.id]['requested_runtype']).lower():
-						# runs[pool.id]['errors'].add("Run type {0} in LIMS doesn't match run type {1}".format(runs[pool.id]['lims_runtype'],",".join(runs[pool.id]['requested_runtype'])))
-				elif process_name in ANALYSIS_PROCESSES:
-					billing_date = getNearestBillingDate(all_costs, 'mapping wgs' , sample_artifact.parent_process.date_run)
-					runs[pool.id]['analysis_date'].add(sample_artifact.parent_process.date_run)
-					analysis_steps =['Raw data (FastQ)']
-					analysis_step_costs = 0
-					analysis_personell_costs = 0
-					if sample_artifact.parent_process.udf['Mapping']:
-						analysis_steps.append('Mapping')
-						if sample.udf['Sample Type'].startswith('RNA'):
-							analysis_step_costs += float(all_costs['mapping rna']['date_step_costs'][ billing_date ])
-							analysis_personell_costs += float(all_costs['mapping rna']['date_personell_costs'][ billing_date ])
-						elif 'Targeted' in sample.udf['Analysis']:
-							analysis_step_costs += float(all_costs['mapping (targeted selection / chip-seq)']['date_step_costs'][ billing_date ])
-							analysis_personell_costs += float(all_costs['mapping (targeted selection / chip-seq)']['date_personell_costs'][ billing_date ])
-						else:
-							analysis_step_costs += float(all_costs['mapping wgs']['date_step_costs'][ billing_date ])
-							analysis_personell_costs += float(all_costs['mapping wgs']['date_personell_costs'][ billing_date ])
-					if sample_artifact.parent_process.udf['Germline SNV/InDel calling']:
-						analysis_steps.append('Germline SNV/InDel calling')
-						analysis_step_costs += float(all_costs['germline snv/indel calling']['date_step_costs'][ billing_date ])
-						analysis_personell_costs += float(all_costs['germline snv/indel calling']['date_personell_costs'][ billing_date ])
-					if sample_artifact.parent_process.udf['Read count analysis (mRNA)']:
-						analysis_steps.append('Read count analysis (mRNA)')
-						analysis_step_costs += float(all_costs['read count analysis (mrna)']['date_step_costs'][ billing_date ])
-						analysis_personell_costs += float(all_costs['read count analysis (mrna)']['date_personell_costs'][ billing_date ])
-					if sample_artifact.parent_process.udf['Differential expression analysis + figures (mRNA)']:
-						analysis_steps.append('Differential expression analysis + figures (mRNA)')
-						analysis_step_costs += float(all_costs['differential expression analysis + figures (mrna)']['date_step_costs'][ billing_date ])
-						analysis_personell_costs += float(all_costs['differential expression analysis + figures (mrna)']['date_personell_costs'][ billing_date ])
-					if sample_artifact.parent_process.udf['CNV + SV calling']:
-						analysis_steps.append('CNV + SV calling')
-						analysis_step_costs += float(all_costs['cnv + sv calling']['date_step_costs'][ billing_date ])
-						analysis_personell_costs += float(all_costs['cnv + sv calling']['date_personell_costs'][ billing_date ])
-					if sample_artifact.parent_process.udf['Somatic calling (tumor/normal pair)']:
-						analysis_steps.append('Somatic calling (tumor/normal pair)')
-						analysis_step_costs += float(all_costs['somatic calling (tumor/normal pair)']['date_step_costs'][ billing_date ])
-						analysis_personell_costs += float(all_costs['somatic calling (tumor/normal pair)']['date_personell_costs'][ billing_date ])
-
-					runs[pool.id]['requested_analysis'].add("|".join(sorted(sample.udf['Analysis'].split(","))))
-					runs[pool.id]['lims_analysis'].add("|".join( sorted( analysis_steps) ))
-					runs[pool.id]['analysis_step_costs'] += analysis_step_costs
-					runs[pool.id]['analysis_personell_costs'] += analysis_personell_costs
-					runs[pool.id]['total_step_costs'] += analysis_step_costs
-					runs[pool.id]['total_personell_costs'] += analysis_personell_costs
-					if runs[pool.id]['requested_analysis'] != runs[pool.id]['lims_analysis']:
-						runs[pool.id]['errors'].add("Analysis type {0} in LIMS doesn't match analysis {1}".format(runs[pool.id]['lims_analysis'], runs[pool.id]['requested_analysis']))
+                    billing_date = getNearestBillingDate(all_costs, lims_library_prep , sample_artifact.parent_process.date_run)
+                    runs[pool.id][project_id]['libprep_step_costs'] += float(all_costs[ lims_library_prep][ 'date_step_costs' ][ billing_date ])
+                    runs[pool.id][project_id]['libprep_personell_costs'] += float(all_costs[ lims_library_prep][ 'date_personell_costs' ][ billing_date ])
+                    runs[pool.id][project_id]['total_step_costs'] += float(all_costs[ lims_library_prep][ 'date_step_costs' ][ billing_date ])
+                    runs[pool.id][project_id]['total_personell_costs'] += float(all_costs[ lims_library_prep][ 'date_personell_costs' ][ billing_date ])
+                    runs[pool.id][project_id]['libprep_date'].add(sample_artifact.parent_process.date_run)
 
 
-				elif runs[pool.id]['platform'] == 'Oxford Nanopore' and not runs[pool.id]['lims_runtype'] and process_name == 'USEQ - Library Pooling':
-					#Nanopore fix, since sequencing step does not produce derived samples
-					runs[pool.id]['lims_runtype'] = sample.udf['Sequencing Runtype'].lower()
-					requested_runtype = sample.udf['Sequencing Runtype'].lower()
-					billing_date = getNearestBillingDate(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
-					runs[pool.id]['run_step_costs'] = float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ])
-					runs[pool.id]['run_personell_costs'] = float(all_costs[ requested_runtype ][ 'date_personell_costs' ][ billing_date ])
-					runs[pool.id]['total_step_costs'] += float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ])
-					runs[pool.id]['total_personell_costs'] += float(all_costs[ requested_runtype ][ 'date_personell_costs' ][ billing_date ])
-					runs[pool.id]['run_date'] = sample_artifact.parent_process.date_run
+                elif process_name in RUN_PROCESSES and not runs[pool.id][project_id]['lims_runtype']:
 
-			#Get billing specific info
-			if not runs[pool.id]['name'] :
-				runs[pool.id]['first_submission_date'] = sample.date_received
+                    protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
+                    runs[pool.id][project_id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 
-				if 'Sequencing Succesful' in pool.udf : runs[pool.id]['succesful'] = pool.udf['Sequencing Succesful']
-				runs[pool.id]['name'] = sample.project.name
-				runs[pool.id]['id'] = sample.project.id
-				runs[pool.id]['open_date'] = sample.project.open_date
-				if 'Comments and agreements' in sample.project.udf:
-					runs[pool.id]['project_comments'] = sample.project.udf['Comments and agreements']
-					runs[pool.id]['project_comments'] = runs[pool.id]['project_comments'].replace('\n', ' ').replace('\r', '')
-				runs[pool.id]['contact_name'] = sample.project.researcher.first_name + " " + sample.project.researcher.last_name
-				runs[pool.id]['contact_email'] = sample.project.researcher.email
-				runs[pool.id]['lab_name'] = sample.project.researcher.lab.name
-				if 'Budget Number' in sample.udf:
-					runs[pool.id]['budget_nr'] = sample.udf['Budget Number']
-				else:
-					print ("No Budgetnumber:", sample.project.id)
-				runs[pool.id]['institute'] = sample.project.researcher.lab.billing_address['institution']
-				runs[pool.id]['postalcode'] = sample.project.researcher.lab.billing_address['postalCode']
-				runs[pool.id]['city'] = sample.project.researcher.lab.billing_address['city']
-				runs[pool.id]['country'] = sample.project.researcher.lab.billing_address['country']
-				runs[pool.id]['department'] = sample.project.researcher.lab.billing_address['department']
-				runs[pool.id]['street'] = sample.project.researcher.lab.billing_address['street']
-				if 'UMCU_DebNr' in sample.project.researcher.lab.udf: runs[pool.id]['deb_nr'] = sample.project.researcher.lab.udf['UMCU_DebNr']
-				if 'UMCU_VATNr' in sample.project.researcher.lab.udf: runs[pool.id]['vat_nr'] = sample.project.researcher.lab.udf['UMCU_VATNr']
+                    requested_runtype = sample.udf['Sequencing Runtype'].lower()
+                    billing_date = getNearestBillingDate(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
+
+                    if requested_runtype == 'wgs at hmf' or requested_runtype == 'wgs':
+
+                        runs[pool.id][project_id]['run_date'] = sample_artifact.parent_process.date_run
+                    else:
+                        runs[pool.id][project_id]['run_step_costs'] = float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ])
+                        runs[pool.id][project_id]['run_personell_costs'] = float(all_costs[ requested_runtype ][ 'date_personell_costs' ][ billing_date ])
+                        runs[pool.id][project_id]['total_step_costs'] += float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ])
+                        runs[pool.id][project_id]['total_personell_costs'] += float(all_costs[ requested_runtype ][ 'date_personell_costs' ][ billing_date ])
+                        runs[pool.id][project_id]['run_date'] = sample_artifact.parent_process.date_run
+
+                elif process_name in ANALYSIS_PROCESSES:
+                    billing_date = getNearestBillingDate(all_costs, 'mapping wgs' , sample_artifact.parent_process.date_run)
+                    runs[pool.id][project_id]['analysis_date'].add(sample_artifact.parent_process.date_run)
+                    analysis_steps =['Raw data (FastQ)']
+                    analysis_step_costs = 0
+                    analysis_personell_costs = 0
+                    if sample_artifact.parent_process.udf['Mapping']:
+                        analysis_steps.append('Mapping')
+                        if sample.udf['Sample Type'].startswith('RNA'):
+                            analysis_step_costs += float(all_costs['mapping rna']['date_step_costs'][ billing_date ])
+                            analysis_personell_costs += float(all_costs['mapping rna']['date_personell_costs'][ billing_date ])
+                        elif 'Targeted' in sample.udf['Analysis']:
+                            analysis_step_costs += float(all_costs['mapping (targeted selection / chip-seq)']['date_step_costs'][ billing_date ])
+                            analysis_personell_costs += float(all_costs['mapping (targeted selection / chip-seq)']['date_personell_costs'][ billing_date ])
+                        else:
+                            analysis_step_costs += float(all_costs['mapping wgs']['date_step_costs'][ billing_date ])
+                            analysis_personell_costs += float(all_costs['mapping wgs']['date_personell_costs'][ billing_date ])
+                    if sample_artifact.parent_process.udf['Germline SNV/InDel calling']:
+                        analysis_steps.append('Germline SNV/InDel calling')
+                        analysis_step_costs += float(all_costs['germline snv/indel calling']['date_step_costs'][ billing_date ])
+                        analysis_personell_costs += float(all_costs['germline snv/indel calling']['date_personell_costs'][ billing_date ])
+                    if sample_artifact.parent_process.udf['Read count analysis (mRNA)']:
+                        analysis_steps.append('Read count analysis (mRNA)')
+                        analysis_step_costs += float(all_costs['read count analysis (mrna)']['date_step_costs'][ billing_date ])
+                        analysis_personell_costs += float(all_costs['read count analysis (mrna)']['date_personell_costs'][ billing_date ])
+                    if sample_artifact.parent_process.udf['Differential expression analysis + figures (mRNA)']:
+                        analysis_steps.append('Differential expression analysis + figures (mRNA)')
+                        analysis_step_costs += float(all_costs['differential expression analysis + figures (mrna)']['date_step_costs'][ billing_date ])
+                        analysis_personell_costs += float(all_costs['differential expression analysis + figures (mrna)']['date_personell_costs'][ billing_date ])
+                    if sample_artifact.parent_process.udf['CNV + SV calling']:
+                        analysis_steps.append('CNV + SV calling')
+                        analysis_step_costs += float(all_costs['cnv + sv calling']['date_step_costs'][ billing_date ])
+                        analysis_personell_costs += float(all_costs['cnv + sv calling']['date_personell_costs'][ billing_date ])
+                    if sample_artifact.parent_process.udf['Somatic calling (tumor/normal pair)']:
+                        analysis_steps.append('Somatic calling (tumor/normal pair)')
+                        analysis_step_costs += float(all_costs['somatic calling (tumor/normal pair)']['date_step_costs'][ billing_date ])
+                        analysis_personell_costs += float(all_costs['somatic calling (tumor/normal pair)']['date_personell_costs'][ billing_date ])
+
+                    runs[pool.id][project_id]['requested_analysis'].add("|".join(sorted(sample.udf['Analysis'].split(","))))
+                    runs[pool.id][project_id]['lims_analysis'].add("|".join( sorted( analysis_steps) ))
+                    runs[pool.id][project_id]['analysis_step_costs'] += analysis_step_costs
+                    runs[pool.id][project_id]['analysis_personell_costs'] += analysis_personell_costs
+                    runs[pool.id][project_id]['total_step_costs'] += analysis_step_costs
+                    runs[pool.id][project_id]['total_personell_costs'] += analysis_personell_costs
+                    if runs[pool.id][project_id]['requested_analysis'] != runs[pool.id][project_id]['lims_analysis']:
+                        runs[pool.id][project_id]['errors'].add("Analysis type {0} in LIMS doesn't match analysis {1}".format(runs[pool.id][project_id]['lims_analysis'], runs[pool.id][project_id]['requested_analysis']))
+
+                elif runs[pool.id][project_id]['platform'] == 'Oxford Nanopore' and not runs[pool.id][project_id]['lims_runtype'] and process_name == 'USEQ - Library Pooling':
+                #Nanopore fix, since sequencing step does not produce derived samples
+                    runs[pool.id][project_id]['lims_runtype'] = sample.udf['Sequencing Runtype'].lower()
+                    requested_runtype = sample.udf['Sequencing Runtype'].lower()
+                    billing_date = getNearestBillingDate(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
+                    runs[pool.id][project_id]['run_step_costs'] = float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ])
+                    runs[pool.id][project_id]['run_personell_costs'] = float(all_costs[ requested_runtype ][ 'date_personell_costs' ][ billing_date ])
+                    runs[pool.id][project_id]['total_step_costs'] += float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ])
+                    runs[pool.id][project_id]['total_personell_costs'] += float(all_costs[ requested_runtype ][ 'date_personell_costs' ][ billing_date ])
+                    runs[pool.id][project_id]['run_date'] = sample_artifact.parent_process.date_run
+
+            if not runs[pool.id][project_id]['name'] :
+                runs[pool.id][project_id]['first_submission_date'] = sample.date_received
+
+                if 'Sequencing Succesful' in pool.udf :
+                    runs[pool.id][project_id]['succesful'] = pool.udf['Sequencing Succesful']
+
+                runs[pool.id][project_id]['name'] = sample.project.name
+                runs[pool.id][project_id]['id'] = sample.project.id
+                runs[pool.id][project_id]['open_date'] = sample.project.open_date
+
+                if 'Comments and agreements' in sample.project.udf:
+                    runs[pool.id][project_id]['project_comments'] = sample.project.udf['Comments and agreements']
+                    runs[pool.id][project_id]['project_comments'] = runs[pool.id][project_id]['project_comments'].replace('\n', ' ').replace('\r', '')
+
+                runs[pool.id][project_id]['contact_name'] = sample.project.researcher.first_name + " " + sample.project.researcher.last_name
+                runs[pool.id][project_id]['contact_email'] = sample.project.researcher.email
+                runs[pool.id][project_id]['lab_name'] = sample.project.researcher.lab.name
+
+                if 'Budget Number' in sample.udf:
+                    runs[pool.id][project_id]['budget_nr'] = sample.udf['Budget Number']
+                else:
+                    print ("No Budgetnumber:", sample.project.id)
+
+                runs[pool.id][project_id]['institute'] = sample.project.researcher.lab.billing_address['institution']
+                runs[pool.id][project_id]['postalcode'] = sample.project.researcher.lab.billing_address['postalCode']
+                runs[pool.id][project_id]['city'] = sample.project.researcher.lab.billing_address['city']
+                runs[pool.id][project_id]['country'] = sample.project.researcher.lab.billing_address['country']
+                runs[pool.id][project_id]['department'] = sample.project.researcher.lab.billing_address['department']
+                runs[pool.id][project_id]['street'] = sample.project.researcher.lab.billing_address['street']
+                if 'UMCU_DebNr' in sample.project.researcher.lab.udf: runs[pool.id][project_id]['deb_nr'] = sample.project.researcher.lab.udf['UMCU_DebNr']
+                if 'UMCU_VATNr' in sample.project.researcher.lab.udf: runs[pool.id][project_id]['vat_nr'] = sample.project.researcher.lab.udf['UMCU_VATNr']
+
+    for pool in runs:
+        # if len(runs[pool].keys()) > 1:
+        for pid in runs[pool]:
+            if 'WGS' in runs[pool][pid]['requested_runtype'] or 'WGS at HMF' in runs[pool][pid]['requested_runtype']:
+
+                billing_date = getNearestBillingDate(all_costs, list(runs[pool][pid]['requested_runtype'])[0].lower() , runs[pool][pid]['run_date'])
+                runs[pool][pid]['run_step_costs'] = float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ]) * runs[pool][pid]['nr_samples']
+                runs[pool][pid]['run_personell_costs'] = float(0)
+                runs[pool][pid]['total_step_costs'] += float(all_costs[ requested_runtype ][ 'date_step_costs' ][ billing_date ]) * runs[pool][pid]['nr_samples']
+            else:
+                if len(runs[pool].keys()) > 1:
+                    runs[pool][pid]['errors'].add('Non-WGS( at HMF) run type in combined sequencing pool!!')
 
 
-	return renderTemplate('seq_finance_overview_template.csv', {'runs':runs})
+    return renderTemplate('seq_finance_overview_template.csv', {'pools':runs})
 
 def getSnpFinance(lims, step_uri):
 	seq_finance = []
