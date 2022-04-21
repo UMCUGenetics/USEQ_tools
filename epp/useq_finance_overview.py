@@ -158,7 +158,7 @@ def getSeqFinance(lims, step_uri):
                     'lims_library_prep' : set(),'requested_library_prep' : set(),	'libprep_personell_costs' : 0,	'libprep_step_costs':0,'libprep_date' : set(), #libprep fields
                     'lims_analysis' : set(),	'requested_analysis' : set(),		'analysis_personell_costs' : 0,	'analysis_step_costs': 0,'analysis_date' : set(), #analysis fields
                     'total_step_costs' :0,'total_personell_costs':0,
-                    'contact_name' : None,'contact_email' : None,'lab_name' : None,'budget_nr' : None,'institute' : None,'postalcode' : None,'city' : None,'country' : None,'department' : None,'street' : None,
+                    'contact_name' : None,'contact_email' : None,'lab_name' : None,'budget_nr' : None,'order_nr' : None,'institute' : None,'postalcode' : None,'city' : None,'country' : None,'department' : None,'street' : None,
                     'vat_nr' : None, 'deb_nr' : None
                 }
 
@@ -314,6 +314,9 @@ def getSeqFinance(lims, step_uri):
                     runs[pool.id][project_id]['budget_nr'] = sample.udf['Budget Number']
                 else:
                     print ("No Budgetnumber:", sample.project.id)
+
+                if 'Order Number' in sample.udf:
+                    runs[pool.id][project_id]['order_nr'] = sample.udf['Order Number']
 
                 runs[pool.id][project_id]['institute'] = sample.project.researcher.lab.billing_address['institution']
                 runs[pool.id][project_id]['postalcode'] = sample.project.researcher.lab.billing_address['postalCode']
