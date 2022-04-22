@@ -434,7 +434,7 @@ def shareDataById(lims, project_id, fid, link_portal):
                 tmp_dir.mkdir()
             os.system(f"cp {run_info['stats_pdf']} {tmp_dir}")
 
-            rsync_command = f"/usr/bin/rsync -rah {tmp_dir} useq_daemon_dev@{WEBHOST}:{FILE_STORAGE}/"
+            rsync_command = f"/usr/bin/rsync -rah {tmp_dir} {WEBHOST}:{FILE_STORAGE}/"
             print(rsync_command)
             exit_code = os.system(rsync_command)
             if exit_code :
@@ -520,7 +520,7 @@ def shareDataById(lims, project_id, fid, link_portal):
 
                     os.system(f"scp -r {run_dir}/Conversion/Reports/*png {tmp_dir}")
 
-                    rsync_command = f"/usr/bin/rsync -rah {tmp_dir} useq_daemon_dev@{WEBHOST}:{FILE_STORAGE}/"
+                    rsync_command = f"/usr/bin/rsync -rah {tmp_dir} {WEBHOST}:{FILE_STORAGE}/"
                     exit_code = os.system(rsync_command)
                     if exit_code :
                         sys.exit(f'Error : Failed tot copy plots to {FILE_STORAGE}. Please fix this manually using link_run_results!')
