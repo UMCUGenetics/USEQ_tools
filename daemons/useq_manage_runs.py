@@ -123,7 +123,7 @@ def getSampleSheet(lims, container_name, sample_sheet_path):
 
 def parseConversionStats(dir):
     demux_stats = f'{dir}/Demultiplex_Stats.csv'
-    qual_metrics = f'{dir}/Quality_Metrics.csv'
+    qual_metrics = Path(f'{dir}/Quality_Metrics.csv')
     top_unknown = f'{dir}/Top_Unknown_Barcodes.csv'
     stats = {
         'total_reads' : 0,
@@ -153,20 +153,20 @@ def parseConversionStats(dir):
             samples_tmp[ row['SampleID'] ]['# Reads'] += int(row['# Reads'])
             samples_tmp[ row['SampleID'] ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
             samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
+    if qual_metrics.is_file():
+        with open(qual_metrics,'r') as q:
+            csv_reader = csv.DictReader(q)
+            for row in csv_reader:
 
-    with open(qual_metrics,'r') as q:
-        csv_reader = csv.DictReader(q)
-        for row in csv_reader:
+                mqs = f'Read {row["ReadNumber"]} Mean Quality Score (PF)'
+                q30 = f'Read {row["ReadNumber"]} % Q30'
+                if mqs not in samples_tmp[ row['SampleID'] ]:
+                    samples_tmp[ row['SampleID'] ][mqs] = 0
+                if q30 not in samples_tmp[ row['SampleID'] ]:
+                    samples_tmp[ row['SampleID'] ][q30] = 0
 
-            mqs = f'Read {row["ReadNumber"]} Mean Quality Score (PF)'
-            q30 = f'Read {row["ReadNumber"]} % Q30'
-            if mqs not in samples_tmp[ row['SampleID'] ]:
-                samples_tmp[ row['SampleID'] ][mqs] = 0
-            if q30 not in samples_tmp[ row['SampleID'] ]:
-                samples_tmp[ row['SampleID'] ][q30] = 0
-
-            samples_tmp[ row['SampleID'] ][mqs] += float(row['Mean Quality Score (PF)'])
-            samples_tmp[ row['SampleID'] ][q30] += float(row['% Q30'])
+                samples_tmp[ row['SampleID'] ][mqs] += float(row['Mean Quality Score (PF)'])
+                samples_tmp[ row['SampleID'] ][q30] += float(row['% Q30'])
 
 
     for sampleID in samples_tmp:
@@ -260,8 +260,10 @@ def demuxCheck(run_dir, log_file, error_file):
 
     sample_sheet = Path(f'{run_dir}/SampleSheet.csv')
     sample_sheet_parsed = parseSampleSheet( sample_sheet )
+
     sample_sheet_rev =  Path(f'{run_dir}/Conversion/Demux-check/SampleSheet-rev.csv')
     samples = sample_sheet_parsed['samples']
+    print(len(samples))
     rev_samples = []
     header = sample_sheet_parsed['header']
 
@@ -272,7 +274,7 @@ def demuxCheck(run_dir, log_file, error_file):
 #
 # if run_parameters.getElementsByTagName('ReagentKitSerial'):  # NextSeq
 #     lims_container_name = run_parameters.getElementsByTagName('ReagentKitSerial')[0].firstChild.nodeValue
-    if len(samples) > 1:
+    if len(samples) >= 1:
         # With 1 sample customers probably want the BCL files, demux will clear this up. For more samples cleanup samplesheet before demux
         for sample in samples:
             dual_index = False
@@ -397,12 +399,15 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
         zipped_run = Path(f'{pid_staging}/{pid}.tar')
         zip_done = Path(f'{pid_staging}/{pid}.tar.done')
 
-        zip_command = f'cd {run_dir.parents[0]} && tar -cf {zipped_run} --exclude "Conversion/" --exclude "*fastq.gz*" {run_dir.name} 1>> {log_file} 2>> {error_file}'
+
+        zip_command = f'cd {run_dir.parents[0]} && tar -cf {zipped_run} --exclude "Conversion/" --exclude "*fastq.gz*" --exclude "*run_zip.*" {run_dir.name} 1>> {log_file} 2>> {error_file}'
+
+        # zip_command = f'cd {run_dir.parents[0]} && tar -cf {zipped_run} --exclude "Conversion/" --exclude "*fastq.gz*" {run_dir.name} 1>> {log_file} 2>> {error_file}'
 
         if not zip_done.is_file():
             print ('zip', zip_command)
             updateLog(log_file, f'Compressing {pid} to tar : Running')
-            # print(zip_command)
+            print(zip_command)
             exit_code = os.system(zip_command)
             if exit_code: return False
             updateLog(log_file, f'Compressing {pid} to tar : Done')
