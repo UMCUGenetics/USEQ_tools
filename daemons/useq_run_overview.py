@@ -110,6 +110,7 @@ def parseConversionStats( conversion_stats_file ):
     return conversion_stats
 
 def parseRunSummary( summary ):
+    print(summary)
     stats = {
         'phix_aligned' : [],
         'cluster_density':0,
@@ -139,17 +140,41 @@ def parseRunSummary( summary ):
             elif line[0].isdigit():
                 cols = line.split(",")
                 # print(cols)
-                if len(cols) > 4 and 'nan' not in cols[3]:
-                    q30_scores.append(float(cols[10].split("+")[0].rstrip()))
-                    occupied_scores.append(float(cols[18].split("+")[0].rstrip()))
-                    densities.append(int(cols[3].split("+")[0].rstrip()))
+                if len(cols) == 20 and 'nan' not in cols[3]:
+                    if cols[10].split("+")[0].rstrip() != 'nan':
+                        q30_scores.append(float(cols[10].split("+")[0].rstrip()))
+                    if cols[18].split("+")[0].rstrip() != 'nan':
+                        occupied_scores.append(float(cols[18].split("+")[0].rstrip()))
+                    if cols[3].split("+")[0].rstrip() != 'nan':
+                        densities.append(int(cols[3].split("+")[0].rstrip()))
+                elif len(cols) == 19 and 'nan' not in cols[3]:
+                    if cols[10].split("+")[0].rstrip() != 'nan':
+                        q30_scores.append(float(cols[10].split("+")[0].rstrip()))
+                    if cols[3].split("+")[0].rstrip() != 'nan':
+                        densities.append(int(cols[3].split("+")[0].rstrip()))
                 line_nr += 1
             else:
                 line_nr += 1
-    #print(densities)
-    stats['cluster_density'] = sum(densities) / len(densities)
-    stats['perc_q30'] = sum(q30_scores) / len(q30_scores)
-    stats['perc_occupied'] = sum(occupied_scores) / len(occupied_scores)
+
+    if len(densities) > 0:
+        stats['cluster_density'] = sum(densities) / len(densities)
+    else:
+
+        stats['cluster_density'] = None
+
+
+    if  len(q30_scores) > 0:
+        stats['perc_q30'] = sum(q30_scores) / len(q30_scores)
+    else:
+        stats['perc_q30'] = None
+
+    if len(occupied_scores) > 0:
+        stats['perc_occupied'] = sum(occupied_scores) / len(occupied_scores)
+    else:
+        stats['perc_occupied'] = None
+    # if isinstance(stats['perc_occupied'], str):
+    #     sys.exit(occupied_scores)
+    print(f"Density : {stats['cluster_density']} Perc Q30 : {stats['perc_q30']} Perc Occupied: {stats['perc_occupied']}")
     return stats
 
 def parseDemuxStats(demux_stats):
@@ -195,6 +220,7 @@ def parseAdapterMetrics(adapter_metrics):
     return stats
 
 def parseQualityMetrics(qual_metrics):
+    # print(qual_metrics)
     stats = {
         'avg_quality_r1' : 0,
         'avg_quality_r2' : 0,
@@ -205,13 +231,14 @@ def parseQualityMetrics(qual_metrics):
     with open(qual_metrics, 'r') as q:
         csv_reader = csv.DictReader(q)
         for row in csv_reader:
-            if row['ReadNumber'] == 1:
+            if row['ReadNumber'] == '1':
                 rows +=1
                 stats['avg_quality_r1'] += float(row['Mean Quality Score (PF)'])
                 stats['perc_q30_r1'] += float(row['% Q30'])
-            elif row['ReadNumber'] ==2:
+            elif row['ReadNumber'] == '2':
                 stats['avg_quality_r2'] += float(row['Mean Quality Score (PF)'])
                 stats['perc_q30_r2'] += float(row['% Q30'])
+    # print(rows)
     stats['avg_quality_r1'] = stats['avg_quality_r1']/rows
     stats['perc_q30_r1'] = stats['perc_q30_r1']/rows
     stats['avg_quality_r2'] = stats['avg_quality_r2']/rows
@@ -253,9 +280,9 @@ def getProjectDetails( lims, project,run_dirs ):
     project_details['lab_id'] = project.researcher.lab.id #ADDITION
     project_details['lab_name'] = project.researcher.lab.name
     project_details['budget_number'] = None
-    print (f'Getting samples start {datetime.now()}'  )
+    # print (f'Getting samples start {datetime.now()}'  )
     samples = lims.get_samples(projectlimsid=project.id)
-    print (f'Getting samples stop {datetime.now()}'  )
+    # print (f'Getting samples stop {datetime.now()}'  )
     if len(samples) == 0:
         return project_details
 
@@ -275,11 +302,11 @@ def getProjectDetails( lims, project,run_dirs ):
     elif project_details['sample_type'].endswith("isolated"):
         project_details['library_prep_nr'] = project_details['sample_nr']
 
-    print (f'Getting processes start {datetime.now()}' )
+    # print (f'Getting processes start {datetime.now()}' )
     # print (project.name)
     project_processes = lims.get_processes(type=ILL_SEQUENCING_STEPS+NAN_SEQUENCING_STEPS+['USEQ - BCL to FastQ','USEQ - Ready for billing'], projectname=project.name)
 
-    print (f'Getting processes stop {datetime.now()}' )
+    # print (f'Getting processes stop {datetime.now()}' )
     if not project_processes:
         return project_details
 
@@ -301,6 +328,7 @@ def getProjectDetails( lims, project,run_dirs ):
                 'avg_quality' : None,
                 'avg_quality_r1' : None,
                 'avg_quality_r2' : None,
+                'perc_occupied' : None,
                 'perc_bases_q30' : None,
                 'perc_bases_q30_r1' : None,
                 'perc_bases_q30_r2' : None,
@@ -311,10 +339,12 @@ def getProjectDetails( lims, project,run_dirs ):
                 'loading_conc_pm' : getUDF(process.input_output_maps[0][0]['uri'],"Loading Conc. (pM)" )
 
             }
-
+            # print(process.type.name, process_nr, project_processes)
             if (process_nr + 1) < len(project_processes):
                 for io in project_processes[process_nr + 1].input_output_maps:
-                    if samples[0].id == io[0]['uri'].samples[0].id:
+
+                    if samples[0].id == io[0]['uri'].samples[0].id and io[1]:
+
                         run['sequencing_succesful'] = getUDF(io[1]['uri'], 'Sequencing Succesful')
                         run['data_send'] = project_processes[process_nr + 1].date_run
                         break
@@ -358,14 +388,15 @@ def getProjectDetails( lims, project,run_dirs ):
 
                 if summary_stats_file.is_file():
                     summary_stats = parseRunSummary(summary_stats_file)
+                    print(summary_stats)
                     run['cluster_density'] = summary_stats['cluster_density']
                     run['perc_bases_q30'] = summary_stats['perc_q30']
-                    # run['perc_occupied'] = summary_stats['perc_occupied']
+                    run['perc_occupied'] = summary_stats['perc_occupied']
                     run['phix_aligned_r1'] = summary_stats['phix_aligned'][0]
                     if len(summary_stats['phix_aligned']) > 1: run['phix_aligned_r2'] = summary_stats['phix_aligned'][1]
 
             project_details['runs'].append(run)
-            print (project_details['runs'])
+            # print (project_details['runs'])
         elif process.type.name in NAN_SEQUENCING_STEPS:
             # continue
             run = {
@@ -381,6 +412,7 @@ def getProjectDetails( lims, project,run_dirs ):
                 'avg_quality' : None,
                 'avg_quality_r1' : None,
                 'avg_quality_r2' : None,
+                'perc_occupied' : None,
                 'perc_bases_q30' : None,
                 'perc_bases_q30_r1' : None,
                 'perc_bases_q30_r2' : None,
@@ -403,7 +435,7 @@ def getProjectDetails( lims, project,run_dirs ):
         elif process.type.name == 'USEQ - Ready for billing':
             project_details['billing_comments'] = getBillingComments(lims, process, project)
 
-        print (f'Getting processes stop {process.type.name} {datetime.now()}' )
+        # print (f'Getting processes stop {process.type.name} {datetime.now()}' )
     project_details['times_sequenced'] = len(project_details['runs'])
 
 
@@ -421,14 +453,14 @@ def loadProjectOverview( ovw_file ):
 
 
 def updateProjectOverview( lims, ovw ):
-    print('Retrieving projects')
+    # print('Retrieving projects')
     projects = lims.get_projects()
 
     new_ovw = {}
 
     run_dirs = {}
     p = Path(STAT_PATH)
-    print('Getting run directories')
+    # print('Getting run directories')
     # print(p)
     for d in p.glob('*/*'):
 
@@ -439,8 +471,9 @@ def updateProjectOverview( lims, ovw ):
         run_dirs[flowcell] = d
         run_dirs[flowcell[1:]] = d
     # c = 0
-    print('Processing projects')
-    for pr in projects[::-1]:
+    # print('Processing projects')
+    # for pr in projects[::-1]:
+    for pr in projects:
 
         try:
             application = pr.udf['Application']
@@ -450,7 +483,7 @@ def updateProjectOverview( lims, ovw ):
         except KeyError:
             continue
 
-        print (f"Working on {pr.id}")
+        # print (f"Working on {pr.id}")
         if pr.id in ovw:
             if not ovw[pr.id]['close-date'] :
                 # print('really')
@@ -483,6 +516,7 @@ def writeProjectOverview( ovw, ovw_file ):
                     'avg_quality' : run.get('avg_quality',None),
                     'avg_quality_r1' : run['avg_quality_r1'],
                     'avg_quality_r2' : run['avg_quality_r2'],
+                    'perc_occupied' : run.get('perc_occupied', None),
                     'perc_bases_q30' : run.get('perc_bases_q30',None),
                     'perc_bases_q30_r1' : run['perc_bases_q30_r1'],
                     'perc_bases_q30_r2' : run['perc_bases_q30_r2'],
@@ -528,6 +562,7 @@ def writeProjectOverview( ovw, ovw_file ):
                 'avg_quality' : None,
                 'avg_quality_r1' : None,
                 'avg_quality_r2' : None,
+                'perc_occupied' : None,
                 'perc_bases_q30' : None,
                 'perc_bases_q30_r1' : None,
                 'perc_bases_q30_r2' : None,
@@ -579,7 +614,7 @@ def run(lims, overview_file):
 
     project_ovw = []
     #get project info from existing overview
-    project_ovw = loadProjectOverview( overview_file )
+    # project_ovw = loadProjectOverview( overview_file )
 
     # #update project info from non-closed projects
     project_ovw = updateProjectOverview( lims, project_ovw )

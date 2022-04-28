@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from csv import DictReader
 from genologics.entities import Project
-from config import PROJECT_TYPES
+from config import PROJECT_TYPES,SQLALCHEMY_DATABASE_URI
 import datetime
 import re
 import sys
@@ -46,7 +46,7 @@ def linkRuns(lims, run_info):
         if not db_run: sys.exit (f"ERROR : DB_ID {run['DB_ID']} does not exist, skipping.")
         if db_run.run_id: sys.exit (f"ERROR : DB_ID {run['DB_ID']} already has LIMS_ID {db_run.run_id} assigned to it. ")
         if db_run.user.username != run['USERNAME']: sys.exit(f"ERROR : Owner of DB_ID {run['DB_ID']} does not match USERNAME {run['USERNAME']}.")
-        if run['APPLICATION'] not in PROJECT_TYPES: sys.exit(f"ERROR : Invalid APPLICATION, please choose Fingerprinting or Sequencing.")
+        if run['APPLICATION'] not in PROJECT_TYPES.values(): sys.exit(f"ERROR : Invalid APPLICATION, please choose Fingerprinting or Sequencing.")
         if db_run.application != run['APPLICATION']: sys.exit(f"ERROR : APPLICATION does not match preferred application.")
         researchers = lims.get_researchers(username=run['USERNAME'])
         if not researchers: sys.exit(f"ERROR : USERNAME {run['USERNAME']} not found in LIMS.")
@@ -56,7 +56,7 @@ def linkRuns(lims, run_info):
             if not project: sys.exit( f"ERROR : LIMS_ID {run['LIMS_ID']} does not exist.")
             if run['USERNAME'] != project.researcher.username: sys.exit(f"ERROR : LIMS_ID {run['LIMS_ID']} does not belong to {run['USERNAME']}.")
             if lims.get_samples(projectlimsid=project.id): sys.exit(f"ERROR : LIMS_ID {db_run.run_id} already has samples and can not linked.")
-            # print(session.query(Run).filter_by(run_id=project.id).all())
+
             if session.query(Run).filter_by(run_id=project.id).all():
                 sys.exit(f"ERROR : LIMS_ID {project.id} was already assigned to another portal DB_ID.")
             else:
@@ -74,12 +74,12 @@ def linkRuns(lims, run_info):
                 nr +=1
             else:
                 new_project_name = f'{project_base_name}-{nr}'
-            print(new_project_name)
+
             project = Project.create(lims,
                 name = new_project_name,
                 researcher=researchers[0],
                 open_date=datetime.datetime.today().strftime('%Y-%m-%d'),
-                udf = {'Application':PROJECT_TYPES[run['APPLICATION']], 'Priority':'Standard'}
+                udf = {'Application':run['APPLICATION'], 'Priority':'Standard'}
             )
             db_run.run_id = project.id
             session.commit()
@@ -117,7 +117,8 @@ def run(lims, csv, mode):
     Base = automap_base()
 
     # engine, suppose it has two tables 'user' and 'run' set up
-    engine = create_engine("sqlite:////home/cog/sboymans/useq_portal/app.db")
+    ssl_args = {'ssl_ca': '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt'}
+    engine = create_engine(SQLALCHEMY_DATABASE_URI, connect_args=ssl_args)
 
     # reflect the tables
     Base.prepare(engine, reflect=True)
@@ -135,9 +136,5 @@ def run(lims, csv, mode):
 
         if mode=='link':
             linkRuns(lims, csv_info)
-        # elif mode == 'edit':
-        #     editRuns(lims, csv_info)
         elif mode == 'unlink':
             unlinkRuns(lims, csv_info)
-    # print (csv_info)
-    # createRunIDs(lims, csv)

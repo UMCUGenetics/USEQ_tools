@@ -399,8 +399,13 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
         zipped_run = Path(f'{pid_staging}/{pid}.tar')
         zip_done = Path(f'{pid_staging}/{pid}.tar.done')
 
+
         zip_command = f'cd {run_dir.parents[0]} && tar -cf {zipped_run} --exclude "Conversion/" --exclude "*fastq.gz*" --exclude "*run_zip.*" {run_dir.name} 1>> {log_file} 2>> {error_file}'
+
+        # zip_command = f'cd {run_dir.parents[0]} && tar -cf {zipped_run} --exclude "Conversion/" --exclude "*fastq.gz*" {run_dir.name} 1>> {log_file} 2>> {error_file}'
+
         if not zip_done.is_file():
+            print ('zip', zip_command)
             updateLog(log_file, f'Compressing {pid} to tar : Running')
             print(zip_command)
             exit_code = os.system(zip_command)
