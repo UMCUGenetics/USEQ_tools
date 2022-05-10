@@ -26,6 +26,7 @@ import json
 
 
 def parseConversionStats(lims, dir, pid):
+
     demux_stats = Path(f'{dir}/Conversion/Reports/Demultiplex_Stats.csv')
     qual_metrics = Path(f'{dir}/Conversion/Reports/Quality_Metrics.csv')
     if not demux_stats.is_file():
@@ -38,6 +39,7 @@ def parseConversionStats(lims, dir, pid):
 
     samples = lims.get_samples(projectlimsid=pid)
     sample_names = [x.name for x in samples]
+
     stats = {
         'total_reads' : 0,
         'total_mean_qual' : 0,
@@ -66,7 +68,7 @@ def parseConversionStats(lims, dir, pid):
             samples_tmp[ row['SampleID'] ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
             samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
             # stats['samples'].append(row)
-
+    # print(samples_tmp)
     qual_metrics_rows = 0
     with open(qual_metrics,'r') as q:
         csv_reader = csv.DictReader(q)
@@ -88,6 +90,7 @@ def parseConversionStats(lims, dir, pid):
     stats['total_mean_qual'] = stats['total_mean_qual'] / qual_metrics_rows
 
     for sampleID in samples_tmp:
+
         if sampleID not in sample_names:continue
         sample = {}
         for read_number in ['1','2','I1','I2']:
@@ -101,7 +104,7 @@ def parseConversionStats(lims, dir, pid):
         sample['# Perfect Index Reads'] = samples_tmp[sampleID]['# Perfect Index Reads']
         sample['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads']
         stats['samples'].append(sample)
-
+    # print(stats)
     return stats
 
 def shareManual(researcher,dir):
@@ -383,48 +386,58 @@ def shareDataById(lims, project_id, fid, link_portal):
             fastq_fail_dir = Path(f"{run_dir}/fastq_fail")
 
 
-            barcode_dirs = [x for x in fast5_pass_dir.iterdir() if x.is_dir() and 'barcode' in x.name or 'unclassified' in x.name ]
+            barcode_dirs = [x for x in fastq_pass_dir.iterdir() if x.is_dir() and 'barcode' in x.name or 'unclassified' in x.name ]
+
             upload_dir = Path(f"{run_dir}/{project_id}")
             upload_dir_done = Path(f"{run_dir}/{project_id}.done")
             upload_dir_done.touch()
             upload_dir.mkdir()
+            available_files = open(f'{run_dir}/available_files.txt', 'w')
             if barcode_dirs:
                 for bd in barcode_dirs:
                     zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{bd.name}.tar.gz fast5_fail/{bd.name} fast5_pass/{bd.name} fastq_fail/{bd.name} fastq_pass/{bd.name}"
+
                     exit_code= os.system(zip_command)
                     if exit_code:
                         sys.exit(f"Error : Failed to create zip file {upload_dir}/{bd.name}.tar.gz.")
-                    break
-
+                    available_files.write(f"{bd.name}.tar.gz\n")
             else:
                 fast5_pass_dir = Path(f"{run_dir}/fast5_pass")
-                zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fast5_pass_dir.name}.tar.gz {fast5_pass_dir}"
+                zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fast5_pass_dir.name}.tar.gz {fast5_pass_dir.name}"
                 exit_code= os.system(zip_command)
                 if exit_code:
                     sys.exit(f"Error : Failed to create zip file {upload_dir}/{fast5_pass_dir.name}.tar.gz.")
 
                 fast5_fail_dir = Path(f"{run_dir}/fast5_fail")
-                zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fast5_fail_dir.name}.tar.gz {fast5_fail_dir}"
+                zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fast5_fail_dir.name}.tar.gz {fast5_fail_dir.name}"
                 exit_code= os.system(zip_command)
                 if exit_code:
                     sys.exit(f"Error : Failed to create zip file {upload_dir}/{fast5_fail_dir.name}.tar.gz.")
 
                 fastq_pass_dir = Path(f"{run_dir}/fastq_pass")
-                zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fastq_pass_dir.name}.tar.gz {fastq_pass_dir}"
+                zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fastq_pass_dir.name}.tar.gz {fastq_pass_dir.name}"
                 exit_code= os.system(zip_command)
                 if exit_code:
                     sys.exit(f"Error : Failed to create zip file {upload_dir}/{fastq_pass_dir.name}.tar.gz.")
 
                 fastq_fail_dir = Path(f"{run_dir}/fastq_fail")
-                zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fastq_fail_dir.name}.tar.gz {fastq_fail_dir}"
+                zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fastq_fail_dir.name}.tar.gz {fastq_fail_dir.name}"
                 exit_code= os.system(zip_command)
                 if exit_code:
                     sys.exit(f"Error : Failed to create zip file {upload_dir}/{fastq_fail_dir.name}.tar.gz.")
 
-            zip_stats = f"cd {run_dir} && tar -czf {upload_dir}/stats.tar.gz report_*.pdf"
+                available_files.write(f"{fastq_fail_dir.name}.tar.gz\n")
+                available_files.write(f"{fastq_pass_dir.name}.tar.gz\n")
+                available_files.write(f"{fast5_fail_dir.name}.tar.gz\n")
+                available_files.write(f"{fast5_pass_dir.name}.tar.gz\n")
+
+            zip_stats = f"cd {run_dir} && tar -czf {upload_dir}/stats.tar.gz other_reports/ *.*"
             exit_code = os.system(zip_stats)
+
             if exit_code:
                 sys.exit(f"Error : Failed to create zip file {upload_dir}/stats.tar.gz.")
+            available_files.write(f"{upload_dir}/stats.tar.gz\n")
+            available_files.close()
 
             print (f"Running upload to NextCloud")
             transfer_command = f'scp -r {upload_dir} {upload_dir_done} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}'
@@ -452,9 +465,9 @@ def shareDataById(lims, project_id, fid, link_portal):
                 mail_content = renderTemplate('share_nanopore_template.html', template_data)
                 mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
-                sendMail(mail_subject,mail_content, MAIL_SENDER ,researcher.email)
+                sendMail(mail_subject,mail_content, MAIL_SENDER ,researcher.email, attachments={'available_files':f'{run_dir}/available_files.txt'})
                 os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
-                # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+                # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl', attachments={'available_files':f'{run_dir}/available_files.txt'})
                 # print (pw)
 
             os.system(f'rm -r {upload_dir} {upload_dir_done}')
@@ -463,30 +476,43 @@ def shareDataById(lims, project_id, fid, link_portal):
             if prev_results:
                 sys.exit(f'Warning : Stats for {run_info["flowcell_id"]} where already uploaded to portal db. Skipping.')
 
-            tmp_dir = Path(f"{run_dir}/{run_info['flowcell_id']}")
-            if not tmp_dir.is_dir():
-                tmp_dir.mkdir()
-            os.system(f"cp {run_info['stats_pdf']} {tmp_dir}")
+            if run_info['stats_pdf']:
+                tmp_dir = Path(f"{run_dir}/{run_info['flowcell_id']}")
+                if not tmp_dir.is_dir():
+                    tmp_dir.mkdir()
+                os.system(f"cp {run_info['stats_pdf']} {tmp_dir}")
 
-            rsync_command = f"/usr/bin/rsync -rah {tmp_dir} {WEBHOST}:{FILE_STORAGE}/"
+                rsync_command = f"/usr/bin/rsync -rah {tmp_dir} {WEBHOST}:{FILE_STORAGE}/"
 
-            exit_code = os.system(rsync_command)
-            if exit_code :
-                sys.exit(f'Error : Failed tot copy stats pdf to {FILE_STORAGE}. Please fix this manually using link_run_results!')
+                exit_code = os.system(rsync_command)
+                if exit_code :
+                    sys.exit(f'Error : Failed tot copy stats pdf to {FILE_STORAGE}. Please fix this manually using link_run_results!')
 
-            os.system(f"rm -r {tmp_dir}")
-            nan_stats = NanoporeSequencingStats(
-                general_stats = Path(run_info['stats_pdf']).name,
-                date = run_info['date'],
-                flowcell_id = run_info['flowcell_id'],
-                run_id=portal_run.id
-            )
-            session.add(nan_stats)
-            session.commit()
-            print(f'Uploaded stats for {project_id} to portal db.')
+                os.system(f"rm -r {tmp_dir}")
+
+                nan_stats = NanoporeSequencingStats(
+                    general_stats = Path(run_info['stats_pdf']).name,
+                    date = run_info['date'],
+                    flowcell_id = run_info['flowcell_id'],
+                    run_id=portal_run.id
+                )
+                session.add(nan_stats)
+                session.commit()
+                print(f'Uploaded stats for {project_id} to portal db.')
+            else:
+                nan_stats = NanoporeSequencingStats(
+                    general_stats = '',
+                    date = run_info['date'],
+                    flowcell_id = run_info['flowcell_id'],
+                    run_id=portal_run.id
+                )
+                session.add(nan_stats)
+                session.commit()
+                print(f'Uploaded only flowcell ID for {project_id} to portal db. No stats pdf could be found.')
     else:
 
         run_dir, flowcell_id, date_run = getIlluminaRunDetails(lims, project_name, fid)
+
         if not run_dir:
             sys.exit(f'Error : No Illumina run directory could be found!')
 
@@ -497,7 +523,12 @@ def shareDataById(lims, project_id, fid, link_portal):
         if not file_list:
             sys.exit(f"{name}\tError : No files found in nextcloud dir  {project_id}!")
 
+        available_files = open(f'{run_dir}/available_files.txt', 'w')
+        for file in file_list:
+            available_files.write(f"{file}\n")
+        available_files.close()
         conversion_stats = parseConversionStats(lims, run_dir ,project_id )
+        print(conversion_stats)
         if not conversion_stats:
             print(f'Warning : No conversion stats could be found for {run_dir}!')
 
@@ -533,10 +564,10 @@ def shareDataById(lims, project_id, fid, link_portal):
                 mail_content = renderTemplate('share_illumina_template.html', template_data)
                 mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
-                sendMail(mail_subject,mail_content, MAIL_SENDER ,researcher.email)
+                sendMail(mail_subject,mail_content, MAIL_SENDER ,researcher.email,attachments={'available_files':f'{run_dir}/available_files.txt'})
                 os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
 
-                # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
+                # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl',attachments={'available_files':f'{run_dir}/available_files.txt'})
                 # print (pw)
 
                 print(f'Shared {project_id} with {researcher.email}')
@@ -552,7 +583,7 @@ def shareDataById(lims, project_id, fid, link_portal):
                         tmp_dir.mkdir()
                     conversion_stats_json_file = Path(f"{tmp_dir}/Conversion_Stats.json")
                     with open(conversion_stats_json_file, 'w') as c:
-                        c.write( json.dumps( conversion_stats['samples'] ) )
+                        c.write( json.dumps( conversion_stats ) )
 
                     os.system(f"scp -r {run_dir}/Conversion/Reports/*png {tmp_dir}")
 
