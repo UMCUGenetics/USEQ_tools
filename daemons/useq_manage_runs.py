@@ -6,7 +6,7 @@ import json
 import csv
 import sys
 
-from config import DATA_DIRS_RAW,DATA_DIR_HPC,ARCHIVE_DIR,MAIL_SENDER,MAIL_ADMINS,INTEROP_PATH,RUNTYPE_YIELDS,BCLCONVERT_PATH,BCLCONVERT_PROCESSING_THREADS,BCLCONVERT_WRITING_THREADS,STAGING_DIR,NEXTCLOUD_DATA_ROOT,NEXTCLOUD_PW,NEXTCLOUD_USER,NEXTCLOUD_HOST,NEXTCLOUD_RAW_DIR,NEXTCLOUD_WEBDAV_ROOT
+from config import Config
 from modules.useq_mail import sendMail
 from modules.useq_illumina_parsers import getExpectedReads,parseSampleSheet
 from modules.useq_nextcloud import NextcloudUtil
@@ -30,7 +30,7 @@ def convertBCL(run_dir, sample_sheet, log_file, error_file):
 
     # Start conversion
     os.system(f'date >> {log_file}')
-    command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {sample_sheet} 1 > /dev/null'
+    command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {sample_sheet} 1 > /dev/null'
     command = f'{command} 1>> /dev/null 2>> {error_file}'
     exit_code = os.system(command)
 
@@ -76,21 +76,21 @@ def generateRunStats(run_dir, log_file, error_file):
     os.chdir(stats_dir)
     updateLog(log_file, 'Generate run stats : Running')
     # Run summary csv
-    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/summary {run_dir} > {stats_dir}/{run_dir.name}_summary.csv'))
+    exit_codes.append(os.system(f'{Config.CONV_INTEROP}/bin/summary {run_dir} > {stats_dir}/{run_dir.name}_summary.csv'))
     # Index summary csv
-    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/index-summary {run_dir} --csv= > {stats_dir}/{run_dir.name}_index-summary.csv'))
+    exit_codes.append(os.system(f'{Config.CONV_INTEROP}/bin/index-summary {run_dir} --csv= > {stats_dir}/{run_dir.name}_index-summary.csv'))
     # Intensity by cycle plot
-    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_by_cycle {run_dir} --metric-name=Intensity | gnuplot'))
+    exit_codes.append(os.system(f'{Config.CONV_INTEROP}/bin/plot_by_cycle {run_dir} --metric-name=Intensity | gnuplot'))
     # % Base by cycle plot
-    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_by_cycle {run_dir} --metric-name=BasePercent | gnuplot'))
+    exit_codes.append(os.system(f'{Config.CONV_INTEROP}/bin/plot_by_cycle {run_dir} --metric-name=BasePercent | gnuplot'))
     # Clustercount by lane plot
-    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_by_lane {run_dir} --metric-name=Clusters | gnuplot'))
+    exit_codes.append(os.system(f'{Config.CONV_INTEROP}/bin/plot_by_lane {run_dir} --metric-name=Clusters | gnuplot'))
     # Flowcell intensity plot
-    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_flowcell {run_dir} | gnuplot'))
+    exit_codes.append(os.system(f'{Config.CONV_INTEROP}/bin/plot_flowcell {run_dir} | gnuplot'))
     # QScore heatmap plot
-    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_qscore_heatmap {run_dir} | gnuplot'))
+    exit_codes.append(os.system(f'{Config.CONV_INTEROP}/bin/plot_qscore_heatmap {run_dir} | gnuplot'))
     # QScore histogram plot
-    exit_codes.append(os.system(f'{INTEROP_PATH}/bin/plot_qscore_histogram {run_dir} | gnuplot'))
+    exit_codes.append(os.system(f'{Config.CONV_INTEROP}/bin/plot_qscore_histogram {run_dir} | gnuplot'))
     #print (exit_codes)
     # exit_codes.append(os.system(f'multiqc {run_dir}/Conversion/FastQ {run_dir}/Conversion/Logs {run_dir}/Conversion/Reports -o {stats_dir} -k json --quiet 1>> /dev/null 2>> {error_file}'))
     updateLog(log_file, 'Generate run stats : Done')
@@ -239,7 +239,7 @@ def statusMail(message, run_dir, projectIDs):
 
     mail_content = renderTemplate('conversion_status_mail.html', template_data)
     mail_subject = f'[USEQ] Status ({",".join(projectIDs)}): {message}'
-    sendMail(mail_subject,mail_content, MAIL_SENDER ,MAIL_ADMINS, attachments=attachments)
+    sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,Config.MAIL_ADMINS, attachments=attachments)
 
 def updateLog(file,msg):
     with open(file, 'a') as f:
@@ -263,7 +263,7 @@ def demuxCheck(run_dir, log_file, error_file):
 
     sample_sheet_rev =  Path(f'{run_dir}/Conversion/Demux-check/SampleSheet-rev.csv')
     samples = sample_sheet_parsed['samples']
-    print(len(samples))
+    # print(len(samples))
     rev_samples = []
     header = sample_sheet_parsed['header']
 
@@ -297,19 +297,19 @@ def demuxCheck(run_dir, log_file, error_file):
 
     #Samplesheet is OK first try
     updateLog(log_file, 'Checking original samplesheet : Running')
-    command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/1 --sample-sheet {sample_sheet} --bcl-sampleproject-subdirectories true --force --tiles {first_tile} 1 > /dev/null'
+    command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/1 --sample-sheet {sample_sheet} --bcl-sampleproject-subdirectories true --force --tiles {first_tile} 1 > /dev/null'
     os.system(command)
     stats = parseConversionStats(f'{run_dir}/Conversion/Demux-check/1/Reports')
-    print(stats['undetermined_reads'], stats['total_reads'])
+    # print(stats['undetermined_reads'], stats['total_reads'])
     if stats['undetermined_reads'] / stats['total_reads'] < 0.40:
         updateLog(log_file, 'Checking original samplesheet : Done')
         return True
 
     #Try revcomp samplesheet
-    command = f'{BCLCONVERT_PATH}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/2 --sample-sheet {sample_sheet_rev} --bcl-sampleproject-subdirectories true --force --tiles {first_tile} 1 > /dev/null'
+    command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/2 --sample-sheet {sample_sheet_rev} --bcl-sampleproject-subdirectories true --force --tiles {first_tile} 1 > /dev/null'
     os.system(command)
     stats = parseConversionStats(f'{run_dir}/Conversion/Demux-check/2/Reports')
-    print(stats['undetermined_reads'], stats['total_reads'])
+    # print(stats['undetermined_reads'], stats['total_reads'])
     if stats['undetermined_reads'] / stats['total_reads'] < 0.40:
         updateLog(log_file, 'Note : Reverse complemented index2')
         updateLog(log_file, 'Checking original samplesheet : Done')
@@ -349,14 +349,14 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
     #Create .tar files for upload to nextcloud
     if mode == 'fastq':
         for pid in projectIDs:
-            pid_staging = Path(f'{STAGING_DIR}/{pid}')
+            pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
             pid_staging.mkdir(parents=True, exist_ok=True)
 
             tmp_dir = Path(f'{run_dir}/{pid}')
             tmp_dir.mkdir(parents=True, exist_ok=True)
 
             updateLog(log_file, f'Creating nextcloud dir for {pid} : Running')
-            remote_dir_command = f"scp -r {tmp_dir} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/ 1>> {log_file} 2>> {error_file}"
+            remote_dir_command = f"scp -r {tmp_dir} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/ 1>> {log_file} 2>> {error_file}"
             exit_code = os.system(remote_dir_command)
             if exit_code: return False
             tmp_dir.rmdir()
@@ -382,7 +382,7 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
 
     else:
         pid = list(projectIDs)[0]
-        pid_staging = Path(f'{STAGING_DIR}/{pid}')
+        pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
         pid_staging.mkdir(parents=True, exist_ok=True)
 
         tmp_dir = Path(f'{run_dir}/{pid}')
@@ -390,7 +390,7 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
 
 
         updateLog(log_file, f'Creating nextcloud dir for {pid} : Running')
-        remote_dir_command = f"scp -r {tmp_dir} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/ 1>> {log_file} 2>> {error_file}"
+        remote_dir_command = f"scp -r {tmp_dir} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/ 1>> {log_file} 2>> {error_file}"
         exit_code = os.system(remote_dir_command)
         if exit_code: return False
         tmp_dir.rmdir()
@@ -416,13 +416,13 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
     if mode == 'fastq':
         #Filter stats files per PID
         for pid in projectIDs:
-            pid_staging = Path(f'{STAGING_DIR}/{pid}')
+            pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
             report_dir = Path(f'{run_dir}/Conversion/Reports')
             filterStats(lims, pid, pid_staging, report_dir)
 
     #Create md5sums for .tar files
     for pid in projectIDs:
-        pid_staging = Path(f'{STAGING_DIR}/{pid}')
+        pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
         updateLog(log_file, f'Creating md5sums for {pid} : Running')
         md5_command = f'cd {pid_staging} && md5sum *.tar > {pid_staging}/md5sums.txt'
         exit_code = os.system(md5_command)
@@ -431,8 +431,8 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
 
     #Upload .tar/stats & md5sums to nextcloud
     for pid in projectIDs:
-        pid_staging = Path(f'{STAGING_DIR}/{pid}')
-        pid_done = Path(f'{STAGING_DIR}/{pid}.done')
+        pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
+        pid_done = Path(f'{Config.CONV_STAGING_DIR}/{pid}.done')
 
         # if nextcloud_util.checkExists(pid):
         #     for file in pid_staging.iterdir():
@@ -441,15 +441,15 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
             # nextcloud_util.delete(pid)
 
         transfer_command ="set -eo pipefail && "
-        transfer_command += f"scp -r {pid_staging}/*.tar {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/{pid} 1>> {log_file} 2>> {error_file} && "
+        transfer_command += f"scp -r {pid_staging}/*.tar {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{pid} 1>> {log_file} 2>> {error_file} && "
         if mode == 'fastq':
-            transfer_command += f"scp -r {pid_staging}/*.csv {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/{pid} 1>> {log_file} 2>> {error_file} && "
-        transfer_command += f"scp -r {pid_staging}/*.txt {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/{pid} 1>> {log_file} 2>> {error_file}"
+            transfer_command += f"scp -r {pid_staging}/*.csv {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{pid} 1>> {log_file} 2>> {error_file} && "
+        transfer_command += f"scp -r {pid_staging}/*.txt {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{pid} 1>> {log_file} 2>> {error_file}"
         updateLog(log_file, f'Transferring {pid} to nextcloud : Running')
         exit_code = os.system(transfer_command)
         if exit_code: return False
         pid_done.touch()
-        done_command = f"scp -r {pid_done} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}/"
+        done_command = f"scp -r {pid_done} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
         exit_code = os.system(done_command)
         updateLog(log_file, f'Transferring {pid} to nextcloud : Done')
 
@@ -475,7 +475,8 @@ def uploadToHPC(lims, run_dir, projectIDs, error_file, log_file):
     rsync_command += " --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/Conversion/Reports/**' --include '*/FastQ/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/**' --include '*.[pP][eE][dD]'"
     rsync_command += " --exclude '*'"
     rsync_command += f" {run_dir}"
-    rsync_command += f" {DATA_DIR_HPC}/{machine} 1> /dev/null 2>> {error_file}"
+    # rsync_command += f" {DATA_DIR_HPC}/{machine} 1> /dev/null 2>> {error_file}"
+    rsync_command += f" {Config.USEQ_USER}@{Config.HPC_TRANSFER_SERVER}:/{Config.HPC_RAW_ROOT}/{machine} 1> /dev/null 2>> {error_file}"
 
     updateLog(log_file, 'Upload to HPC : Running')
     # print (rsync_command)
@@ -488,7 +489,8 @@ def uploadToHPC(lims, run_dir, projectIDs, error_file, log_file):
 def uploadToArchive(run_dir, error_file, log_file):
     updateLog(log_file, "Upload to archive : Running")
     machine = run_dir.parents[0].name
-    rsync_command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {ARCHIVE_DIR}/{machine} 1> /dev/null 2>> {error_file}"
+    rsync_command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {Config.HPC_ARCHIVE_DIR}/{machine} 1> /dev/null 2>> {error_file}"
+    rsync_command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {Config.USEQ_USER}@{Config.HPC_TRANSFER_SERVER}:{Config.HPC_ARCHIVE_DIR}/{machine} 1> /dev/null 2>> {error_file}"
     exit_code = os.system(rsync_command)
     if exit_code:
         return False
@@ -505,8 +507,8 @@ def cleanup(run_dir, error_file, log_file):
     updateLog(log_file, "Cleaning up : Done")
 
 def manageRuns(lims):
-    for machine_dir in DATA_DIRS_RAW:
-
+    for machine in Config.MACHINE_ALIASES:
+        machine_dir= Path(f"{Config.CONV_MAIN_DIR}/{machine}")
         md_path = Path(machine_dir)
         for run_dir in md_path.glob("*"):
 
@@ -676,8 +678,8 @@ def run(lims):
     global nextcloud_util
     #Set up nextcloud
     nextcloud_util = NextcloudUtil()
-    nextcloud_util.setHostname( NEXTCLOUD_HOST )
-    nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,MAIL_SENDER )
+    nextcloud_util.setHostname( Config.NEXTCLOUD_HOST )
+    nextcloud_util.setup( Config.NEXTCLOUD_USER, Config.NEXTCLOUD_PW, Config.NEXTCLOUD_WEBDAV_ROOT,Config.NEXTCLOUD_RAW_DIR,Config.MAIL_SENDER )
 
 
     manageRuns(lims )

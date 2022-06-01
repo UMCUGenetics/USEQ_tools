@@ -60,4 +60,4 @@ target/
 genologics.conf
 
 #
-config.py
+.useq-env

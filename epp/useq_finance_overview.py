@@ -1,6 +1,6 @@
 from genologics.entities import Step, ProtocolStep
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
-from config import RUN_PROCESSES,ISOLATION_PROCESSES,LIBPREP_PROCESSES,ANALYSIS_PROCESSES,SQLALCHEMY_DATABASE_URI
+from config import Config
 import re
 import sys
 import json
@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 def getFinanceOvw():
     Base = automap_base()
     ssl_args = {'ssl_ca': '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt'}
-    engine = create_engine(SQLALCHEMY_DATABASE_URI, connect_args=ssl_args, pool_pre_ping=True)
+    engine = create_engine(Config.PORTAL_DB_URI, connect_args=ssl_args, pool_pre_ping=True)
     Base.prepare(engine, reflect=True)
     Step = Base.classes.step
     StepCost = Base.classes.step_cost
@@ -198,7 +198,7 @@ def getSeqFinance(lims, step_uri):
                     'pool' : pool.id,
                     'lims_runtype' : None,		'requested_runtype' : set(),		'run_personell_costs' : 0, 'run_step_costs':0,		'run_date' : None,			'succesful' : None, #run fields
                     'lims_isolation' : set(),	'type' : set(),						'isolation_personell_costs' : 0,	'isolation_step_costs':0, 'isolation_date' : set(), #isolation fields
-                    'lims_library_prep' : set(),'requested_library_prep' : set(),	'libprep_personell_costs' : 0,	'libprep_step_costs':0,'libprep_date' : set(), #libprep fields
+                    'lims_library_prep' : set(),'requested_library_prep' : set(),	'libprep_personell_costs' : 0,	'libprep_step_costs':0,'libprep_date' : set(), 'coverages' : [],#libprep fields
                     'lims_analysis' : set(),	'requested_analysis' : set(),		'analysis_personell_costs' : 0,	'analysis_step_costs': 0,'analysis_date' : set(), #analysis fields
                     'total_step_costs' :0,'total_personell_costs':0,
                     'contact_name' : None,'contact_email' : None,'lab_name' : None,'budget_nr' : None,'order_nr' : None,'institute' : None,'postalcode' : None,'city' : None,'country' : None,'department' : None,'street' : None,
@@ -211,6 +211,9 @@ def getSeqFinance(lims, step_uri):
             if 'Library prep kit' in sample.udf:
                 runs[pool.id][project_id]['requested_library_prep'].add(sample.udf['Library prep kit'])
 
+            if 'Sequencing Coverage' in sample.udf:
+                runs[pool.id][project_id]['coverages'].append(sample.udf['Sequencing Coverage'])
+
             runs[pool.id][project_id]['requested_runtype'].add(sample.udf['Sequencing Runtype'])
             runs[pool.id][project_id]['platform'] = sample.udf['Platform']
 
@@ -221,8 +224,8 @@ def getSeqFinance(lims, step_uri):
                 if not sample_artifact.parent_process: continue
                 process_name = sample_artifact.parent_process.type.name
                 # print(process_name)
-                # print(pool.id, project_id, runs[pool.id][project_id]['type'],runs[pool.id][project_id]['requested_runtype'],process_name)
-                if process_name in ISOLATION_PROCESSES :
+
+                if process_name in Config.ISOLATION_PROCESSES :
                     isolation_type = "{0} isolation".format(sample_artifact.udf['US Isolation Type'].split(" ")[0].lower())
 
                     step_cost = getClosestStepCost(all_costs, isolation_type , sample_artifact.parent_process.date_run)
@@ -239,7 +242,7 @@ def getSeqFinance(lims, step_uri):
                     elif isolation_type == 'dna isolation' and sample.udf['Sample Type'] != 'DNA unisolated':
                         runs[pool.id][project_id]['errors'].add("Isolation type {0} in LIMS doesn't match sample type {1}".format(isolation_type, sample.udf['Sample Type']))
 
-                elif process_name in LIBPREP_PROCESSES and sample.udf['Sequencing Runtype'] != 'WGS at HMF' and sample.udf['Sequencing Runtype'] != 'WGS':
+                elif process_name in Config.LIBPREP_PROCESSES and sample.udf['Sequencing Runtype'] != 'WGS at HMF' and sample.udf['Sequencing Runtype'] != 'WGS':
                 # print (sample.project.id, process_name, runs[pool.id]['requested_runtype'])
                     lims_library_prep = ''
 
@@ -263,8 +266,8 @@ def getSeqFinance(lims, step_uri):
                     runs[pool.id][project_id]['libprep_date'].add(sample_artifact.parent_process.date_run)
 
 
-                elif process_name in RUN_PROCESSES and not runs[pool.id][project_id]['lims_runtype']:
-
+                elif process_name in Config.RUN_PROCESSES and not runs[pool.id][project_id]['lims_runtype']:
+                    print(pool.id, project_id, runs[pool.id][project_id]['type'],runs[pool.id][project_id]['requested_runtype'],process_name)
                     protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
                     runs[pool.id][project_id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 
@@ -281,7 +284,7 @@ def getSeqFinance(lims, step_uri):
                         runs[pool.id][project_id]['total_personell_costs'] += float(step_cost['personell_costs'])
                         runs[pool.id][project_id]['run_date'] = sample_artifact.parent_process.date_run
 
-                elif process_name in ANALYSIS_PROCESSES:
+                elif process_name in Config.ANALYSIS_PROCESSES:
 
                     runs[pool.id][project_id]['analysis_date'].add(sample_artifact.parent_process.date_run)
                     analysis_steps =['Raw data (FastQ)']
@@ -397,11 +400,18 @@ def getSeqFinance(lims, step_uri):
         # if len(runs[pool].keys()) > 1:
         for pid in runs[pool]:
             if 'WGS' in runs[pool][pid]['requested_runtype'] or 'WGS at HMF' in runs[pool][pid]['requested_runtype']:
-
-                step_cost = getClosestStepCost(all_costs, list(runs[pool][pid]['requested_runtype'])[0].lower() , runs[pool][pid]['run_date'])
-                runs[pool][pid]['run_step_costs'] = float(step_cost['step_costs']) * runs[pool][pid]['nr_samples']
-                runs[pool][pid]['run_personell_costs'] = float(0)
-                runs[pool][pid]['total_step_costs'] += float(step_cost['step_costs']) * runs[pool][pid]['nr_samples']
+                if runs[pool][pid]['coverages']:
+                    step_cost = getClosestStepCost(all_costs, list(runs[pool][pid]['requested_runtype'])[0].lower() , runs[pool][pid]['run_date'])
+                    for cov in runs[pool][pid]['coverages']:
+                        cov = int(cov[:-1])
+                        runs[pool][pid]['run_step_costs'] += ( float(step_cost['step_costs']) - 75 ) / (30/ cov ) + 75
+                        runs[pool][pid]['run_personell_costs'] = float(0)
+                        runs[pool][pid]['total_step_costs'] += ( float(step_cost['step_costs']) - 75 ) / (30/ cov ) + 75
+                else:
+                    step_cost = getClosestStepCost(all_costs, list(runs[pool][pid]['requested_runtype'])[0].lower() , runs[pool][pid]['run_date'])
+                    runs[pool][pid]['run_step_costs'] = float(step_cost['step_costs']) * runs[pool][pid]['nr_samples']
+                    runs[pool][pid]['run_personell_costs'] = float(0)
+                    runs[pool][pid]['total_step_costs'] += float(step_cost['step_costs']) * runs[pool][pid]['nr_samples']
             else:
                 if len(runs[pool].keys()) > 1:
                     runs[pool][pid]['errors'].add('Non-WGS( at HMF) run type in combined sequencing pool!!')

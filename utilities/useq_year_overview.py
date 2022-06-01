@@ -1,4 +1,4 @@
-from config import PROJECT_TYPES
+from config import Config
 import pprint
 
 
@@ -15,7 +15,7 @@ def getYearOverview(lims, year):
 
         if not 'Application' in project.udf : continue #Most projects in 2015 don't have an application yet
 
-        if not project.udf['Application'] in PROJECT_TYPES.values(): continue
+        if not project.udf['Application'] in Config.PROJECT_TYPES.values(): continue
 
         application = project.udf['Application']
         samples = lims.get_samples(projectlimsid=project.id)

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from csv import DictReader
 from genologics.entities import Project
-from config import PROJECT_TYPES,SQLALCHEMY_DATABASE_URI
+from config import Config
 import datetime
 import re
 import sys
@@ -46,7 +46,7 @@ def linkRuns(lims, run_info):
         if not db_run: sys.exit (f"ERROR : DB_ID {run['DB_ID']} does not exist, skipping.")
         if db_run.run_id: sys.exit (f"ERROR : DB_ID {run['DB_ID']} already has LIMS_ID {db_run.run_id} assigned to it. ")
         if db_run.user.username != run['USERNAME']: sys.exit(f"ERROR : Owner of DB_ID {run['DB_ID']} does not match USERNAME {run['USERNAME']}.")
-        if run['APPLICATION'] not in PROJECT_TYPES.values(): sys.exit(f"ERROR : Invalid APPLICATION, please choose Fingerprinting or Sequencing.")
+        if run['APPLICATION'] not in Config.PROJECT_TYPES.values(): sys.exit(f"ERROR : Invalid APPLICATION, please choose Fingerprinting or Sequencing.")
         if db_run.application != run['APPLICATION']: sys.exit(f"ERROR : APPLICATION does not match preferred application.")
         researchers = lims.get_researchers(username=run['USERNAME'])
         if not researchers: sys.exit(f"ERROR : USERNAME {run['USERNAME']} not found in LIMS.")
@@ -118,7 +118,7 @@ def run(lims, csv, mode):
 
     # engine, suppose it has two tables 'user' and 'run' set up
     ssl_args = {'ssl_ca': '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt'}
-    engine = create_engine(SQLALCHEMY_DATABASE_URI, connect_args=ssl_args)
+    engine = create_engine(Config.PORTAL_DB_URI, connect_args=ssl_args)
 
     # reflect the tables
     Base.prepare(engine, reflect=True)

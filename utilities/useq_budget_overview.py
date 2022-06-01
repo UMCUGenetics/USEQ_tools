@@ -1,11 +1,11 @@
 from genologics.entities import Step, ProtocolStep
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
-from config import COST_DB,RUN_PROCESSES,ISOLATION_PROCESSES,LIBPREP_PROCESSES,ANALYSIS_PROCESSES
+from config import Config
 import re
 import sys
 import json
 import urllib
-
+#####NEEDS FIXING TO SUPPORT FOR NEW FINANCE DB############
 def getAllCosts():
 	"""Retrieves costs from cost db"""
 	costs_json = ""
@@ -106,7 +106,7 @@ def getOverview(lims,bnr):
 			if not sample_artifact.parent_process: continue
 			process_name = sample_artifact.parent_process.type.name
 
-			if process_name in ISOLATION_PROCESSES:
+			if process_name in Config.ISOLATION_PROCESSES:
 
 				if 'US Isolation Type' in sample_artifact.udf:
 					isolation_type = "{0} isolation".format(sample_artifact.udf['US Isolation Type'].split(" ")[0].lower())
@@ -126,7 +126,7 @@ def getOverview(lims,bnr):
 						ovw_seq[project.id]['errors'].add("Isolation type {0} in LIMS doesn't match sample type {1}".format(isolation_type, sample.udf['Sample Type']))
 					else:
 						ovw_seq[project.id]['errors'].add("Could not find isolation type")
-			elif process_name in LIBPREP_PROCESSES:
+			elif process_name in Config.LIBPREP_PROCESSES:
 				protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 
 				if '-' in protocol_name[0:10]:
@@ -152,7 +152,7 @@ def getOverview(lims,bnr):
 				elif sample.udf['Library prep kit'] == 'Truseq DNA nano' and 'libprep dna' not in ovw_seq[project.id]['lims_library_prep'] :
 					ovw_seq[project.id]['errors'].add("Libprep type {0} in LIMS doesn't match libprep type {1}".format(ovw_seq[project.id]['lims_library_prep'],sample.udf['Library prep kit']))
 
-			elif process_name in RUN_PROCESSES and not ovw_seq[project.id]['lims_runtype']:
+			elif process_name in Config.RUN_PROCESSES and not ovw_seq[project.id]['lims_runtype']:
 				protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 
 				if '-' in protocol_name:
@@ -169,7 +169,7 @@ def getOverview(lims,bnr):
 
 				# if ovw_seq[project.id]['lims_runtype'].split(" ")[0] not in ",".join(ovw_seq[project.id]['requested_runtype']).lower():
 				# ovw_seq[project.id]['errors'].add("Run type {0} in LIMS doesn't match run type {1}".format(ovw_seq[project.id]['lims_runtype'],",".join(ovw_seq[project.id]['requested_runtype'])))
-			elif process_name in ANALYSIS_PROCESSES:
+			elif process_name in Config.ANALYSIS_PROCESSES:
 				billing_date = getNearestBillingDate(all_costs, 'mapping wgs' , sample_artifact.parent_process.date_run)
 				ovw_seq[project.id]['analysis_date'].add(sample_artifact.parent_process.date_run)
 				analysis_steps =['Raw data (FastQ)']
