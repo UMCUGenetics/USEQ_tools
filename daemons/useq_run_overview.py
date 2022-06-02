@@ -1,4 +1,4 @@
-from config import PROJECT_TYPES,ILL_SEQUENCING_STEPS,NAN_SEQUENCING_STEPS,STAT_PATH
+from config import Config
 import argparse
 import json
 import xml.etree.cElementTree as ET
@@ -304,7 +304,15 @@ def getProjectDetails( lims, project,run_dirs ):
 
     # print (f'Getting processes start {datetime.now()}' )
     # print (project.name)
-    project_processes = lims.get_processes(type=ILL_SEQUENCING_STEPS+NAN_SEQUENCING_STEPS+['USEQ - BCL to FastQ','USEQ - Ready for billing'], projectname=project.name)
+    process_types = []
+    #Configured steps plus some legacy stuff
+    ILL_SEQUENCING_STEPS = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['names'] + ['NextSeq Run (NextSeq) 1.0','MiSeq Run (MiSeq) 4.0','HiSeq Run (HiSeq) 5.0']
+    NAN_SEQUENCING_STEPS = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['NANOPORE SEQUENCING']['names']
+
+    process_types.extend(ILL_SEQUENCING_STEPS)
+    process_types.extend(NAN_SEQUENCING_STEPS)
+    process_types.extend(['USEQ - BCL to FastQ','USEQ - Ready for billing'])
+    project_processes = lims.get_processes(type=process_types, projectname=project.name)
 
     # print (f'Getting processes stop {datetime.now()}' )
     if not project_processes:
@@ -459,7 +467,7 @@ def updateProjectOverview( lims, ovw ):
     new_ovw = {}
 
     run_dirs = {}
-    p = Path(STAT_PATH)
+    p = Path(Config.HPC_STATS_DIR)
     # print('Getting run directories')
     # print(p)
     for d in p.glob('*/*'):
@@ -478,7 +486,7 @@ def updateProjectOverview( lims, ovw ):
         try:
             application = pr.udf['Application']
             print (pr,application)
-            if application not in PROJECT_TYPES.values():
+            if application not in Config.PROJECT_TYPES.values():
                 continue
         except KeyError:
             continue

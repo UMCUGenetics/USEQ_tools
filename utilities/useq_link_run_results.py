@@ -2,7 +2,7 @@ from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from xml.dom.minidom import parse
-from config import FILE_STORAGE, SQLALCHEMY_DATABASE_URI,STAT_PATH,RUN_PROCESSES, DATA_DIRS_RAW, TMP_DIR
+from config import Config
 from genologics.entities import Project
 from pathlib import Path
 import os
@@ -253,7 +253,7 @@ def parseConversionStatsType3(lims, pid, adapter_metrics, demux_stats):
 
 def getNanoporeStats():
     #Gather nanopore runs
-    nanopore_stats_dir = Path(f"{STAT_PATH}/nanopore")
+    nanopore_stats_dir = Path(f"{Config.HPC_STATS_DIR}/nanopore")
     stats = {}
     for summary in glob.glob(f"{nanopore_stats_dir}/**/*.txt", recursive=True):
         parent_dir = Path(summary).parent
@@ -288,7 +288,7 @@ def getIlluminaSequencingResults( lims, project):
 
     project_processes = lims.get_processes(
         projectname=project.name,
-        type=RUN_PROCESSES
+        type=Config.RUN_PROCESSES
     )
 
     for process in project_processes:
@@ -312,7 +312,7 @@ def getIlluminaSequencingResults( lims, project):
 
     for run in runs:
         # print(run)
-        stats_dir = Path(STAT_PATH)
+        stats_dir = Path(Config.HPC_STATS_DIR)
         if run['run_id']:
 
             for machine_dir in stats_dir.glob("*"):
@@ -365,12 +365,12 @@ def link_results(lims, run_id):
                 if prev_results:continue
                 nan_stats = None
                 if seq_result['stats_pdf']:
-                    tmp_stats_dir = Path(f"{TMP_DIR}/{seq_result['flowcell_id']}")
+                    tmp_stats_dir = Path(f"{Config.HPC_TMP_DIR}/{seq_result['flowcell_id']}")
                     if not tmp_stats_dir.is_dir():
                         tmp_stats_dir.mkdir()
 
                     os.system(f"scp {seq_result['stats_pdf']} {tmp_stats_dir}")
-                    # os.system(f"rsync -r {tmp_stats_dir.as_posix()} {FILE_STORAGE}")
+                    # os.system(f"rsync -r {tmp_stats_dir.as_posix()} {PORTAL_STORAGE}")
 
                     nan_stats = NanoporeSequencingStats(
                         general_stats = Path(seq_result['stats_pdf']).name,
@@ -395,7 +395,7 @@ def link_results(lims, run_id):
 
                 prev_results = session.query(IlluminaSequencingStats).filter_by(flowcell_id=seq_result['flowcell_id']).first()
                 if prev_results:continue
-                tmp_stats_dir = Path(f"{TMP_DIR}/{seq_result['flowcell_id']}")
+                tmp_stats_dir = Path(f"{Config.HPC_TMP_DIR}/{seq_result['flowcell_id']}")
                 conversion_stats_json_file = Path(f"{tmp_stats_dir}/Conversion_Stats.json")
                 if not tmp_stats_dir.is_dir():
                     tmp_stats_dir.mkdir()
@@ -428,8 +428,9 @@ def link_results(lims, run_id):
 
 
 
-                    for dir in DATA_DIRS_RAW:
-                        possible_img_dir = Path(f'{dir}/{run_name}')
+                    for machine in Config.MACHINE_ALIASES:
+
+                        possible_img_dir = Path(f'{Config.HPC_RAW_ROOT}/{machine}/{run_name}')
 
                         if possible_img_dir.is_dir():
                             base = None
@@ -458,7 +459,7 @@ def link_results(lims, run_id):
                                 shutil.copy(cycle_base_plot,tmp_stats_dir.as_posix())
                                 shutil.copy(cycle_intensity_plot,tmp_stats_dir.as_posix())
 
-                                # os.system(f"rsync -r {tmp_stats_dir.as_posix()} {FILE_STORAGE}")
+                                # os.system(f"rsync -r {tmp_stats_dir.as_posix()} {PORTAL_STORAGE}")
 
                                 ill_stats = IlluminaSequencingStats(
                                     flowcell_id=seq_result['flowcell_id'],
@@ -475,7 +476,7 @@ def link_results(lims, run_id):
 
 
 
-                # os.system(f"rsync -r {tmp_stats_dir.as_posix()} {FILE_STORAGE}")
+                # os.system(f"rsync -r {tmp_stats_dir.as_posix()} {PORTAL_STORAGE}")
                 if not ill_stats:
                     if conversion_stats_json_file.is_file():
                         ill_stats = IlluminaSequencingStats(
@@ -507,7 +508,7 @@ def run(lims, run_id):
 # pymysql.connect(user=DB_USER,password=DB_PWD,database=DB, host='sitkaspar', ssl={'ssl': 1})
     # engine, suppose it has two tables 'user' and 'run' set up
     ssl_args = {'ssl_ca': '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt'}
-    engine = create_engine(SQLALCHEMY_DATABASE_URI, connect_args=ssl_args)
+    engine = create_engine(Config.PORTAL_DB_URI, connect_args=ssl_args)
 
 
     # reflect the tables

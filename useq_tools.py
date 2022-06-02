@@ -11,7 +11,7 @@ from genologics.lims import Lims
 import utilities
 import epp
 import daemons
-import config
+from config import Config
 
 
 #Commandline utility Functions
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     global lims
 
     # Setup lims connection
-    lims = Lims(config.BASEURI, config.USERNAME, config.PASSWORD)
+    lims = Lims(Config.LIMS_URI, Config.LIMS_USER, Config.LIMS_PW)
 
     parser = argparse.ArgumentParser()
     subparser = parser.add_subparsers()

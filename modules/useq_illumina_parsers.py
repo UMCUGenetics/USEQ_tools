@@ -1,7 +1,7 @@
 import os
 import xml.etree.cElementTree as ET
 from xml.dom.minidom import parseString, parse
-from config import RUNTYPE_YIELDS
+from config import Config
 
 def parseConversionStats( conversion_stats_file ):
 
@@ -118,14 +118,14 @@ def getExpectedReads( run_parameters):
     except:
         flowcell_mode = ''
 
-    if run_chem in RUNTYPE_YIELDS:
-        expected_reads = RUNTYPE_YIELDS[run_chem]
-    elif run_version in RUNTYPE_YIELDS:
-        expected_reads = RUNTYPE_YIELDS[run_version]
-    elif flowcell_mode in RUNTYPE_YIELDS:
-        expected_reads = RUNTYPE_YIELDS[flowcell_mode]
+    if run_chem in Config.RUNTYPE_YIELDS:
+        expected_reads = Config.RUNTYPE_YIELDS[run_chem]
+    elif run_version in Config.RUNTYPE_YIELDS:
+        expected_reads = Config.RUNTYPE_YIELDS[run_version]
+    elif flowcell_mode in Config.RUNTYPE_YIELDS:
+        expected_reads = Config.RUNTYPE_YIELDS[flowcell_mode]
     else:
-        expected_reads = RUNTYPE_YIELDS['HiSeq rapid']
+        expected_reads = Config.RUNTYPE_YIELDS['HiSeq rapid']
 
     return expected_reads
 

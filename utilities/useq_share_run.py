@@ -1,22 +1,18 @@
 from genologics.entities import Project
-from config import RUN_PROCESSES, RAW_DIR, PROCESSED_DIR, NEXTCLOUD_HOST,NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,NEXTCLOUD_PROCESSED_DIR,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER, NEXTCLOUD_USER, NEXTCLOUD_PW,DATA_DIRS_RAW,SMS_SERVER,NEXTCLOUD_DATA_ROOT,FILE_STORAGE, SQLALCHEMY_DATABASE_URI,WEBHOST,DATA_DIRS_NANOPORE
+from config import Config
 from texttable import Texttable
 import datetime
 import os
 import multiprocessing
-import subprocess
 import time
 from modules.useq_nextcloud import NextcloudUtil
 from modules.useq_mail import sendMail
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
-from itertools import islice
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from xml.dom.minidom import parse
-
 import sys
-import tarfile
 from pathlib import Path
 import re
 import csv
@@ -129,7 +125,7 @@ def shareManual(researcher,dir):
     print (f"{name}\tRunning upload to NextCloud")
     transfer_log = f'{dir}/transfer.log'
     transfer_error = f'{dir}/transfer.error'
-    transfer_command = f'scp {run_zip} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_MANUAL_DIR} 1>>{transfer_log} 2>>{transfer_error}'
+    transfer_command = f'scp {run_zip} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_MANUAL_DIR} 1>>{transfer_log} 2>>{transfer_error}'
 
     exit_code = os.system(transfer_command)
     if exit_code:
@@ -149,7 +145,7 @@ def shareManual(researcher,dir):
 
         template_data = {
             'dir' : dir.name,
-            'nextcloud_host' : NEXTCLOUD_HOST,
+            'nextcloud_host' : Config.NEXTCLOUD_HOST,
             'share_id' : share_id,
             'phone' : researcher.phone
         }
@@ -157,11 +153,11 @@ def shareManual(researcher,dir):
         mail_content = renderTemplate('share_manual_template.html', template_data)
         mail_subject = "USEQ has shared a file with you."
 
-        sendMail(mail_subject,mail_content, MAIL_SENDER ,researcher.email)
+        sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,researcher.email)
         # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl')
         # print (pw)
         # print()
-        os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_{dir.name}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
+        os.system(f"ssh usfuser@{Config.SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_{dir.name}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
         run_zip.unlink()
         zip_done.unlink()
 
@@ -187,32 +183,31 @@ def check(  ):
 
 def getNanoporeRunDetails( lims, project_id, fid ):
     runs = {}
-    for root_dir in DATA_DIRS_NANOPORE:
 
-        for summary_file in glob.glob(f"{root_dir}/**/final_summary_*txt", recursive=True):
-            parent_dir = Path(summary_file).parent
-            with open(summary_file, 'r') as s:
-                tmp = {}
-                for line in s.readlines():
-                    name,val = line.rstrip().split("=")
-                    tmp[name]=val
-                if 'protocol_group_id' in tmp and project_id in tmp['protocol_group_id']:
-                    stats_pdf_search = glob.glob(f"{parent_dir}/*pdf")
-                    run_date = datetime.datetime.strptime(tmp['started'].split("T")[0],"%Y-%m-%d")
-                    if stats_pdf_search:
-                        runs[ run_date ] = {
-                            'flowcell_id' : tmp['flow_cell_id'],
-                            'run_dir' : parent_dir,
-                            'stats_pdf' : stats_pdf_search[0],
-                            'date' : run_date
-                        }
-                    else:
-                        runs[ run_date ] = {
-                            'flowcell_id' : tmp['flow_cell_id'],
-                            'run_dir' : parent_dir,
-                            'stats_pdf' : None,
-                            'date' : run_date
-                        }
+    for summary_file in glob.glob(f"{Config.HPC_RAW_ROOT}/nanopore/**/final_summary_*txt", recursive=True):
+        parent_dir = Path(summary_file).parent
+        with open(summary_file, 'r') as s:
+            tmp = {}
+            for line in s.readlines():
+                name,val = line.rstrip().split("=")
+                tmp[name]=val
+            if 'protocol_group_id' in tmp and project_id in tmp['protocol_group_id']:
+                stats_pdf_search = glob.glob(f"{parent_dir}/*pdf")
+                run_date = datetime.datetime.strptime(tmp['started'].split("T")[0],"%Y-%m-%d")
+                if stats_pdf_search:
+                    runs[ run_date ] = {
+                        'flowcell_id' : tmp['flow_cell_id'],
+                        'run_dir' : parent_dir,
+                        'stats_pdf' : stats_pdf_search[0],
+                        'date' : run_date
+                    }
+                else:
+                    runs[ run_date ] = {
+                        'flowcell_id' : tmp['flow_cell_id'],
+                        'run_dir' : parent_dir,
+                        'stats_pdf' : None,
+                        'date' : run_date
+                    }
 
     if not runs:
         return None
@@ -228,7 +223,7 @@ def getIlluminaRunDetails( lims, project_name, fid ):
     runs = {}
     project_processes = lims.get_processes(
         projectname=project_name,
-        type=RUN_PROCESSES
+        type=Config.RUN_PROCESSES
     )
 
     for process in project_processes:
@@ -248,7 +243,8 @@ def getIlluminaRunDetails( lims, project_name, fid ):
     latest_flowcell_id = runs[sorted_run_dates[-1]] #the most recent run, this is the run we want to share
 
     #Try to determine run directory
-    for machine_dir in DATA_DIRS_RAW:
+    for machine in Config.MACHINE_ALIASES:
+        machine_dir = f"{Config.HPC_RAW_ROOT}/{machine}"
         md_path = Path(machine_dir)
         for run_dir in md_path.glob("*"):
             if run_dir.name.endswith("_000000000-"+latest_flowcell_id): #MiSeq
@@ -440,7 +436,7 @@ def shareDataById(lims, project_id, fid, link_portal):
             available_files.close()
 
             print (f"Running upload to NextCloud")
-            transfer_command = f'scp -r {upload_dir} {upload_dir_done} {NEXTCLOUD_HOST}:{NEXTCLOUD_DATA_ROOT}/{NEXTCLOUD_RAW_DIR}'
+            transfer_command = f'scp -r {upload_dir} {upload_dir_done} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}'
             exit_code = os.system(transfer_command)
             if exit_code:
                 sys.exit(f"Error : Failed to upload {upload_dir} to NextCloud.")
@@ -459,15 +455,15 @@ def shareDataById(lims, project_id, fid, link_portal):
                 template_data = {
                     'project_id' : project_id,
                     'phone' : researcher.phone,
-                    'nextcloud_host' : NEXTCLOUD_HOST,
+                    'nextcloud_host' : Config.NEXTCLOUD_HOST,
                     'share_id' : share_id,
                 }
                 mail_content = renderTemplate('share_nanopore_template.html', template_data)
                 mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
-                sendMail(mail_subject,mail_content, MAIL_SENDER ,researcher.email, attachments={'available_files':f'{run_dir}/available_files.txt'})
-                os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
-                # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl', attachments={'available_files':f'{run_dir}/available_files.txt'})
+                sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,researcher.email, attachments={'available_files':f'{run_dir}/available_files.txt'})
+                os.system(f"ssh usfuser@{Config.SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
+                # sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,'s.w.boymans@umcutrecht.nl', attachments={'available_files':f'{run_dir}/available_files.txt'})
                 # print (pw)
 
             os.system(f'rm -r {upload_dir} {upload_dir_done}')
@@ -482,11 +478,11 @@ def shareDataById(lims, project_id, fid, link_portal):
                     tmp_dir.mkdir()
                 os.system(f"cp {run_info['stats_pdf']} {tmp_dir}")
 
-                rsync_command = f"/usr/bin/rsync -rah {tmp_dir} {WEBHOST}:{FILE_STORAGE}/"
+                rsync_command = f"/usr/bin/rsync -rah {tmp_dir} {Config.PORTAL_USER}@{Config.PORTAL_SERVER}:{Config.PORTAL_STORAGE}/"
 
                 exit_code = os.system(rsync_command)
                 if exit_code :
-                    sys.exit(f'Error : Failed tot copy stats pdf to {FILE_STORAGE}. Please fix this manually using link_run_results!')
+                    sys.exit(f'Error : Failed tot copy stats pdf to {Config.PORTAL_STORAGE}. Please fix this manually using link_run_results!')
 
                 os.system(f"rm -r {tmp_dir}")
 
@@ -528,7 +524,7 @@ def shareDataById(lims, project_id, fid, link_portal):
             available_files.write(f"{file}\n")
         available_files.close()
         conversion_stats = parseConversionStats(lims, run_dir ,project_id )
-        print(conversion_stats)
+
         if not conversion_stats:
             print(f'Warning : No conversion stats could be found for {run_dir}!')
 
@@ -555,7 +551,7 @@ def shareDataById(lims, project_id, fid, link_portal):
                 template_data = {
                     'project_id' : project_id,
                     'phone' : researcher.phone,
-                    'nextcloud_host' : NEXTCLOUD_HOST,
+                    'nextcloud_host' : Config.NEXTCLOUD_HOST,
                     'share_id' : share_id,
                     'file_list' : file_list,
                     'conversion_stats' : conversion_stats
@@ -563,11 +559,11 @@ def shareDataById(lims, project_id, fid, link_portal):
 
                 mail_content = renderTemplate('share_illumina_template.html', template_data)
                 mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
-
-                sendMail(mail_subject,mail_content, MAIL_SENDER ,researcher.email,attachments={'available_files':f'{run_dir}/available_files.txt'})
+                #
+                sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,researcher.email,attachments={'available_files':f'{run_dir}/available_files.txt'})
                 os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
 
-                # sendMail(mail_subject,mail_content, MAIL_SENDER ,'s.w.boymans@umcutrecht.nl',attachments={'available_files':f'{run_dir}/available_files.txt'})
+                # sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,'s.w.boymans@umcutrecht.nl',attachments={'available_files':f'{run_dir}/available_files.txt'})
                 # print (pw)
 
                 print(f'Shared {project_id} with {researcher.email}')
@@ -587,10 +583,10 @@ def shareDataById(lims, project_id, fid, link_portal):
 
                     os.system(f"scp -r {run_dir}/Conversion/Reports/*png {tmp_dir}")
 
-                    rsync_command = f"/usr/bin/rsync -rah {tmp_dir} {WEBHOST}:{FILE_STORAGE}/"
+                    rsync_command = f"/usr/bin/rsync -rah {tmp_dir} {Config.PORTAL_USER}@{Config.PORTAL_SERVER}:{Config.PORTAL_STORAGE}/"
                     exit_code = os.system(rsync_command)
                     if exit_code :
-                        sys.exit(f'Error : Failed tot copy plots to {FILE_STORAGE}. Please fix this manually using link_run_results!')
+                        sys.exit(f'Error : Failed tot copy plots to {Config.PORTAL_STORAGE}. Please fix this manually using link_run_results!')
 
                     ill_stats = IlluminaSequencingStats(
                         flowcell_id=flowcell_id,
@@ -632,7 +628,8 @@ def run(lims, ids, username, dir, fid, link_portal):
     #Set up portal db connection +
     Base = automap_base()
     ssl_args = {'ssl_ca': '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt'}
-    engine = create_engine(SQLALCHEMY_DATABASE_URI, connect_args=ssl_args, pool_pre_ping=True)
+    engine = create_engine(Config.PORTAL_DB_URI, connect_args=ssl_args, pool_pre_ping=True)
+
     Base.prepare(engine, reflect=True)
     Run = Base.classes.run
     IlluminaSequencingStats = Base.classes.illumina_sequencing_stats
@@ -641,12 +638,12 @@ def run(lims, ids, username, dir, fid, link_portal):
 
     #Set up nextcloud
     nextcloud_util = NextcloudUtil()
-    nextcloud_util.setHostname( NEXTCLOUD_HOST )
+    nextcloud_util.setHostname( Config.NEXTCLOUD_HOST )
 
     if ids:
-        nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_RAW_DIR,MAIL_SENDER )
+        nextcloud_util.setup( Config.NEXTCLOUD_USER, Config.NEXTCLOUD_PW, Config.NEXTCLOUD_WEBDAV_ROOT,Config.NEXTCLOUD_RAW_DIR,Config.MAIL_SENDER )
         shareDataById(lims, ids, fid, link_portal)
 
     elif username and dir:
-        nextcloud_util.setup( NEXTCLOUD_USER, NEXTCLOUD_PW, NEXTCLOUD_WEBDAV_ROOT,NEXTCLOUD_MANUAL_DIR,MAIL_SENDER )
+        nextcloud_util.setup( Config.NEXTCLOUD_USER, Config.NEXTCLOUD_PW, Config.NEXTCLOUD_WEBDAV_ROOT,Config.NEXTCLOUD_MANUAL_DIR,Config.MAIL_SENDER )
         shareDataByUser(lims, username, dir)
