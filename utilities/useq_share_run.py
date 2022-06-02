@@ -343,11 +343,11 @@ def shareDataById(lims, project_id, fid, link_portal):
     project = None
     project_name = ''
 
-    # try:
-    project = Project(lims, id=project_id)
-    project_name = project.name
-    # except:
-    #     sys.exit(f"Error : Project ID {project_id} not found in LIMS!")
+    try:
+        project = Project(lims, id=project_id)
+        project_name = project.name
+    except:
+        sys.exit(f"Error : Project ID {project_id} not found in LIMS!")
 
     researcher = project.researcher
     if not researcher.phone:
