@@ -489,7 +489,7 @@ def uploadToHPC(lims, run_dir, projectIDs, error_file, log_file):
 def uploadToArchive(run_dir, error_file, log_file):
     updateLog(log_file, "Upload to archive : Running")
     machine = run_dir.parents[0].name
-    rsync_command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {Config.HPC_ARCHIVE_DIR}/{machine} 1> /dev/null 2>> {error_file}"
+    # rsync_command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {Config.HPC_ARCHIVE_DIR}/{machine} 1> /dev/null 2>> {error_file}"
     rsync_command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {Config.USEQ_USER}@{Config.HPC_TRANSFER_SERVER}:{Config.HPC_ARCHIVE_DIR}/{machine} 1> /dev/null 2>> {error_file}"
     exit_code = os.system(rsync_command)
     if exit_code:
