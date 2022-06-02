@@ -465,36 +465,36 @@ def getSnpFinance(lims, step_uri):
                     'department' : sample.project.researcher.lab.billing_address['department'],
                     'street' : sample.project.researcher.lab.billing_address['street']
                 }
-                if pool.id + sample.id not in runs[ sample.project.id + budget_nr ]['samples']:
-                    runs[ sample.project.id + budget_nr ]['samples'].append( pool.id + sample.id )
+            if pool.id + sample.id not in runs[ sample.project.id + budget_nr ]['samples']:
+                runs[ sample.project.id + budget_nr ]['samples'].append( pool.id + sample.id )
 
 
-                    runs[sample.project.id + budget_nr]['received_date'].add(sample.date_received)
-                    runs[sample.project.id + budget_nr]['type'].add(sample.udf['Sample Type'])
-                    if 'Description' in sample.udf:
-                        runs[sample.project.id + budget_nr]['description'].add(sample.udf['Description'])
-                    step_cost = getClosestStepCost(all_costs, 'open snp array' , sample.date_received)
+                runs[sample.project.id + budget_nr]['received_date'].add(sample.date_received)
+                runs[sample.project.id + budget_nr]['type'].add(sample.udf['Sample Type'])
+                if 'Description' in sample.udf:
+                    runs[sample.project.id + budget_nr]['description'].add(sample.udf['Description'])
+                step_cost = getClosestStepCost(all_costs, 'open snp array' , sample.date_received)
 
-                    runs[sample.project.id + budget_nr]['plate_step_costs'] = float(step_cost['step_costs'])
-                    runs[sample.project.id + budget_nr]['plate_personell_costs'] = float(step_cost['personell_costs'])
+                runs[sample.project.id + budget_nr]['plate_step_costs'] = float(step_cost['step_costs'])
+                runs[sample.project.id + budget_nr]['plate_personell_costs'] = float(step_cost['personell_costs'])
 
-                    if sample.udf['Sample Type'] == 'DNA unisolated':
-                        step_cost = getClosestStepCost(all_costs, 'dna isolation' , sample.date_received)
-                        runs[sample.project.id + budget_nr]['isolation_step_costs'] += float(step_cost['step_costs'])
-                        runs[sample.project.id + budget_nr]['total_step_costs'] += float(step_cost['step_costs'])
-                        runs[sample.project.id + budget_nr]['isolation_personell_costs'] += float(step_cost['personell_costs'])
-                        runs[sample.project.id + budget_nr]['total_personell_costs'] += float(step_cost['personell_costs'])
-                    elif sample.udf['Sample Type'] == 'RNA unisolated':
-                        step_cost = getClosestStepCost(all_costs, 'rna isolation' , sample.date_received)
-                        runs[sample.project.id + budget_nr]['isolation_step_costs'] += float(step_cost['step_costs'])
-                        runs[sample.project.id + budget_nr]['total_step_costs'] += float(step_cost['step_costs'])
-                        runs[sample.project.id + budget_nr]['isolation_personell_costs'] += float(step_cost['personell_costs'])
-                        runs[sample.project.id + budget_nr]['total_personell_costs'] += float(step_cost['personell_costs'])
+                if sample.udf['Sample Type'] == 'DNA unisolated':
+                    step_cost = getClosestStepCost(all_costs, 'dna isolation' , sample.date_received)
+                    runs[sample.project.id + budget_nr]['isolation_step_costs'] += float(step_cost['step_costs'])
+                    runs[sample.project.id + budget_nr]['total_step_costs'] += float(step_cost['step_costs'])
+                    runs[sample.project.id + budget_nr]['isolation_personell_costs'] += float(step_cost['personell_costs'])
+                    runs[sample.project.id + budget_nr]['total_personell_costs'] += float(step_cost['personell_costs'])
+                elif sample.udf['Sample Type'] == 'RNA unisolated':
+                    step_cost = getClosestStepCost(all_costs, 'rna isolation' , sample.date_received)
+                    runs[sample.project.id + budget_nr]['isolation_step_costs'] += float(step_cost['step_costs'])
+                    runs[sample.project.id + budget_nr]['total_step_costs'] += float(step_cost['step_costs'])
+                    runs[sample.project.id + budget_nr]['isolation_personell_costs'] += float(step_cost['personell_costs'])
+                    runs[sample.project.id + budget_nr]['total_personell_costs'] += float(step_cost['personell_costs'])
 
     for id in runs:
         plate_step_costs = runs[id]['plate_step_costs']
         plate_personell_costs = runs[id]['plate_personell_costs']
-
+        print(id, len(runs[id]['samples']))
         nr_samples = len(runs[id]['samples'])
         runs[id]['total_step_costs'] += (plate_step_costs / 45) * nr_samples
         runs[id]['total_personell_costs'] += (plate_personell_costs / 45) * nr_samples
