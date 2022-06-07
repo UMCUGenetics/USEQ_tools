@@ -561,7 +561,7 @@ def shareDataById(lims, project_id, fid, link_portal):
                 mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
                 #
                 sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,researcher.email,attachments={'available_files':f'{run_dir}/available_files.txt'})
-                os.system(f"ssh usfuser@{SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
+                os.system(f"ssh usfuser@{Config.SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
 
                 # sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,'s.w.boymans@umcutrecht.nl',attachments={'available_files':f'{run_dir}/available_files.txt'})
                 # print (pw)
