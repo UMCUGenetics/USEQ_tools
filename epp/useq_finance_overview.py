@@ -149,8 +149,10 @@ def getClosestStepCost(all_costs, step ,step_date):
         if date.date() <= step_date:
             step_cost = all_costs[step][date]
     if not step_cost:
-        step_cost = sort(all_costs[step].keys())[-1]
-
+        print(step)
+    
+        date = sorted(all_costs[step].keys())[-1]
+        step_cost = all_costs[step][date]
     return step_cost
     # billing_date = ''
     # step_date = datetime.strptime(step_date, "%Y-%m-%d").date()
