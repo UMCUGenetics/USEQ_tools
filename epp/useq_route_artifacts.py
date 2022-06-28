@@ -7,7 +7,7 @@ def routeArtifacts(lims, step_uri, input):
     step = Step(lims, uri=step_uri)
 
     current_step = step.configuration.name
-    print(current_step)
+
     to_route = {}
     for io_map in step.details.input_output_maps:
         artifact = None
@@ -39,7 +39,7 @@ def routeArtifacts(lims, step_uri, input):
         elif current_step in Config.WORKFLOW_STEPS['SEQUENCING']['steps']['LIBPREP']['names']:
             # next_step = STEP_URIS[ 'USEQ - Library Pooling' ]
             next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOLING']['stage_nrs'][ 'USEQ - Library Pooling' ]
-            print(next_stage)
+
         elif current_step in Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOLING']['names']:
             sample_type = first_sample.udf['Sample Type']
             if sample_type == 'DNA library' or sample_type == 'RNA library': #Go to pool QC
@@ -73,10 +73,10 @@ def routeArtifacts(lims, step_uri, input):
 
             if not sample_analyses:
                 # next_step = STEP_URIS['USEQ - Encrypt & Send']
-                next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POST SEQUENCING']['stage_nrs']['USEQ - Encrypt & Send']
+                next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POST SEQUENCING']['stage_nrs']['USEQ - Ready for billing']
             elif len(sample_analyses) == 1 and 'Raw data (FastQ)' in sample_analyses:
                 # next_step = STEP_URIS['USEQ - Encrypt & Send']
-                next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POST SEQUENCING']['stage_nrs']['USEQ - Encrypt & Send']
+                next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POST SEQUENCING']['stage_nrs']['USEQ - Ready for billing']
             else:
                 # next_step = STEP_URIS['USEQ - Analysis']
                 next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POST SEQUENCING']['stage_nrs']['USEQ - Analysis']

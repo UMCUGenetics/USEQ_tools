@@ -35,42 +35,6 @@ def getFinanceOvw():
 
     return step_costs
 
-    # # try:
-    # db = pymysql.connect(user=DB_USER,password=DB_PWD,database=DB, host='sitkaspar', ssl={'ssl': 1})
-    # # except:
-    #     # sys.exit('ERROR : Failed to create db connection!')
-    #
-    # cursor = db.cursor()
-    # sql_query = None
-    # step_costs = {}
-    #
-    # sql_query = "SELECT s.name as step_name, sc.costs, sc.step_cost,sc.personell_cost,sc.date, st.name as type_name, st.step_input FROM usf_step s JOIN usf_step_costs sc ON s.step_id=sc.step_id JOIN usf_step_types st ON s.type_id=st.type_id;"
-    #
-    # try:
-    #     cursor.execute(sql_query)
-    #     results = cursor.fetchall()
-    #     header = [x[0] for x in cursor.description]
-    #
-    #     # print (header)
-    #     for row in results:
-    #         r = dict(zip(header, row))
-    #         # print(r)
-    #         if r['step_name'] not in step_costs:
-    #             step_costs[ r['step_name'] ] = {
-    #                 'type_name' : r['type_name'],
-    #                 'step_input' : r['step_input'],
-    #                 'date_costs' : {},
-    #                 'date_step_costs' : {},
-    #                 'date_personell_costs' : {}
-    #             }
-    #         step_costs[ r['step_name'] ] [ 'date_costs' ][ r['date'] ] = r['costs']
-    #         step_costs[ r['step_name'] ] [ 'date_step_costs' ][ r['date'] ] = r['step_cost']
-    #         step_costs[ r['step_name'] ] [ 'date_personell_costs' ][ r['date'] ] = r['personell_cost']
-    #     return (step_costs)
-    # except:
-    #     db.close()
-    #     sys.exit('ERROR : Unable to retrieve data')
-
 def getAllCosts():
     """Retrieves costs from cost db"""
 
@@ -149,8 +113,8 @@ def getClosestStepCost(all_costs, step ,step_date):
         if date.date() <= step_date:
             step_cost = all_costs[step][date]
     if not step_cost:
-        print(step)
-    
+        # print(step)
+
         date = sorted(all_costs[step].keys())[-1]
         step_cost = all_costs[step][date]
     return step_cost
@@ -225,9 +189,12 @@ def getSeqFinance(lims, step_uri):
 
                 if not sample_artifact.parent_process: continue
                 process_name = sample_artifact.parent_process.type.name
+                # print(sample.name, process_name)
                 # print(process_name)
 
                 if process_name in Config.ISOLATION_PROCESSES :
+
+                    if sample_artifact.type == 'ResultFile':continue
                     isolation_type = "{0} isolation".format(sample_artifact.udf['US Isolation Type'].split(" ")[0].lower())
 
                     step_cost = getClosestStepCost(all_costs, isolation_type , sample_artifact.parent_process.date_run)
@@ -245,6 +212,7 @@ def getSeqFinance(lims, step_uri):
                         runs[pool.id][project_id]['errors'].add("Isolation type {0} in LIMS doesn't match sample type {1}".format(isolation_type, sample.udf['Sample Type']))
 
                 elif process_name in Config.LIBPREP_PROCESSES and sample.udf['Sequencing Runtype'] != 'WGS at HMF' and sample.udf['Sequencing Runtype'] != 'WGS':
+                    if sample_artifact.type == 'ResultFile':continue
                 # print (sample.project.id, process_name, runs[pool.id]['requested_runtype'])
                     lims_library_prep = ''
 
@@ -255,7 +223,8 @@ def getSeqFinance(lims, step_uri):
                     else:
                         protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
                         lims_library_prep = protocol_name.split("-",1)[1].lower().strip()
-
+                        #addition for new protocol names
+                        lims_library_prep = lims_library_prep.replace('illumina ', '')
 
                     runs[pool.id][project_id]['lims_library_prep'].add(lims_library_prep)
 
@@ -269,7 +238,7 @@ def getSeqFinance(lims, step_uri):
 
 
                 elif process_name in Config.RUN_PROCESSES and not runs[pool.id][project_id]['lims_runtype']:
-                    print(pool.id, project_id, runs[pool.id][project_id]['type'],runs[pool.id][project_id]['requested_runtype'],process_name)
+                    if sample_artifact.type == 'ResultFile':continue
                     protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
                     runs[pool.id][project_id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 
@@ -496,7 +465,7 @@ def getSnpFinance(lims, step_uri):
     for id in runs:
         plate_step_costs = runs[id]['plate_step_costs']
         plate_personell_costs = runs[id]['plate_personell_costs']
-        print(id, len(runs[id]['samples']))
+        # print(id, len(runs[id]['samples']))
         nr_samples = len(runs[id]['samples'])
         runs[id]['total_step_costs'] += (plate_step_costs / 45) * nr_samples
         runs[id]['total_personell_costs'] += (plate_personell_costs / 45) * nr_samples
