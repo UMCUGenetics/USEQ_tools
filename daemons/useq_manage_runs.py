@@ -194,13 +194,15 @@ def statusMail(message, run_dir, projectIDs):
     status_file = Path(f'{run_dir}/Conversion/Logs/status.json')
     log_file = Path(f'{run_dir}/Conversion/Logs/mgr.log')
     error_file = Path(f'{run_dir}/Conversion/Logs/mgr.err')
+
+    demux_stats = Path(f'{run_dir}/Conversion/Reports/Demultiplex_Stats.csv')
     basepercent_by_cycle_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_BasePercent-by-cycle_BasePercent.png')
     intensity_by_cycle_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_Intensity-by-cycle_Intensity.png')
     clusterdensity_by_lane_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_Clusters-by-lane.png')
     flowcell_intensity_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_flowcell-Intensity.png')
     q_heatmap_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_q-heat-map.png')
     q_histogram_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_q-histogram.png')
-    demux_stats = Path(f'{run_dir}/Conversion/Reports/Demultiplex_Stats.csv')
+
 
     status = None
     log = None
@@ -258,6 +260,8 @@ def demuxCheck(run_dir, log_file, error_file):
     Path(f'{run_dir}/Conversion/Demux-check').mkdir(parents=True, exist_ok=True)
     skip_demux = False
 
+
+
     sample_sheet = Path(f'{run_dir}/SampleSheet.csv')
     sample_sheet_parsed = parseSampleSheet( sample_sheet )
 
@@ -270,7 +274,7 @@ def demuxCheck(run_dir, log_file, error_file):
     run_info = xml.dom.minidom.parse(f'{run_dir}/RunInfo.xml')
     first_tile = run_info.getElementsByTagName('Tile')[0].firstChild.nodeValue
     first_tile = first_tile.split("_")[-1]
-    print('First Tile : ',first_tile)
+
 #
 # if run_parameters.getElementsByTagName('ReagentKitSerial'):  # NextSeq
 #     lims_container_name = run_parameters.getElementsByTagName('ReagentKitSerial')[0].firstChild.nodeValue
@@ -292,13 +296,19 @@ def demuxCheck(run_dir, log_file, error_file):
             rev_samples.append(sample_rev)
         writeSampleSheet(sample_sheet, header, samples, sample_sheet_parsed['top'])
         writeSampleSheet(sample_sheet_rev, header, rev_samples, sample_sheet_parsed['top'])
-
-
+    elif len(samples) == 1:
+        sample = samples[0]
+        sample[header.index('index')] = sample[header.index('index')].replace("N","A")
+        if 'index2' in header:
+            sample[header.index('index2')] = sample[header.index('index2')].replace("N","A")
+        writeSampleSheet(sample_sheet, header, samples, sample_sheet_parsed['top'])
 
     #Samplesheet is OK first try
     updateLog(log_file, 'Checking original samplesheet : Running')
     command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/1 --sample-sheet {sample_sheet} --bcl-sampleproject-subdirectories true --force --tiles {first_tile} 1 > /dev/null'
-    os.system(command)
+    exit_code = os.system(command)
+    if exit_code:
+        raise RuntimeError('Demultiplexing check failed to run.',run_dir, [])
     stats = parseConversionStats(f'{run_dir}/Conversion/Demux-check/1/Reports')
     # print(stats['undetermined_reads'], stats['total_reads'])
     if stats['undetermined_reads'] / stats['total_reads'] < 0.40:
@@ -307,7 +317,9 @@ def demuxCheck(run_dir, log_file, error_file):
 
     #Try revcomp samplesheet
     command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/2 --sample-sheet {sample_sheet_rev} --bcl-sampleproject-subdirectories true --force --tiles {first_tile} 1 > /dev/null'
-    os.system(command)
+    exit_code = os.system(command)
+    if exit_code:
+        raise RuntimeError('Demultiplexing check failed to run.',run_dir, [])
     stats = parseConversionStats(f'{run_dir}/Conversion/Demux-check/2/Reports')
     # print(stats['undetermined_reads'], stats['total_reads'])
     if stats['undetermined_reads'] / stats['total_reads'] < 0.40:
@@ -320,6 +332,7 @@ def demuxCheck(run_dir, log_file, error_file):
         return True
     # sys.exit()
     return False
+
 
 def filterStats(lims, pid, pid_staging, report_dir):
     samples = lims.get_samples(projectlimsid=pid)
@@ -630,6 +643,7 @@ def manageRuns(lims):
 
                     else: #Skip straight to transfer
                         updateLog(log_file,f'Pre demultiplexing check failed, skipping demultiplexing.')
+                        generateRunStats(run_dir, log_file, error_file)
                         if not status['Transfer-nc']:
                             status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'bcl',projectIDs,log_file, error_file)
                         if status['Transfer-nc'] :
