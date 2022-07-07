@@ -13,14 +13,36 @@
   <tr> <td><b>Transfer to Archive</b></td>  <td>{{status['Archive']}}</td> </tr>
 </table>
 <br>
-<h3>Logs</h3>
-{{log | replace("\n", "<br>")}}
-<br>
-<h3>Errors</h3>
-{{error | replace("\n", "<br>")}}
-<br>
-{% if 'total_reads' in stats_summary %}
-<h3>Summary</h3>
+{% if summary_stats %}
+<h3>Run Summary</h3>
+<table class='useq_table'>
+  <tr>
+    <th><b>Level</b></th>
+    <th><b>Yield</b></th>
+    <th><b>Projected Yield</b></th>
+    <th><b>Aligned</b></th>
+    <th><b>Error Rate</b></th>
+    <th><b>Intensity C1</b></th>
+    <th><b>%>=Q30</b></th>
+    <th><b>% Occupied</b></th>
+  </tr>
+  {% for row in summary_stats %}
+  <tr>
+    {% if 'Level' in row -%} <td>{{ row['Level'] }}</td> {% endif %}
+    {% if 'Yield' in row -%} <td>{{ row['Yield'] }}</td> {% endif %}
+    {% if 'Projected Yield' in row -%} <td>{{ row['Projected Yield'] }}</td> {% endif %}
+    {% if 'Aligned' in row -%} <td>{{ row['Aligned'] }}</td> {% endif %}
+    {% if 'Error Rate' in row -%} <td>{{ row['Error Rate'] }}</td> {% endif %}
+    {% if 'Intensity C1' in row -%} <td>{{ row['Intensity C1'] }}</td> {% endif %}
+    {% if '%>=Q30' in row -%} <td>{{ row['%>=Q30'] }}</td> {% endif %}
+    {% if '% Occupied' in row -%} <td>{{ row['% Occupied'] }}</td> {% endif %}
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+{% if 'total_reads' in conversion_stats %}
+<h3>Conversion Summary</h3>
 <table class='useq_table'>
 <tr> <td><b>Output (filtered) / Output (expected)</b></td> <td>{{nr_reads}}</td> </tr>
 </table>
@@ -34,15 +56,15 @@
     <th><b># One Mismatch Index Reads</b></th>
     <!-- f'Read {row['ReadNumber']} Mean Quality Score (PF)' -->
     {% for read_nr in ['1','2','I1','I2'] -%}
-      {% if 'Read '+read_nr+' Mean Quality Score (PF)' in stats_summary.samples[0] %}
+      {% if 'Read '+read_nr+' Mean Quality Score (PF)' in conversion_stats.samples[0] %}
         <th><b>Read {{read_nr}} Mean Quality Score (PF)</b></th>
       {% endif %}
-      {% if 'Read '+read_nr+' % Q30' in stats_summary.samples[0] %}
+      {% if 'Read '+read_nr+' % Q30' in conversion_stats.samples[0] %}
         <th><b>Read {{read_nr}} % Q30</b></th>
       {% endif %}
     {% endfor %}
   </tr>
-  {% for sample in stats_summary.samples %}
+  {% for sample in conversion_stats.samples %}
   <tr>
     <td>{{ sample['SampleID'] }}</td>
     <td>{{ sample['Index'] }}</td>
@@ -67,10 +89,10 @@
   <tr>
     <th><b>Lane</b></th>
     <th><b>index</b></th>
-    {% if 'index2' in stats_summary['top_unknown'][0] %}<th><b>index2</b></th>{% endif %}
+    {% if 'index2' in conversion_stats['top_unknown'][0] %}<th><b>index2</b></th>{% endif %}
     <th><b># Reads</b></th>
   </tr>
-  {% for unk in stats_summary['top_unknown'] %}
+  {% for unk in conversion_stats['top_unknown'] %}
   <tr>
     <td>{{ unk['Lane'] }}</td>
     <td>{{ unk['index'] }}</td>
@@ -80,7 +102,8 @@
   {% endfor %}
 </table>
 <br>
-<!-- PRETTY(ISH) PLOTS -->
+{% endif %}
+<h3>Plots</h3>
 <table>
   <tr>
     <td><img src='cid:flowcell_intensity_plot'></td>
@@ -95,5 +118,10 @@
     <td><img src='cid:intensity_by_cycle_plot'></td>
   </tr>
 </table>
-{% endif %}
+<h3>Logs</h3>
+{{log | replace("\n", "<br>")}}
+<br>
+<h3>Errors</h3>
+{{error | replace("\n", "<br>")}}
+<br>
 {% endblock %}

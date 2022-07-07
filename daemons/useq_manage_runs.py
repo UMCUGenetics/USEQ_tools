@@ -119,7 +119,26 @@ def getSampleSheet(lims, container_name, sample_sheet_path):
                 return True
     return False
 
+def parseSummaryStats( summary ):
+    stats = []
+    with open(summary, 'r') as sumcsv:
+        lines = sumcsv.readlines()
+        line_nr = 0
+        while line_nr < len(lines):
+            line = lines[line_nr].rstrip()
+            if not line: line_nr+=1;continue
+            if line.startswith('Level'):
+                header = [x.rstrip() for x in line.split(",")]
+                for sub_line in lines[line_nr+1:]:
+                    # print (line)
+                    cols = [x.rstrip() for x in sub_line.split(",")]
+                    stats.append(dict(zip(header,cols)))
+                    if sub_line.startswith('Total'): break
+                break
+            else:
+                line_nr += 1
 
+    return stats
 
 def parseConversionStats(dir):
     demux_stats = f'{dir}/Demultiplex_Stats.csv'
@@ -194,7 +213,7 @@ def statusMail(message, run_dir, projectIDs):
     status_file = Path(f'{run_dir}/Conversion/Logs/status.json')
     log_file = Path(f'{run_dir}/Conversion/Logs/mgr.log')
     error_file = Path(f'{run_dir}/Conversion/Logs/mgr.err')
-
+    summary_stats_file = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_summary.csv')
     demux_stats = Path(f'{run_dir}/Conversion/Reports/Demultiplex_Stats.csv')
     basepercent_by_cycle_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_BasePercent-by-cycle_BasePercent.png')
     intensity_by_cycle_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_Intensity-by-cycle_Intensity.png')
@@ -217,8 +236,11 @@ def statusMail(message, run_dir, projectIDs):
 
     expected_reads = getExpectedReads(f'{run_dir}/RunParameters.xml')
     conversion_stats = {}
+    summary_stats = {}
     if demux_stats.is_file():
         conversion_stats = parseConversionStats(f'{run_dir}/Conversion/Reports')
+    if summary_stats_file.is_file():
+        summary_stats = parseSummaryStats(summary_stats_file)
 
     attachments = {
         # 'zip_file': f'{run_dir}/{run_dir.name}_Reports.zip',
@@ -236,7 +258,8 @@ def statusMail(message, run_dir, projectIDs):
         'projectIDs': ",".join(projectIDs),
         'run_dir': run_dir.name,
         'nr_reads' : f'{conversion_stats["total_reads"]:,} / {expected_reads:,}' if 'total_reads' in conversion_stats else 0,
-        'stats_summary': conversion_stats,
+        'conversion_stats': conversion_stats,
+        'summary_stats' : summary_stats
     }
 
     mail_content = renderTemplate('conversion_status_mail.html', template_data)
@@ -278,7 +301,7 @@ def demuxCheck(run_dir, log_file, error_file):
 #
 # if run_parameters.getElementsByTagName('ReagentKitSerial'):  # NextSeq
 #     lims_container_name = run_parameters.getElementsByTagName('ReagentKitSerial')[0].firstChild.nodeValue
-    if len(samples) >= 1:
+    if len(samples) > 1:
         # With 1 sample customers probably want the BCL files, demux will clear this up. For more samples cleanup samplesheet before demux
         for sample in samples:
             dual_index = False
@@ -302,7 +325,7 @@ def demuxCheck(run_dir, log_file, error_file):
         if 'index2' in header:
             sample[header.index('index2')] = sample[header.index('index2')].replace("N","A")
         writeSampleSheet(sample_sheet, header, samples, sample_sheet_parsed['top'])
-
+        writeSampleSheet(sample_sheet_rev, header, samples, sample_sheet_parsed['top'])
     #Samplesheet is OK first try
     updateLog(log_file, 'Checking original samplesheet : Running')
     command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/1 --sample-sheet {sample_sheet} --bcl-sampleproject-subdirectories true --force --tiles {first_tile} 1 > /dev/null'

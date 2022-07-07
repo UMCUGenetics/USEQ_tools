@@ -110,7 +110,7 @@ def parseConversionStats( conversion_stats_file ):
     return conversion_stats
 
 def parseRunSummary( summary ):
-    print(summary)
+    
     stats = {
         'phix_aligned' : [],
         'cluster_density':0,
