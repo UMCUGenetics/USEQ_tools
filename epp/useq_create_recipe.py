@@ -6,7 +6,7 @@ def createRecipe(lims, step_uri):
     step_details = StepDetails(lims, uri=step_uri+'/details')
 
     experiment_name = step_details.udf['Experiment Name']
-    flowcell_ID = step_details.udf['Flow Cell ID']
+    flowcell_ID = step_details.udf.get('Flow Cell ID','NA')
     run_mode = step_details.udf['Run Mode']
     workflow_type = step_details.udf['Workflow Type']
     sample_loading_type = 'NovaSeqStandard'

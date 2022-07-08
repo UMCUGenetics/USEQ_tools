@@ -193,19 +193,27 @@ def getNanoporeRunDetails( lims, project_id, fid ):
                 tmp[name]=val
             if 'protocol_group_id' in tmp and project_id in tmp['protocol_group_id']:
                 stats_pdf_search = glob.glob(f"{parent_dir}/*pdf")
+                stats_html_search = glob.glob(f"{parent_dir}/*html")
                 run_date = datetime.datetime.strptime(tmp['started'].split("T")[0],"%Y-%m-%d")
                 if stats_pdf_search:
                     runs[ run_date ] = {
                         'flowcell_id' : tmp['flow_cell_id'],
                         'run_dir' : parent_dir,
-                        'stats_pdf' : stats_pdf_search[0],
+                        'stats_file' : stats_pdf_search[0],
+                        'date' : run_date
+                    }
+                elif stats_html_search:
+                    runs[ run_date ] = {
+                        'flowcell_id' : tmp['flow_cell_id'],
+                        'run_dir' : parent_dir,
+                        'stats_file' : stats_html_search[0],
                         'date' : run_date
                     }
                 else:
                     runs[ run_date ] = {
                         'flowcell_id' : tmp['flow_cell_id'],
                         'run_dir' : parent_dir,
-                        'stats_pdf' : None,
+                        'stats_file' : None,
                         'date' : run_date
                     }
 
@@ -472,11 +480,11 @@ def shareDataById(lims, project_id, fid, link_portal):
             if prev_results:
                 sys.exit(f'Warning : Stats for {run_info["flowcell_id"]} where already uploaded to portal db. Skipping.')
 
-            if run_info['stats_pdf']:
+            if run_info['stats_file']:
                 tmp_dir = Path(f"{run_dir}/{run_info['flowcell_id']}")
                 if not tmp_dir.is_dir():
                     tmp_dir.mkdir()
-                os.system(f"cp {run_info['stats_pdf']} {tmp_dir}")
+                os.system(f"cp {run_info['stats_file']} {tmp_dir}")
 
                 rsync_command = f"/usr/bin/rsync -rah {tmp_dir} {Config.PORTAL_USER}@{Config.PORTAL_SERVER}:{Config.PORTAL_STORAGE}/"
 
@@ -487,7 +495,7 @@ def shareDataById(lims, project_id, fid, link_portal):
                 os.system(f"rm -r {tmp_dir}")
 
                 nan_stats = NanoporeSequencingStats(
-                    general_stats = Path(run_info['stats_pdf']).name,
+                    general_stats = Path(run_info['stats_file']).name,
                     date = run_info['date'],
                     flowcell_id = run_info['flowcell_id'],
                     run_id=portal_run.id

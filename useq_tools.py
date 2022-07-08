@@ -75,6 +75,9 @@ def create_samplesheet(args):
     """Create generic v2 samplesheet"""
     epp.useq_create_samplesheet.run(lims, args.step,args.output_file)
 
+def parse_worksheet(args):
+    """Parse xslx worksheet"""
+    epp.useq_parse_worksheet.run(lims, args.step, args.aid, args.output_file, args.mode)
 #Daemon scripts
 def nextcloud_monitor(args):
     """Is intended to run as a daemon to check the space remaining on the Nextcloud storage"""
@@ -191,6 +194,15 @@ if __name__ == "__main__":
     parser_create_samplesheet.add_argument('-s', '--step', help='Step URI', required=True)
     parser_create_samplesheet.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
     parser_create_samplesheet.set_defaults(func=create_samplesheet)
+
+    parser_parse_worksheet = subparser_epp.add_parser('parse_worksheet')
+    parser_parse_worksheet.add_argument('-s', '--step', help='Step URI', required=True)
+    parser_parse_worksheet.add_argument('-a', '--aid', help='Artifact ID', required=True)
+    parser_parse_worksheet.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
+    parser_parse_worksheet.add_argument('-m', '--mode', help='Mode, choose illumina or ont. Affects which barcodes are available.', choices=['illumina','ont'], required=True)
+    parser_parse_worksheet.set_defaults(func=parse_worksheet)
+# epp.useq_parse_worksheet.run(lims, args.step, args.aid)
+
     #Daemon parsers
     parser_daemons = subparser.add_parser('daemons', help='USEQ daemon scripts: check_nextcloud_storage,manage_runs ')
     subparser_daemons = parser_daemons.add_subparsers()

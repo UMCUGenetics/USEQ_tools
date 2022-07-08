@@ -110,7 +110,7 @@ def parseConversionStats( conversion_stats_file ):
     return conversion_stats
 
 def parseRunSummary( summary ):
-    print(summary)
+    
     stats = {
         'phix_aligned' : [],
         'cluster_density':0,
@@ -174,7 +174,7 @@ def parseRunSummary( summary ):
         stats['perc_occupied'] = None
     # if isinstance(stats['perc_occupied'], str):
     #     sys.exit(occupied_scores)
-    print(f"Density : {stats['cluster_density']} Perc Q30 : {stats['perc_q30']} Perc Occupied: {stats['perc_occupied']}")
+    # print(f"Density : {stats['cluster_density']} Perc Q30 : {stats['perc_q30']} Perc Occupied: {stats['perc_occupied']}")
     return stats
 
 def parseDemuxStats(demux_stats):
@@ -302,8 +302,7 @@ def getProjectDetails( lims, project,run_dirs ):
     elif project_details['sample_type'].endswith("isolated"):
         project_details['library_prep_nr'] = project_details['sample_nr']
 
-    # print (f'Getting processes start {datetime.now()}' )
-    # print (project.name)
+
     process_types = []
     #Configured steps plus some legacy stuff
     ILL_SEQUENCING_STEPS = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['names'] + ['NextSeq Run (NextSeq) 1.0','MiSeq Run (MiSeq) 4.0','HiSeq Run (HiSeq) 5.0']
@@ -311,7 +310,7 @@ def getProjectDetails( lims, project,run_dirs ):
 
     process_types.extend(ILL_SEQUENCING_STEPS)
     process_types.extend(NAN_SEQUENCING_STEPS)
-    process_types.extend(['USEQ - BCL to FastQ','USEQ - Ready for billing'])
+    process_types.extend(['USEQ - BCL to FastQ','USEQ - Ready for billing','USEQ - Process Raw Data'])
     project_processes = lims.get_processes(type=process_types, projectname=project.name)
 
     # print (f'Getting processes stop {datetime.now()}' )
@@ -396,7 +395,7 @@ def getProjectDetails( lims, project,run_dirs ):
 
                 if summary_stats_file.is_file():
                     summary_stats = parseRunSummary(summary_stats_file)
-                    print(summary_stats)
+                    # print(summary_stats)
                     run['cluster_density'] = summary_stats['cluster_density']
                     run['perc_bases_q30'] = summary_stats['perc_q30']
                     run['perc_occupied'] = summary_stats['perc_occupied']

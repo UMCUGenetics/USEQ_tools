@@ -1,6 +1,6 @@
 from genologics.entities import Step, StepDetails, Process
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
-
+import sys
 # [Header]
 # Investigator Name,{{investigator_name}}
 # Experiment Name,{{experiment_name}}
@@ -59,6 +59,7 @@ def createSamplesheet(lims, step_uri):
             'Sample_Project' : a.samples[0].project.id
         }
         index_name = a.reagent_labels[0]
+        # print(index_name)
         reagent = lims.get_reagent_types(name=index_name)[0]
         # print(reagent.sequence)
         if '-' in reagent.sequence:
@@ -72,7 +73,7 @@ def createSamplesheet(lims, step_uri):
         samplesheet_data['samples'].append(s)
     # print(samplesheet_data['index1_cycles'],samplesheet_data['index2_cycles'])
     samplesheet_data['override_cycles'] = f'Y{ samplesheet_data["read1_cycles"] };'
-    print (process.type.name)
+    # print (process.type.name)
     if samplesheet_data['index1_cycles'] == 17:
         if 'NextSeq2000' in process.type.name or 'NovaSeq' in process.type.name:
             samplesheet_data['override_cycles'] += 'I8U9;'
@@ -97,6 +98,8 @@ def createSamplesheet(lims, step_uri):
 
 def run(lims, step_uri, output_file):
     """Runs the createSamplesheet function"""
+    # print(step_uri, output_file)
+
     recipe = createSamplesheet(lims, step_uri)
 
     output_file.write(recipe)
