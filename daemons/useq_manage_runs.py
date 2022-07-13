@@ -24,10 +24,6 @@ def convertBCL(run_dir, sample_sheet, log_file, error_file):
     updateLog(log_file, 'Conversion : Running')
     """Convert bcl files from run to fastq.gz files."""
 
-    # run_info = xml.dom.minidom.parse(f'{run_dir}/RunInfo.xml')
-    # first_tile = run_info.getElementsByTagName('Tile')[0].firstChild.nodeValue
-    # first_tile = first_tile.split("_")[-1]
-
     # Start conversion
     os.system(f'date >> {log_file}')
     command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {sample_sheet} 1 > /dev/null'
