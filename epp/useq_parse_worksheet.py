@@ -30,7 +30,6 @@ def parse(lims, step_uri, aid, output_file, mode):
     wb = load_workbook(filename=BytesIO(content))
     columns = {
         'nr' : None,
-        'submitted volume': None,
         'container name': None,
         'well/tube': None,
         'sample': None,
