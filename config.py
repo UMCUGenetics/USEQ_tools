@@ -78,7 +78,7 @@ class Config(object):
         'SEQUENCING' : {
             'steps' : {
                 'ISOLATION' : {
-                    'names':['USEQ - Isolation'],
+                    'names':['USEQ - Isolation', 'USEQ - Isolation v2'],
                     'stage_nrs': {
                         'Truseq DNA nano' : '1501:8806',
                         'Truseq RNA stranded polyA' : '1501:8809',
@@ -89,7 +89,7 @@ class Config(object):
                     }
                 },
                 'LIBPREP' : {
-                    'names':['USEQ - Post LibPrep QC'],
+                    'names':['USEQ - Post LibPrep QC','USEQ - Bioanalyzer QC DNA', 'USEQ - Qubit QC','USEQ - Adenylate ends & Ligate Adapters'],
                     'stage_nrs' : {}
                 },
                 'POOLING' : {
@@ -105,7 +105,7 @@ class Config(object):
                     }
                 },
                 'ILLUMINA SEQUENCING' : {
-                    'names':['USEQ - MiSeq Run','USEQ - NextSeq Run', 'USEQ - Automated NovaSeq Run v2', 'USEQ - iSeq Run', 'USEQ - NextSeq2000 Run'],
+                    'names':['USEQ - MiSeq Run','USEQ - NextSeq Run', 'USEQ - Automated NovaSeq Run v2', 'USEQ - iSeq Run', 'USEQ - NextSeq2000 Run','AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)'],
                     'stage_nrs' : {
                         'Illumina NextSeq' : '1501:8823',
                         'Illumina NextSeq500' : '1501:8823',
@@ -125,7 +125,7 @@ class Config(object):
 
                 },
                 'POST SEQUENCING' : {
-                    'names':['USEQ - Process Raw Data','USEQ - Analysis'],
+                    'names':['USEQ - BCL to FastQ','USEQ - Process Raw Data','USEQ - Analysis'],
                     'stage_nrs' : {
                         'USEQ - Post Sequencing' : '1501:8839',
                         'USEQ - Analysis' : '1501:8840',
