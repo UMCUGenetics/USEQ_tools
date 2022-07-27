@@ -42,6 +42,9 @@ def link_run_results(args):
 def year_overview(args):
     utilities.useq_year_overview.run(lims, args.year, args.output)
 
+def route_project(args):
+    utilities.useq_route_project.run(lims, args.project_id, args.protocol_type)
+
 #Clarity epp scripts
 def run_status_mail(args):
     """Send run started mail"""
@@ -147,7 +150,17 @@ if __name__ == "__main__":
     parser_year_overview.add_argument('-o', '--output', help='Path to output file', nargs='?' ,type=argparse.FileType('w') , default=sys.stdout)
     parser_year_overview.add_argument('-y', '--year', help='Year, leave empty for all', default=None)
     parser_year_overview.set_defaults(func=year_overview)
-    # year_overview
+
+    parser_route_project = subparser_utilities.add_parser('route_project', help='Routes all samples in project to specific LIMS protocol.')
+    parser_route_project.add_argument('-i', '--project_id', help='The LIMS project ID.')
+    parser_route_project.add_argument('-p', '--protocol_type',
+        help='The LIMS protocol type. Choose from : ISOLATION, LIBPREP, POOLING, POOL QC, ILLUMINA SEQUENCING, NANOPORE SEQUENCING, POST SEQUENCING',
+        choices=['ISOLATION', 'LIBPREP', 'POOLING', 'POOL QC', 'ILLUMINA SEQUENCING', 'NANOPORE SEQUENCING', 'POST SEQUENCING']
+    )
+    parser_route_project.set_defaults(func=route_project)
+
+    # utilities.useq_route_project.run(lims. args.project_id, args.protocol_type)
+
 
     #epp parsers
     parser_epp = subparser.add_parser('epp',help='Clarity epp functions: run_status_mail, modify_samplesheet, group_permissions, finance_overview, route_artifacts, close_projects ')

@@ -80,17 +80,18 @@ class Config(object):
                 'ISOLATION' : {
                     'names':['USEQ - Isolation', 'USEQ - Isolation v2'],
                     'stage_nrs': {
+                        'USEQ - Isolation' : '1152:4695'
+                    }
+                },
+                'LIBPREP' : {
+                    'names':['USEQ - Post LibPrep QC','USEQ - Bioanalyzer QC DNA', 'USEQ - Qubit QC','USEQ - Adenylate ends & Ligate Adapters'],
+                    'stage_nrs' : {
                         'Truseq DNA nano' : '1152:4696',
                         'Truseq RNA stranded polyA' : '1152:4699',
                         'Truseq RNA stranded ribo-zero' : '1152:4702',
                         'USEQ - LIBPREP-ONT-DNA' : '1152:4705',
                         'USEQ - LIBPREP-ONT-RNA' : '1152:4708'
-                        # 'USEQ - LIBPREP-ONT-RNA' : 'https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/1152/stages/3915'
                     }
-                },
-                'LIBPREP' : {
-                    'names':['USEQ - Post LibPrep QC','USEQ - Bioanalyzer QC DNA', 'USEQ - Qubit QC','USEQ - Adenylate ends & Ligate Adapters'],
-                    'stage_nrs' : {}
                 },
                 'POOLING' : {
                     'names':['USEQ - Library Pooling'],
