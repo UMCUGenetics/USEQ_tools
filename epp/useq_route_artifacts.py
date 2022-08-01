@@ -24,15 +24,15 @@ def routeArtifacts(lims, step_uri, input):
 
             if 'Library prep kit' in first_sample.udf:
                 # next_step = STEP_URIS[ first_sample.udf['Library prep kit'] ]
-                next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ISOLATION']['stage_nrs'][ first_sample.udf['Library prep kit'] ]
+                next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['LIBPREP']['stage_nrs'][ first_sample.udf['Library prep kit'] ]
             else:
                 if first_sample.udf['Platform'] == 'Oxford Nanopore':
                     if first_sample.udf['Sample Type'] == 'RNA total isolated':
                         # next_step = STEP_URIS['USEQ - LIBPREP-ONT-RNA']
-                        next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ISOLATION']['stage_nrs'][ 'USEQ - LIBPREP-ONT-RNA' ]
+                        next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['LIBPREP']['stage_nrs'][ 'USEQ - LIBPREP-ONT-RNA' ]
                     else:
                         # next_step = STEP_URIS['USEQ - LIBPREP-ONT-DNA']
-                        next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ISOLATION']['stage_nrs'][ 'USEQ - LIBPREP-ONT-DNA' ]
+                        next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['LIBPREP']['stage_nrs'][ 'USEQ - LIBPREP-ONT-DNA' ]
                 else:
                     # next_step = STEP_URIS[ 'USEQ - Fingerprinting' ]
                     next_stage = Config.WORKFLOW_STEPS['FINGERPRINTING']['steps']['FINGERPRINTING']['stage_nrs'][ 'USEQ - Fingerprinting' ]
