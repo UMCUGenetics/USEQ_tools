@@ -7,6 +7,9 @@ load_dotenv(os.path.join(basedir, '.useq-env'))
 
 class Config(object):
 
+    ##DEVELOPMENT SETTINGS##
+    DEVMODE=os.environ.get('DEVMODE') or False
+
     ##USEQ MAIN USER ACCOUNT##
     USEQ_USER=os.environ.get('USEQ_USER') or 'usfuser'
 
@@ -70,6 +73,7 @@ class Config(object):
     ##SMS SERVER SETTINGS##
     SMS_SERVER = 'sumak.op.umcutrecht.nl'
 
+    SSL_CERT = '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt'
 
     ##LIMS SETTINGS##
     PROJECT_TYPES = {'Sequencing': 'USF - Sequencing', 'SNP Fingerprinting':'USF - SNP genotyping'}
@@ -153,7 +157,7 @@ class Config(object):
 
 
     ###Will be integrated in workflow steps###
-    RUN_PROCESSES=['USEQ - NextSeq Run','USEQ - MiSeq Run','USEQ - HiSeq Run', 'USEQ - iSeq Run', 'USEQ - Nanopore Run', 'USEQ - Denature, Dilute and Load (NovaSeq)', 'USEQ - NextSeq2000 Run', 'USEQ - Denature, Dilute and Load (NextSeq2000)','USEQ - Automated NovaSeq Run v2']
+    RUN_PROCESSES=['USEQ - NextSeq Run','USEQ - MiSeq Run','USEQ - HiSeq Run', 'USEQ - iSeq Run', 'USEQ - Nanopore Run', 'USEQ - Denature, Dilute and Load (NovaSeq)', 'USEQ - NextSeq2000 Run', 'USEQ - Denature, Dilute and Load (NextSeq2000)','AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)']
     ISOLATION_PROCESSES=['USEQ - Isolation','USEQ - Isolation v2']
     LIBPREP_PROCESSES=['USEQ - Adenylate ends & Ligate Adapters','USEQ - LibPrep Illumina','USEQ - LibPrep Nanopore']
     ANALYSIS_PROCESSES=['USEQ - Analysis']

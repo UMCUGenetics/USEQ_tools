@@ -264,19 +264,25 @@ def getNanoporeStats():
                 tmp[name] = val
             if 'protocol_group_id' in tmp and 'flow_cell_id' in tmp:
                 stats_pdf_search = glob.glob(f"{parent_dir}/*pdf")
+                stats_html_search = glob.glob(f"{parent_dir}/*html")
                 if tmp['protocol_group_id'] not in stats:
                     stats[ tmp['protocol_group_id'] ] = []
                 if stats_pdf_search:
                     stats[ tmp['protocol_group_id'] ].append( {
                         'flowcell_id' : tmp['flow_cell_id'],
-                        'stats_pdf' : stats_pdf_search[0],
+                        'stats_file' : stats_pdf_search[0],
                         'date' : tmp['started'].split("T")[0]
                     })
-
+                elif stats_html_search:
+                    runs[ run_date ] = {
+                        'flowcell_id' : tmp['flow_cell_id'],
+                        'stats_file' : stats_html_search[0],
+                        'date' : run_date
+                    }
                 else:
                     stats[ tmp['protocol_group_id'] ].append( {
                         'flowcell_id' : tmp['flow_cell_id'],
-                        'stats_pdf' : None,
+                        'stats_file' : None,
                         'date' : tmp['started'].split("T")[0]
                     })
 
@@ -364,21 +370,21 @@ def link_results(lims, run_id):
                 prev_results = session.query(NanoporeSequencingStats).filter_by(flowcell_id=seq_result['flowcell_id']).first()
                 if prev_results:continue
                 nan_stats = None
-                if seq_result['stats_pdf']:
+                if seq_result['stats_file']:
                     tmp_stats_dir = Path(f"{Config.HPC_TMP_DIR}/{seq_result['flowcell_id']}")
                     if not tmp_stats_dir.is_dir():
                         tmp_stats_dir.mkdir()
 
-                    os.system(f"scp {seq_result['stats_pdf']} {tmp_stats_dir}")
+                    os.system(f"scp {seq_result['stats_file']} {tmp_stats_dir}")
                     # os.system(f"rsync -r {tmp_stats_dir.as_posix()} {PORTAL_STORAGE}")
 
                     nan_stats = NanoporeSequencingStats(
-                        general_stats = Path(seq_result['stats_pdf']).name,
+                        general_stats = Path(seq_result['stats_file']).name,
                         date = seq_result['date'],
                         flowcell_id = seq_result['flowcell_id'],
                         run_id=run.id
                     )
-                    print(seq_result['stats_pdf'],seq_result['date'],seq_result['flowcell_id'],run.id)
+                    print(seq_result['stats_file'],seq_result['date'],seq_result['flowcell_id'],run.id)
                 else:
                     nan_stats = NanoporeSequencingStats(
                         date = seq_result['date'],
