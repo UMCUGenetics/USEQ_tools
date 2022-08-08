@@ -19,7 +19,24 @@ import csv
 import glob
 import json
 
+def createDBSession():
 
+    # global Run
+    # global IlluminaSequencingStats
+    # global NanoporeSequencingStats
+
+    #Set up portal db connection +
+    Base = automap_base()
+    ssl_args = {'ssl_ca': Config.SSL_CERT}
+    engine = create_engine(Config.PORTAL_DB_URI, connect_args=ssl_args, pool_pre_ping=True, pool_recycle=21600)
+
+    Base.prepare(engine, reflect=True)
+    Run = Base.classes.run
+    IlluminaSequencingStats = Base.classes.illumina_sequencing_stats
+    NanoporeSequencingStats = Base.classes.nanopore_sequencing_stats
+    session = Session(engine)
+
+    return (session,Run, IlluminaSequencingStats,NanoporeSequencingStats)
 
 def parseConversionStats(lims, dir, pid):
 
@@ -231,12 +248,12 @@ def getIlluminaRunDetails( lims, project_name, fid ):
     runs = {}
     project_processes = lims.get_processes(
         projectname=project_name,
-        type=Config.RUN_PROCESSES
+        # type=Config.RUN_PROCESSES
     )
 
     for process in project_processes:
         flowcell_id = None
-
+        # print(process.type.name)
         if fid:
             flowcell_id = fid
         elif 'Flow Cell ID' in process.udf:
@@ -362,6 +379,7 @@ def shareDataById(lims, project_id, fid, link_portal):
         sys.exit(f'Error : User ID {researcher.username} for project ID {project_id} has not provided a phone number yet!')
 
     #Fetch project from Portal DB
+    session,Run, IlluminaSequencingStats,NanoporeSequencingStats = createDBSession()
     portal_run = session.query(Run).filter_by(run_id=project_id).first()
     if not portal_run:
         sys.exit(f'Error : Project ID {project_id} not found in Portal DB!')
@@ -396,7 +414,8 @@ def shareDataById(lims, project_id, fid, link_portal):
             upload_dir_done = Path(f"{run_dir}/{project_id}.done")
             upload_dir_done.touch()
             upload_dir.mkdir()
-            available_files = open(f'{run_dir}/available_files.txt', 'w')
+            file_list = []
+            available_files = open(f'{run_dir}/available_files.txt', 'w', newline='\n')
             if barcode_dirs:
                 for bd in barcode_dirs:
                     zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{bd.name}.tar.gz fast5_fail/{bd.name} fast5_pass/{bd.name} fastq_fail/{bd.name} fastq_pass/{bd.name}"
@@ -404,6 +423,7 @@ def shareDataById(lims, project_id, fid, link_portal):
                     exit_code= os.system(zip_command)
                     if exit_code:
                         sys.exit(f"Error : Failed to create zip file {upload_dir}/{bd.name}.tar.gz.")
+                    file_list.append(f"{bd.name}.tar.gz")
                     available_files.write(f"{bd.name}.tar.gz\n")
             else:
                 fast5_pass_dir = Path(f"{run_dir}/fast5_pass")
@@ -434,7 +454,10 @@ def shareDataById(lims, project_id, fid, link_portal):
                 available_files.write(f"{fastq_pass_dir.name}.tar.gz\n")
                 available_files.write(f"{fast5_fail_dir.name}.tar.gz\n")
                 available_files.write(f"{fast5_pass_dir.name}.tar.gz\n")
-
+                file_list.append(f"{fastq_fail_dir.name}.tar.gz")
+                file_list.append(f"{fastq_pass_dir.name}.tar.gz")
+                file_list.append(f"{fast5_fail_dir.name}.tar.gz")
+                file_list.append(f"{fast5_pass_dir.name}.tar.gz")
             zip_stats = f"cd {run_dir} && tar -czf {upload_dir}/stats.tar.gz other_reports/ *.*"
             exit_code = os.system(zip_stats)
 
@@ -465,17 +488,22 @@ def shareDataById(lims, project_id, fid, link_portal):
                     'phone' : researcher.phone,
                     'nextcloud_host' : Config.NEXTCLOUD_HOST,
                     'share_id' : share_id,
+                    'file_list' : file_list,
                 }
                 mail_content = renderTemplate('share_nanopore_template.html', template_data)
                 mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
-                sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,researcher.email, attachments={'available_files':f'{run_dir}/available_files.txt'})
-                os.system(f"ssh usfuser@{Config.SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
-                # sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,'s.w.boymans@umcutrecht.nl', attachments={'available_files':f'{run_dir}/available_files.txt'})
-                # print (pw)
+                if Config.DEVMODE:
+                    sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,'s.w.boymans@umcutrecht.nl', attachments={'available_files':f'{run_dir}/available_files.txt'})
+                    print (pw)
+                else:
+                    sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,researcher.email, attachments={'available_files':f'{run_dir}/available_files.txt'})
+                    os.system(f"ssh usfuser@{Config.SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
+
+
 
             os.system(f'rm -r {upload_dir} {upload_dir_done}')
-
+            session,Run, IlluminaSequencingStats,NanoporeSequencingStats = createDBSession()
             prev_results = session.query(NanoporeSequencingStats).filter_by(flowcell_id=run_info['flowcell_id']).first()
             if prev_results:
                 sys.exit(f'Warning : Stats for {run_info["flowcell_id"]} where already uploaded to portal db. Skipping.')
@@ -527,7 +555,7 @@ def shareDataById(lims, project_id, fid, link_portal):
         if not file_list:
             sys.exit(f"{name}\tError : No files found in nextcloud dir  {project_id}!")
 
-        available_files = open(f'{run_dir}/available_files.txt', 'w')
+        available_files = open(f'{run_dir}/available_files.txt', 'w', newline='\n')
         for file in file_list:
             available_files.write(f"{file}\n")
         available_files.close()
@@ -568,15 +596,18 @@ def shareDataById(lims, project_id, fid, link_portal):
                 mail_content = renderTemplate('share_illumina_template.html', template_data)
                 mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
                 #
-                sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,researcher.email,attachments={'available_files':f'{run_dir}/available_files.txt'})
-                os.system(f"ssh usfuser@{Config.SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
+                if Config.DEVMODE:
+                    sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,'s.w.boymans@umcutrecht.nl',attachments={'available_files':f'{run_dir}/available_files.txt'})
+                    print (pw)
+                else:
+                    sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,researcher.email,attachments={'available_files':f'{run_dir}/available_files.txt'})
+                    os.system(f"ssh usfuser@{Config.SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
 
-                # sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,'s.w.boymans@umcutrecht.nl',attachments={'available_files':f'{run_dir}/available_files.txt'})
-                # print (pw)
+
 
                 print(f'Shared {project_id} with {researcher.email}')
-                # session = Session(engine)
 
+                session,Run, IlluminaSequencingStats,NanoporeSequencingStats = createDBSession()
                 prev_results = session.query(IlluminaSequencingStats).filter_by(flowcell_id=flowcell_id).first()
                 if prev_results:
                     sys.exit(f'Warning : Stats for {flowcell_id} where already uploaded to portal db. Skipping.')
@@ -628,21 +659,21 @@ def run(lims, ids, username, dir, fid, link_portal):
     """Runs raw, processed or manual function based on mode"""
 
     global nextcloud_util
-    global session
-    global Run
-    global IlluminaSequencingStats
-    global NanoporeSequencingStats
-
-    #Set up portal db connection +
-    Base = automap_base()
-    ssl_args = {'ssl_ca': '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt'}
-    engine = create_engine(Config.PORTAL_DB_URI, connect_args=ssl_args, pool_pre_ping=True)
-
-    Base.prepare(engine, reflect=True)
-    Run = Base.classes.run
-    IlluminaSequencingStats = Base.classes.illumina_sequencing_stats
-    NanoporeSequencingStats = Base.classes.nanopore_sequencing_stats
-    session = Session(engine)
+    # global session
+    # global Run
+    # global IlluminaSequencingStats
+    # global NanoporeSequencingStats
+    #
+    # #Set up portal db connection +
+    # Base = automap_base()
+    # ssl_args = {'ssl_ca': '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt'}
+    # engine = create_engine(Config.PORTAL_DB_URI, connect_args=ssl_args, pool_pre_ping=True)
+    #
+    # Base.prepare(engine, reflect=True)
+    # Run = Base.classes.run
+    # IlluminaSequencingStats = Base.classes.illumina_sequencing_stats
+    # NanoporeSequencingStats = Base.classes.nanopore_sequencing_stats
+    # session = Session(engine)
 
     #Set up nextcloud
     nextcloud_util = NextcloudUtil()
