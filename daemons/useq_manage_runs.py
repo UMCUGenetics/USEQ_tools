@@ -404,7 +404,7 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
                 sample_zip = Path(f'{pid_staging}/{sample}.tar')
                 sample_zip_done = Path(f'{pid_staging}/{sample}.tar.done')
                 if not sample_zip_done.is_file():
-                    zip_command = f'cd {pid_dir} && tar -cf {sample_zip} {sample}*fastq.gz 1>> {log_file} 2>> {error_file}'
+                    zip_command = f'cd {pid_dir} && tar -cvf {sample_zip} {sample}*fastq.gz 1>> {log_file} 2>> {error_file}'
                     updateLog(log_file, f'Compressing {pid} {sample} to tar : Running')
                     exit_code = os.system(zip_command)
                     if exit_code: return False
@@ -432,9 +432,9 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,log_file, error_file):
         zip_done = Path(f'{pid_staging}/{pid}.tar.done')
 
 
-        zip_command = f'cd {run_dir.parents[0]} && tar -cf {zipped_run} --exclude "Conversion/" --exclude "*fastq.gz*" --exclude "*run_zip.*" {run_dir.name} 1>> {log_file} 2>> {error_file}'
+        zip_command = f'cd {run_dir.parents[0]} && tar -cvf {zipped_run} --exclude "Conversion/" --exclude "*fastq.gz*" --exclude "*run_zip.*" {run_dir.name} 1>> {log_file} 2>> {error_file}'
 
-        # zip_command = f'cd {run_dir.parents[0]} && tar -cf {zipped_run} --exclude "Conversion/" --exclude "*fastq.gz*" {run_dir.name} 1>> {log_file} 2>> {error_file}'
+        # zip_command = f'cd {run_dir.parents[0]} && tar -cvf {zipped_run} --exclude "Conversion/" --exclude "*fastq.gz*" {run_dir.name} 1>> {log_file} 2>> {error_file}'
 
         if not zip_done.is_file():
             print ('zip', zip_command)
