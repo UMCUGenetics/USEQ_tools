@@ -405,7 +405,7 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
                 sample_zip_done = Path(f'{pid_staging}/{sample}.tar.done')
                 if not sample_zip_done.is_file():
                     os.chdir(pid_dir)
-                    command = f'tar -cvf {sample_zip} {sample}*fastq.gz'
+                    command = f'tar -cvf {sample_zip} {sample}_*fastq.gz'
                     if not runSystemCommand(command, logger, shell=True):
                         logger.error(f'Failed to create {sample_zip}')
                         raise
