@@ -11,6 +11,56 @@
 <p>This link will remain active for 14 days. If you're unable to download your data within this period, please let us know.
 Please also be aware that we're able to store your sequencing data for a maximum of two months, after which it is automatically deleted from our servers.</p>
 
+<h3>Sample/Pool Measurements</h3>
+{% if sample_measurements %}
+<table class='useq_table'>
+  {% if not sample_measurements.pool %}
+    <tr>
+      <th><b>Sample</b></th>
+      <th><b>Isolated conc. (ng/ul)</b></th>
+      <th><b>Pre library prep conc. (ng/ul)</b></th>
+      <th><b>RIN</b></th>
+      <th><b>Post library prep conc. (ng/ul)</b></th>
+    </tr>
+      {% for sample in sample_measurements.samples %}
+        <tr>
+          <td>{{sample}}</td>
+          {% if sample_measurements.samples[sample]['Isolated conc. (ng/ul)'] %}
+          <td>{{sample_measurements.samples[sample]['Isolated conc. (ng/ul)']}}</td>
+          {% else %}
+          <td>NA</td>
+          {% endif %}
+          {% if sample_measurements.samples[sample]['Pre library prep conc. (ng/ul)'] %}
+          <td>{{sample_measurements.samples[sample]['Pre library prep conc. (ng/ul)']}}</td>
+          {% else %}
+          <td>NA</td>
+          {% endif %}
+          {% if sample_measurements.samples[sample]['RIN'] %}
+          <td>{{sample_measurements.samples[sample]['RIN']}}</td>
+          {% else %}
+          <td>NA</td>
+          {% endif %}
+          {% if sample_measurements.samples[sample]['Post library prep conc. (ng/ul)'] %}
+          <td>{{sample_measurements.samples[sample]['Post library prep conc. (ng/ul)']}}</td>
+          {% else %}
+          <td>NA</td>
+          {% endif %}
+
+        </tr>
+      {% endfor %}
+  {% else %}
+    <tr>
+      <th><b>Library conc. (ng/ul)</b></th>
+      <th><b>Average length (bp)</b></th>
+    </tr>
+    <tr>
+      <td>{{sample_measurements.pool['Library conc. (ng/ul)']}}</td>
+      <td>NA</td>
+    </tr>
+  {% endif %}
+</table>
+{% endif %}
+
 <h3>Available files</h3>
 <ol>
 {% for file in file_list %}
