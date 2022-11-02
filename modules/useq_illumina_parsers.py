@@ -140,7 +140,7 @@ def parseSampleSheet(sample_sheet):
                 header = line.rstrip().split(',')
                 data['header'] = header
                 continue
-            elif header:
+            elif header and line:
                 sample = line.split(",")
                 data['samples'].append(sample)
             else:

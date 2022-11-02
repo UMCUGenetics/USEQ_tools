@@ -56,13 +56,15 @@ def parse(lims, step_uri, aid, output_file, mode):
         if not row_cells[ columns['sample'] ].value:
             continue
         # sample['sample_name'] = row_cells[ columns['sample'] ].value
-        if current_step == 'USEQ - Isolation':
+        if current_step == 'USEQ - Isolation' or current_step == 'USEQ - Isolation v2':
             if not columns['pre conc ng/ul']:
                 sys.exit('ERROR : No "pre conc ng/ul" column found.')
             if row_cells[ columns['pre conc ng/ul'] ].value:
                 sample['pre conc ng/ul'] = row_cells[ columns['pre conc ng/ul'] ].value
             else:
                 sys.exit(f'ERROR : No "pre conc ng/ul" found at row {row_nr}.')
+            if row_cells[ columns['container name'] ].value:
+                sample['container name'] = row_cells[ columns['container name'] ].value
 
         if current_step == 'USEQ - Pre LibPrep QC':
             if not columns['pre conc ng/ul']:
@@ -102,6 +104,7 @@ def parse(lims, step_uri, aid, output_file, mode):
             samples[ row_cells[ columns['sample'] ].value ] = sample
         row_nr +=1
     artifacts_to_update = []
+    containers_to_update = []
     # sys.exit()
     for io_map in step.details.input_output_maps:
         artifact = None
@@ -115,6 +118,11 @@ def parse(lims, step_uri, aid, output_file, mode):
 
             if 'pre conc ng/ul' in sample_info and not 'Concentration Qubit QC (DNA) 5.0 (ng/ul)' in artifact.udf:
                 artifact.udf['Concentration Qubit QC (DNA) 5.0 (ng/ul)'] = float(sample_info['pre conc ng/ul'])
+            if 'container name' in sample_info:
+                container = artifact.location[0]
+                # print(container)
+                container.name = sample_info['container name']
+                containers_to_update.append(container)
             if 'RIN' in sample_info and not 'RIN' in artifact.udf:
                 artifact.udf['RIN'] = float(sample_info['RIN'])
             if 'barcode' in sample_info :
@@ -129,7 +137,7 @@ def parse(lims, step_uri, aid, output_file, mode):
                 artifact.udf['Average length (bp)'] = int(sample_info['size'])
             artifacts_to_update.append(artifact)
     lims.put_batch(artifacts_to_update)
-
+    lims.put_batch(containers_to_update)
 
 def run(lims, step_uri, aid, output_file, mode):
 	parse(lims, step_uri, aid, output_file, mode)

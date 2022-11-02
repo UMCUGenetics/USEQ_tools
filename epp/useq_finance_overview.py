@@ -192,6 +192,7 @@ def getSeqFinance(lims, step_uri):
                 # print(sample.name, process_name)
                 # print(process_name)
 
+                # print(pool.id, project_id,process_name, runs[pool.id][project_id]['lims_runtype'] )
                 if process_name in Config.ISOLATION_PROCESSES :
 
                     if sample_artifact.type == 'ResultFile':continue
@@ -238,11 +239,14 @@ def getSeqFinance(lims, step_uri):
 
 
                 elif process_name in Config.RUN_PROCESSES and not runs[pool.id][project_id]['lims_runtype']:
-                    if sample_artifact.type == 'ResultFile':continue
+
+                    if sample_artifact.type == 'ResultFile' and not process_name in ['USEQ - NextSeq Run', 'USEQ - iSeq Run']:continue
+                    # print(pool.id, project_id,sample.udf['Sequencing Runtype'].lower(),sample_artifact.type, process_name )
                     protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
                     runs[pool.id][project_id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 
                     requested_runtype = sample.udf['Sequencing Runtype'].lower()
+
                     step_cost = getClosestStepCost(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
 
                     if requested_runtype == 'wgs at hmf' or requested_runtype == 'wgs':

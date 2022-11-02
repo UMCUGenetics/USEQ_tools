@@ -50,8 +50,9 @@ class NextcloudUtil(object):
         for file in self.webdav.ls(self.webdav_root+"log/"):
 
             if not file.contenttype: continue #directories
-        #
+
             response = requests.get("https://{0}/{1}".format(self.hostname,file.name),auth=(self.user, self.password))
+            print(file.name,file.size)
             for line in response.text.split('\n'):
                 # print(line)
                 if not line.rstrip():continue
