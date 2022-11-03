@@ -33,6 +33,9 @@ def budget_overview(args):
 def get_researchers(args):
     utilities.useq_get_researchers.run(lims)
 
+def get_accounts(args):
+    utilities.useq_get_accounts.run(lims, args.output_file)
+
 def manage_runids(args):
     utilities.useq_manage_runids.run(lims, args.csv, args.mode)
 
@@ -44,6 +47,9 @@ def year_overview(args):
 
 def route_project(args):
     utilities.useq_route_project.run(lims, args.project_id, args.protocol_type)
+
+def sample_report(args):
+    utilities.useq_sample_report.run(lims,args.project_id)
 
 #Clarity epp scripts
 def run_status_mail(args):
@@ -108,7 +114,7 @@ if __name__ == "__main__":
     subparser_utilities = parser_utilities.add_subparsers()
 
     parser_manage_accounts = subparser_utilities.add_parser('manage_accounts', help='Create, Edit & Retrieve accounts (labs)')
-    parser_manage_accounts.add_argument('-m','--mode',choices=['create','edit','retrieve'])
+    parser_manage_accounts.add_argument('-m','--mode',choices=['create','edit','retrieve','batch_edit'])
     parser_manage_accounts.add_argument('-c','--csv', help='Path to input or output csv file')
     parser_manage_accounts.add_argument('-a','--account', help='Account name or ID. Leave empty for mode "create"', default=None)
     parser_manage_accounts.set_defaults(func=manage_accounts)
@@ -116,7 +122,7 @@ if __name__ == "__main__":
     parser_client_mail = subparser_utilities.add_parser('client_mail', help='Send email to all specific USEQ users, all clients belonging to an account or a single specific client.')
     parser_client_mail.add_argument('-m','--mode',choices=['all','labs','accounts'])
     parser_client_mail.add_argument('-c','--content', help='Path to content file (see resources for example)', nargs='?' ,type=argparse.FileType('r'))
-    parser_client_mail.add_argument('-n','--name', help='Lab or Account name(s) separated by comma. Leave empty for mode "all"')
+    parser_client_mail.add_argument('-n','--name', help='Lab or Account name(s) separated by comma. Leave empty for mode "all" or "batch_edit"')
     parser_client_mail.add_argument('-a','--attachment', help='Path to attachment file')
     parser_client_mail.set_defaults(func=client_mail)
 
@@ -146,6 +152,10 @@ if __name__ == "__main__":
     parser_get_researchers = subparser_utilities.add_parser('get_researchers', help='Get all info for all researchers')
     parser_get_researchers.set_defaults(func=get_researchers)
 
+    parser_get_accounts = subparser_utilities.add_parser('get_accounts', help='Get all info for all accounts')
+    parser_get_accounts.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
+    parser_get_accounts.set_defaults(func=get_accounts)
+
     parser_year_overview = subparser_utilities.add_parser('year_overview', help='Create an overview of all USEQ projects in a given year / all years.')
     parser_year_overview.add_argument('-o', '--output', help='Path to output file', nargs='?' ,type=argparse.FileType('w') , default=sys.stdout)
     parser_year_overview.add_argument('-y', '--year', help='Year, leave empty for all', default=None)
@@ -158,6 +168,11 @@ if __name__ == "__main__":
         choices=['ISOLATION', 'LIBPREP', 'POOLING', 'POOL QC', 'ILLUMINA SEQUENCING', 'NANOPORE SEQUENCING', 'POST SEQUENCING']
     )
     parser_route_project.set_defaults(func=route_project)
+
+    parser_sample_report = subparser_utilities.add_parser('sample_report')
+    parser_sample_report.add_argument('-i', '--project_id')
+    parser_sample_report.set_defaults(func=sample_report)
+    # sample_report
 
     # utilities.useq_route_project.run(lims. args.project_id, args.protocol_type)
 

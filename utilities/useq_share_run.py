@@ -8,6 +8,7 @@ import time
 from modules.useq_nextcloud import NextcloudUtil
 from modules.useq_mail import sendMail
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
+from utilities.useq_sample_report import getSampleMeasurements
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
@@ -266,7 +267,7 @@ def getIlluminaRunDetails( lims, project_name, fid ):
     run_dates = [datetime.datetime.strptime(ts, "%Y-%m-%d") for ts in runs.keys()]
     sorted_run_dates = [datetime.datetime.strftime(ts, "%Y-%m-%d") for ts in sorted(run_dates)]
     latest_flowcell_id = runs[sorted_run_dates[-1]] #the most recent run, this is the run we want to share
-
+    print(latest_flowcell_id)
     #Try to determine run directory
     for machine in Config.MACHINE_ALIASES:
         machine_dir = f"{Config.HPC_RAW_ROOT}/{machine}"
@@ -385,6 +386,7 @@ def shareDataById(lims, project_id, fid, link_portal):
         sys.exit(f'Error : Project ID {project_id} not found in Portal DB!')
 
 
+    sample_measurements = getSampleMeasurements(lims, project_id)
 
     if portal_run.platform == 'Oxford Nanopore':
         run_info = getNanoporeRunDetails(lims, project_id, fid)
@@ -463,8 +465,9 @@ def shareDataById(lims, project_id, fid, link_portal):
 
             if exit_code:
                 sys.exit(f"Error : Failed to create zip file {upload_dir}/stats.tar.gz.")
-            available_files.write(f"{upload_dir}/stats.tar.gz\n")
+            available_files.write("stats.tar.gz\n")
             available_files.close()
+            file_list.append("stats.tar.gz")
 
             print (f"Running upload to NextCloud")
             transfer_command = f'scp -r {upload_dir} {upload_dir_done} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}'
@@ -489,6 +492,7 @@ def shareDataById(lims, project_id, fid, link_portal):
                     'nextcloud_host' : Config.NEXTCLOUD_HOST,
                     'share_id' : share_id,
                     'file_list' : file_list,
+                    'sample_measurements' : sample_measurements
                 }
                 mail_content = renderTemplate('share_nanopore_template.html', template_data)
                 mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
@@ -590,7 +594,8 @@ def shareDataById(lims, project_id, fid, link_portal):
                     'nextcloud_host' : Config.NEXTCLOUD_HOST,
                     'share_id' : share_id,
                     'file_list' : file_list,
-                    'conversion_stats' : conversion_stats
+                    'conversion_stats' : conversion_stats,
+                    'sample_measurements' : sample_measurements
                 }
 
                 mail_content = renderTemplate('share_illumina_template.html', template_data)
