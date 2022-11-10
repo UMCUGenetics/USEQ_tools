@@ -186,7 +186,7 @@ def generateRunStats(run_dir, logger):
 def getExpectedYield(run_info_xml, expected_reads):
     run_info = xml.dom.minidom.parse(run_info_xml)
 
-    yields = { 'r1':0,,'r2':0 }
+    yields = { 'r1':0,'r2':0 }
 
     for read in run_info.getElementsByTagName('Read'):
         if read.getAttribute('IsIndexedRead') == 'N':

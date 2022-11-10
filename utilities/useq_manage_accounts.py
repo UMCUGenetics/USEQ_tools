@@ -173,7 +173,8 @@ def batch_edit(lims, csv):
 
 
             budget_nrs = lab.udf.get('BudgetNrs','NA').replace('\n',',')
-            if row['budget_nrs'] != budget_nrs : diff['account_BudgetNrs'] = (budget_nrs, row['budget_nrs'])
+            if row['budget_nrs'] != budget_nrs or ',' in row['budget_nrs']:
+                diff['account_BudgetNrs'] = (budget_nrs, row['budget_nrs'])
             if row['vat_nr'] != lab.udf.get('UMCU_VATNr','NA') : diff['account_VATNr'] = (lab.udf.get('UMCU_VATNr','NA'), row['vat_nr'])
             if row['deb_nr'] != lab.udf.get('UMCU_DebNr','NA') : diff['account_DEBNr'] = (lab.udf.get('UMCU_DebNr','NA'), row['deb_nr'])
             if row['supervisor_email'] != lab.udf.get('Supervisor Email','NA') : diff['account_SupEmail'] = (lab.udf.get('Supervisor Email','NA'), row['supervisor_email'])
@@ -188,7 +189,7 @@ def batch_edit(lims, csv):
                     account_update = {
                         'account_name' : diff['account_name'][1] if 'account_name' in diff else lab.name,
                         'account_website' : lab.website,
-                        'account_BudgetNrs' : diff['account_BudgetNrs'][1] if 'account_BudgetNrs' in diff else budget_nrs,
+                        'account_BudgetNrs' : diff['account_BudgetNrs'][1].replace(',','\n') if 'account_BudgetNrs' in diff else budget_nrs,
                         'account_VATNr' : diff['account_VATNr'][1] if 'account_VATNr' in diff else lab.udf.get('UMCU_VATNr','NA'),
                         'account_DEBNr' : diff['account_DEBNr'][1] if 'account_DEBNr' in diff else lab.udf.get('UMCU_DebNr','NA'),
                         'account_SupEmail' : diff['account_SupEmail'][1] if 'account_SupEmail' in diff else lab.udf.get('Supervisor Email','NA'),
