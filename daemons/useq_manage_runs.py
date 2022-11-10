@@ -186,22 +186,16 @@ def generateRunStats(run_dir, logger):
 def getExpectedYield(run_info_xml, expected_reads):
     run_info = xml.dom.minidom.parse(run_info_xml)
 
-    yields = { 'r1':0,,'r2':0 }
+    yields = { 'r1':0,'r2':0 }
 
     for read in run_info.getElementsByTagName('Read'):
         if read.getAttribute('IsIndexedRead') == 'N':
             if int(read.getAttribute('Number')) == 1:
-                yields['r1'] = int( read.getAttribute('NumCycles')) * expected_reads
+                yields['r1'] = (int( read.getAttribute('NumCycles')) * expected_reads) / 1000000000
             else:
-                yields['r2'] = int( read.getAttribute('NumCycles')) * expected_reads
+                yields['r2'] = int( read.getAttribute('NumCycles')) * expected_reads / 1000000000
     return yields
 
-# first_tile = run_info.getElementsByTagName('Tile')[0].firstChild.nodeValue
-    # <Reads>
-    # 	<Read Number="1" NumCycles="51" IsIndexedRead="N" IsReverseComplement="N"/>
-    # 	<Read Number="2" NumCycles="8" IsIndexedRead="Y" IsReverseComplement="N"/>
-    # 	<Read Number="3" NumCycles="51" IsIndexedRead="N" IsReverseComplement="N"/>
-    # </Reads>
 
 
 def parseConversionStats(dir):
@@ -418,10 +412,10 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
             if len(projectIDs) == 1:
                 logging.info(f'Zipping undetermined reads')
                 und_zip = Path(f'{pid_staging}/undetermined.tar')
-                und_zip_done = Path(f'{pid_staging}/undetermined.tar.done')
+                und_zip_done = Path(f'{pid_staging}/Undetermined.tar.done')
                 if not und_zip_done.is_file():
                     os.chdir(f'{run_dir}/Conversion/FastQ/')
-                    command = f'tar -cvf {und_zip} undetermined_*fastq.gz'
+                    command = f'tar -cvf {und_zip} Undetermined_*fastq.gz'
                     if not runSystemCommand(command, logger, shell=True):
                         logger.error(f'Failed to create {und_zip}')
                         raise
