@@ -164,6 +164,7 @@ class Config(object):
     ###
 
     RUNTYPE_YIELDS={
+        "iSeq Control Software" : 4000000, #iSeq
         "Version3" : 20000000, #MiSeq
         "Version2" : 12000000, #MiSeq
         "NextSeq Mid" : 120000000, #NextSeq

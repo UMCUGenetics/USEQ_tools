@@ -18,8 +18,8 @@ from modules.useq_illumina_parsers import getExpectedReads,parseSampleSheet
 from modules.useq_nextcloud import NextcloudUtil
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
 from modules.useq_mail import sendMail
-
 from config import Config
+
 def addFlowcellToFastq(run_dir, flowcell_id, logger):
     """Add flowcell id to fastq.gz filename."""
     logger.info('Adding flowcell to fastqs')
@@ -183,22 +183,25 @@ def generateRunStats(run_dir, logger):
             f'{e.stderr}\n'
         )
 
+def getExpectedYield(run_info_xml, expected_reads):
+    run_info = xml.dom.minidom.parse(run_info_xml)
 
+    yields = { 'r1':0,,'r2':0 }
 
+    for read in run_info.getElementsByTagName('Read'):
+        if read.getAttribute('IsIndexedRead') == 'N':
+            if int(read.getAttribute('Number')) == 1:
+                yields['r1'] = int( read.getAttribute('NumCycles')) * expected_reads
+            else:
+                yields['r2'] = int( read.getAttribute('NumCycles')) * expected_reads
+    return yields
 
-
-
-
-
-# def md5sumFastq(run_dir, logger):
-#     """Generate md5sums for all fastq.gz files from a sequencing run."""
-#     logger.info('Creating FastQ md5sums')
-#
-#     os.chdir(f'{run_dir}/Conversion/FastQ')
-#     command = f'find . -type f -iname "*.fastq.gz" -exec md5sum {{}} \\; > md5sum.txt)'
-#     if not runSystemCommand(command, logger):
-#         raise
-
+# first_tile = run_info.getElementsByTagName('Tile')[0].firstChild.nodeValue
+    # <Reads>
+    # 	<Read Number="1" NumCycles="51" IsIndexedRead="N" IsReverseComplement="N"/>
+    # 	<Read Number="2" NumCycles="8" IsIndexedRead="Y" IsReverseComplement="N"/>
+    # 	<Read Number="3" NumCycles="51" IsIndexedRead="N" IsReverseComplement="N"/>
+    # </Reads>
 
 
 def parseConversionStats(dir):
@@ -412,6 +415,19 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
                     else:
                         sample_zip_done.touch()
 
+            if len(projectIDs) == 1:
+                logging.info(f'Zipping undetermined reads')
+                und_zip = Path(f'{pid_staging}/undetermined.tar')
+                und_zip_done = Path(f'{pid_staging}/undetermined.tar.done')
+                if not und_zip_done.is_file():
+                    os.chdir(f'{run_dir}/Conversion/FastQ/')
+                    command = f'tar -cvf {und_zip} undetermined_*fastq.gz'
+                    if not runSystemCommand(command, logger, shell=True):
+                        logger.error(f'Failed to create {und_zip}')
+                        raise
+                    else:
+                        und_zip_done.touch()
+
             logger.info(f'Filtering stats for {pid}')
             report_dir = Path(f'{run_dir}/Conversion/Reports')
             filterStats(lims, pid, pid_staging, report_dir)
@@ -616,9 +632,6 @@ def manageRuns(lims):
                     continue
 
 
-
-
-
                 #Group the samples per projectID (needed for combined runs)
                 logger.info('Extracting sample / project information from samplesheet')
                 projectIDs = set()
@@ -669,13 +682,6 @@ def manageRuns(lims):
                             continue
 
 
-                        #command = f'mv {run_dir}/Conversion/FastQ/Reports/* {run_dir}/Conversion/Reports'
-                        #if not runSystemCommand(command, logger):
-                            # logger.error(f'Failed to move Conversion/FastQ/Reports to Conversion/Reports\n ')
-                            # running_file.unlink()
-                            # failed_file.touch()
-                            # statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                            # continue
 
                         command = f'rm -r {run_dir}/Conversion/FastQ/Reports'
                         if not runSystemCommand(command, logger):
@@ -819,12 +825,15 @@ def statusMail(lims, message, run_dir, projectIDs):
         log = l.read()
 
     expected_reads = getExpectedReads(f'{run_dir}/RunParameters.xml')
+    expected_yields = getExpectedYield(f'{run_dir}/RunInfo.xml', expected_reads)
+
     conversion_stats = {}
     summary_stats = {}
     if demux_stats.is_file():
         conversion_stats = parseConversionStats(f'{run_dir}/Conversion/Reports')
     if summary_stats_file.is_file():
         summary_stats = parseSummaryStats(summary_stats_file)
+
 
     attachments = {
         # 'zip_file': f'{run_dir}/{run_dir.name}_Reports.zip',
@@ -850,6 +859,7 @@ def statusMail(lims, message, run_dir, projectIDs):
         'projects': ",".join(status_txt),
         'run_dir': run_dir.name,
         'nr_reads' : f'{conversion_stats["total_reads"]:,} / {expected_reads:,}' if 'total_reads' in conversion_stats else 0,
+        'expected_yields' : expected_yields,
         'conversion_stats': conversion_stats,
         'summary_stats' : summary_stats
     }

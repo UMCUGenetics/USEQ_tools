@@ -118,7 +118,7 @@ def edit(lims, csv, acc):
     print (csv_content)
     account_update = parseAccountCSV(csv)
 
-    
+
     if queryYesNo("Is this correct  (y)es/(n)o ?"):
         account_XML = renderTemplate('account_template.xml', account_update)
         response = lims.put(account.uri, account_XML)
@@ -210,6 +210,7 @@ def batch_edit(lims, csv):
                         'shipping_department' : diff['shipping_department'][1] if 'shipping_department' in diff else shipping_department
                     }
                     account_XML = renderTemplate('account_template.xml', account_update)
+                    # print(account_XML)
                     lims.put(lab.uri, account_XML)
 
 

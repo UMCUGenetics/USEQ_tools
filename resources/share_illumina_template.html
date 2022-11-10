@@ -1,18 +1,57 @@
 {% extends "useq_mail_template.html" %}
 {% block content %}
-<p>Sequencing-run ID {{ project_id }} has succesfully been sequenced. </p>
-<p>You can download your data using <a href="https://{{ nextcloud_host }}/index.php/s/{{ share_id }}">this</a> link.</p>
-<p>Alternatively you can use this commandline argument to download the individual files in the shared directory:</p>
-<p>curl -u '{{ share_id }}:PASSWORD' -H 'X-Requested-With: XMLHttpRequest' 'https://{{ nextcloud_host }}/public.php/webdav/FILENAME.tar' -o FILENAME.tar</p>
-<p>Or to download all files sequentially, download the available_files.txt file attached to this email and execute the following command:</p>
-<p>while read file; do curl -u '{{ share_id }}:PASSWORD' -H 'X-Requested-With: XMLHttpRequest' 'https://ncie01.op.umcutrecht.nl/public.php/webdav/'$file -o $file; done < /path/to/available_files.txt</p>
-<p>For a list of available files, please look at the bottom of this email.</p>
-<p>The password for this link will be send by sms to: {{ phone }}.</p>
-<p>This link will remain active for 14 days. If you're unable to download your data within this period, please let us know.
-Please also be aware that we're able to store your sequencing data for a maximum of two months, after which it is automatically deleted from our servers.</p>
+{% set color_list1 = ['#ffff00','#0000ff'] %}
 
-<h3>Sample/Pool Measurements</h3>
+<p>
+  Sequencing-run ID {{ project_id }} has succesfully been sequenced, you can download your raw data using <a href="https://{{ nextcloud_host }}/index.php/s/{{ share_id }}">this</a> link.
+  The password to open the link will be send by sms to: {{ phone }}.
+</p>
+
+<h4>!Important!</h4>
+<p>
+  The link will remain active for <u>14 days</u>. If you're unable to download your data within this period, please let us know.
+  Please also be aware that we're able to store your sequencing data for a <u>maximum of two months</u>, after which it is automatically deleted from our servers.
+</p>
+
+<h4>Download tips</h4>
+<p>Instead of using the browser you also use the commandline arguments below (on Linux / MacOS) to download the individual files in the shared directory.</p>
+
+<pre style="background-color: lightgrey; padding: 1em;white-space: pre-wrap; font-family: monospace;color: #fff;border-radius: .5em;line-height: 1.3;tab-size: 2;">
+  <code style="font-family: 'Source Code Pro', courier,monospace;">
+  curl -u '{{ share_id }}:PASSWORD' -H 'X-Requested-With: XMLHttpRequest' \
+  'https://{{ nextcloud_host }}/public.php/webdav/FILENAME.tar' -o FILENAME.tar
+  </code>
+</pre>
+
+<p>Or to download all files sequentially, download the available_files.txt file attached to this email and execute the following command:</p>
+<pre style="background-color: lightgrey; padding: .5em;white-space: pre-wrap; font-family: monospace;color: #fff;border-radius: .5em;line-height: 1.3;tab-size: 2;">
+  <code style="font-family: 'Source Code Pro', courier,monospace;">
+  while read file; do
+    curl -u '{{ share_id }}:PASSWORD' -H 'X-Requested-With: XMLHttpRequest' \
+    'https://ncie01.op.umcutrecht.nl/public.php/webdav/'$file -o $file;
+  done < /path/to/available_files.txt
+  </code>
+</pre>
+
+{% if analysis_steps|length > 1 %}
+<h4>About analysis</h4>
+<p>Your data will now be queued for the following processing steps:</p>
+<ul>
+{% for step in analysis_steps %}
+  <li>{{step}}</li>
+{% endfor %}
+</ul>
+<p>As as soon as this is done you will receive another downloadlink containing the processed data.</p>
+{% endif %}
+
+
+<h4>Stats & Measurements</h4>
+<p>The remainder of this email contains sample / pool measurements (if available) and sequencing stats (if demultiplexing was done).</p>
+
+
+
 {% if sample_measurements %}
+<h3>Sample/Pool Measurements</h3>
 <table class='useq_table'>
   {% if not sample_measurements.pool %}
     <tr>
@@ -60,53 +99,94 @@ Please also be aware that we're able to store your sequencing data for a maximum
   {% endif %}
 </table>
 {% endif %}
-<h3>Sequencing Stats</h3>
 {% if conversion_stats %}
+<h3>Sequencing Stats</h3>
+
 <table class='useq_table'>
+  <tr>
+    <th style="visibility: hidden;border: 0px" colspan="4"></th>
+    <!-- <th colspan="2"><b>% Index</b></th> -->
+    <th colspan="2"><b>Mean Quality Score (PF)</b></th>
+    <th colspan="2"><b>% Q30</b></th>
+  </tr>
   <tr>
     <th><b>SampleID</b></th>
     <th><b>Index</b></th>
-    <th><b># Reads</b></th>
-    <th><b># Perfect Index Reads</b></th>
-    <th><b># One Mismatch Index Reads</b></th>
-    <!-- f'Read {row['ReadNumber']} Mean Quality Score (PF)' -->
-    {% for read_nr in ['1','2','I1','I2'] -%}
+    <th><b>M Reads</b></th>
+    <th style="width:150px"><b>% Perfect Index</b></th>
+    <!-- <th><b>1 Mismatch</b></th> -->
+
+    {% for read_nr in ['1','2'] -%}
       {% if 'Read '+read_nr+' Mean Quality Score (PF)' in conversion_stats.samples[0] %}
-        <th><b>Read {{read_nr}} Mean Quality Score (PF)</b></th>
+        <th><b>Read {{read_nr}} </b></th>
       {% endif %}
+    {% endfor %}
+    {% for read_nr in ['1','2'] -%}
       {% if 'Read '+read_nr+' % Q30' in conversion_stats.samples[0] %}
-        <th><b>Read {{read_nr}} % Q30</b></th>
+        <th><b>Read {{read_nr}}</b></th>
       {% endif %}
     {% endfor %}
   </tr>
 
 
   {% for sample in conversion_stats.samples %}
+  {% set perc_pindex = (sample['# Perfect Index Reads'] / sample['# Reads']) * 100 %}
+  {% set perc_of_total = (sample['# Reads'] / conversion_stats.total_reads) * 100 %}
+  {% if perc_pindex <= 80 %}
+    {% set perc_pindex_color = color_list1[0] %}
+  {% else %}
+    {% set perc_pindex_color = color_list1[1] %}
+  {% endif %}
+
+  {% set perc_of_total_color = color_list1[1] %}
   <tr>
     <td>{{ sample['SampleID'] }}</td>
     <td>{{ sample['Index'] }}</td>
-    <td>{{ "{:,.0f}".format(sample['# Reads']) }}</td>
-    <td>{{ "{:,.0f}".format(sample['# Perfect Index Reads']) }}</td>
-    <td>{{ "{:,.0f}".format(sample['# One Mismatch Index Reads']) }}</td>
-    {% for read_nr in ['1','2','I1','I2'] -%}
+    <td >
+      <div class="" style="width:{{perc_of_total}}px; background-color:{{perc_of_total_color}}; position:relative;float:left;">&nbsp</div>
+      <div style="position:relative; float:right;">{{ "{:,.2f}".format(sample['# Reads']/1000000) }}</div>
+
+    </td>
+    <td >
+
+      <div class="" style="width:{{perc_pindex}}px; background-color:{{perc_pindex_color}}; position:relative;float:left;">&nbsp</div>
+      <div style="position:relative; float:right;">{{ "{:,.2f}".format(perc_pindex) }}</div>
+
+    </td>
+
+    {% for read_nr in ['1','2'] -%}
       {% if 'Read '+read_nr+' Mean Quality Score (PF)' in sample -%}
-        <td>{{ "{:,.2f}".format(sample['Read '+read_nr+' Mean Quality Score (PF)']) }}</td>
+        {% if sample['Read '+read_nr+' Mean Quality Score (PF)'] <30 %}
+          {% set mqs_color = color_list1[0] %}
+        {% else %}
+          {% set mqs_color = color_list1[1] %}
+        {% endif %}
+        <td style="">
+          <span style="position:relative; float:left;background-color:{{mqs_color}};"class="dot"></span>
+          <div style="position:relative; float:right;">{{ "{:,.2f}".format(sample['Read '+read_nr+' Mean Quality Score (PF)']) }}</div>
+        </td>
       {% endif %}
+    {% endfor %}
+    {% for read_nr in ['1','2'] -%}
       {% if 'Read '+read_nr+' % Q30' in sample -%}
-        <td>{{ "{:,.2f}".format(sample['Read '+read_nr+' % Q30']) }}</td>
+        {% if sample['Read '+read_nr+' % Q30'] <80 %}
+          {% set q30_color = color_list1[0] %}
+        {% else %}
+          {% set q30_color = color_list1[1] %}
+        {% endif %}
+
+        <td>
+          <span style="position:relative; float:left;background-color:{{q30_color}};"class="dot"></span>
+          <div style="position:relative; float:right;"> {{ "{:,.2f}".format(sample['Read '+read_nr+' % Q30']) }}</div>
+        </td>
       {% endif %}
     {% endfor %}
 
   </tr>
+
   {% endfor %}
+
 </table>
-{% else %}
-<p>NA</p>
 {% endif %}
-<h3>Available files</h3>
-<ol>
-{% for file in file_list %}
-  <li>{{file}}</li>
-{% endfor %}
-</ol>
+
 {% endblock %}

@@ -1,9 +1,26 @@
 {% extends "useq_mail_template.html" %}
 {% block content %}
 <p>USEQ has shared dataset {{ dir }} with you. </p>
-<p>You can download your data using <a href="https://{{ nextcloud_host }}/index.php/s/{{ share_id }}">this</a> link.</p>
-<p>Alternatively you can use this commandline argument to download the data:</p>
-<p>curl -u '{{ share_id }}:PASSWORD' -H 'X-Requested-With: XMLHttpRequest' -o {{dir}}.tar 'https://{{ nextcloud_host }}/public.php/webdav/'</p>
-<p>The password for this link will be send by sms to: {{ phone }}.</p>
-<p>This link will remain active for 14 days. If you're unable to download your data within this period or if you have questions about it, please let us know.</p>
+<p>
+  You can download your data using <a href="https://{{ nextcloud_host }}/index.php/s/{{ share_id }}">this</a> link.
+  The password for this link will be send by sms to: {{ phone }}.
+</p>
+
+<h4>!Important!</h4>
+<p>
+  The link will remain active for <u>14 days</u>. If you're unable to download your data within this period, please let us know.
+</p>
+
+<h4>Download tips</h4>
+<p>
+  Instead of using the browser you also use the commandline argument below (on Linux / MacOS) to download the data.
+</p>
+
+<pre style="background-color: lightgrey; padding: 1em;white-space: pre-wrap; font-family: monospace;color: #fff;border-radius: .5em;line-height: 1.3;tab-size: 2;">
+  <code style="font-family: 'Source Code Pro', courier,monospace;">
+  curl -u '{{ share_id }}:PASSWORD' -H 'X-Requested-With: XMLHttpRequest' \
+  'https://{{ nextcloud_host }}/public.php/webdav/FILENAME.tar' -o FILENAME.tar
+  </code>
+</pre>
+
 {% endblock %}

@@ -118,12 +118,20 @@ def getExpectedReads( run_parameters):
     except:
         flowcell_mode = ''
 
+    try:
+        application_name = run_parameters.getElementsByTagName('ApplicationName')[0].firstChild.nodeValue
+    except:
+        application_name = ''
+
+
     if run_chem in Config.RUNTYPE_YIELDS:
         expected_reads = Config.RUNTYPE_YIELDS[run_chem]
     elif run_version in Config.RUNTYPE_YIELDS:
         expected_reads = Config.RUNTYPE_YIELDS[run_version]
     elif flowcell_mode in Config.RUNTYPE_YIELDS:
         expected_reads = Config.RUNTYPE_YIELDS[flowcell_mode]
+    elif application_name in Config.RUNTYPE_YIELDS:
+        expected_reads = Config.RUNTYPE_YIELDS[application_name]
     else:
         expected_reads = Config.RUNTYPE_YIELDS['HiSeq rapid']
 
