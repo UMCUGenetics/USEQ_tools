@@ -33,9 +33,9 @@
     {% if 'Yield' in row -%} <td>{{ row['Yield'] }}</td> {% endif %}
 
     {% if 'Level' in row and row['Level'] == 'Read 1' %}
-      <td>{{ "{:,.0f}".format(expected_yields['r1']) }}</td>
-    {% elsif 'Level' in row and ( row['Level'] == 'Read 3' or row['Level'] == 'Read 4') %}
-      <td>{{ "{:,.0f}".format(expected_yields['r2']) }}</td>
+      <td>{{ expected_yields['r1'] }}</td>
+    {% elif 'Level' in row and ( row['Level'] == 'Read 3' or row['Level'] == 'Read 4') %}
+      <td>{{ expected_yields['r2'] }}</td>
     {% else %}
       <td>-</td>
     {% endif %}
