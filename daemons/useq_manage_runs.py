@@ -18,8 +18,8 @@ from modules.useq_illumina_parsers import getExpectedReads,parseSampleSheet
 from modules.useq_nextcloud import NextcloudUtil
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
 from modules.useq_mail import sendMail
-
 from config import Config
+
 def addFlowcellToFastq(run_dir, flowcell_id, logger):
     """Add flowcell id to fastq.gz filename."""
     logger.info('Adding flowcell to fastqs')
@@ -149,7 +149,11 @@ def filterStats(lims, pid, pid_staging, report_dir):
 def generateRunStats(run_dir, logger):
     """Create run stats files using interop tool."""
     stats_dir = Path(f'{run_dir}/Conversion/Reports')
+    fastqc_dir = Path(f'{run_dir}/Conversion/Reports/fastqc')
+    multiqc_dir = Path(f'{run_dir}/Conversion/Reports/multiqc')
 
+    if not fastqc_dir.is_dir():
+        fastqc_dir.mkdir()
     os.chdir(stats_dir)
 
     try:
@@ -176,28 +180,37 @@ def generateRunStats(run_dir, logger):
         p1 = subprocess.Popen([f'{Config.CONV_INTEROP}/bin/plot_qscore_histogram',run_dir], stdout=subprocess.PIPE)
         p2 = subprocess.run(['gnuplot'], stdin=p1.stdout, check=True, stderr=subprocess.PIPE)
 
+        logger.info('Running FastQC')
+        fastqc_command = f'{Config.CONV_FASTQC}/fastqc -t 24 -q {run_dir}/Conversion/FastQ/**/*_R*fastq.gz -o {fastqc_dir}'
+        if not runSystemCommand(fastqc_command, logger, shell=True):
+            logger.error(f'Failed to run FastQC.')
+            raise
+
+        logger.info('Running MultiQC')
+        multiqc_command = f'multiqc {fastqc_dir} -o {multiqc_dir} -n {run_dir.name}_multiqc_report.html'
+        if not runSystemCommand(multiqc_command, logger, shell=True):
+            logger.error(f'Failed to run MultiQC.')
+            raise
+
     except subprocess.CalledProcessError as e:
         logger.error(
-            f'Failed to generate run plots'
+            f'Failed to generate run stats'
             f'Returned {e.returncode}\n{e}\n'
             f'{e.stderr}\n'
         )
 
+def getExpectedYield(run_info_xml, expected_reads):
+    run_info = xml.dom.minidom.parse(run_info_xml)
 
+    yields = { 'r1':0,'r2':0 }
 
-
-
-
-
-
-# def md5sumFastq(run_dir, logger):
-#     """Generate md5sums for all fastq.gz files from a sequencing run."""
-#     logger.info('Creating FastQ md5sums')
-#
-#     os.chdir(f'{run_dir}/Conversion/FastQ')
-#     command = f'find . -type f -iname "*.fastq.gz" -exec md5sum {{}} \\; > md5sum.txt)'
-#     if not runSystemCommand(command, logger):
-#         raise
+    for read in run_info.getElementsByTagName('Read'):
+        if read.getAttribute('IsIndexedRead') == 'N':
+            if int(read.getAttribute('Number')) == 1:
+                yields['r1'] = (float( read.getAttribute('NumCycles')) * expected_reads) / 1000000000
+            else:
+                yields['r2'] = (float( read.getAttribute('NumCycles')) * expected_reads) / 1000000000
+    return yields
 
 
 
@@ -412,6 +425,19 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
                     else:
                         sample_zip_done.touch()
 
+            if len(projectIDs) == 1:
+                logging.info(f'Zipping undetermined reads')
+                und_zip = Path(f'{pid_staging}/undetermined.tar')
+                und_zip_done = Path(f'{pid_staging}/Undetermined.tar.done')
+                if not und_zip_done.is_file():
+                    os.chdir(f'{run_dir}/Conversion/FastQ/')
+                    command = f'tar -cvf {und_zip} Undetermined_*fastq.gz'
+                    if not runSystemCommand(command, logger, shell=True):
+                        logger.error(f'Failed to create {und_zip}')
+                        raise
+                    else:
+                        und_zip_done.touch()
+
             logger.info(f'Filtering stats for {pid}')
             report_dir = Path(f'{run_dir}/Conversion/Reports')
             filterStats(lims, pid, pid_staging, report_dir)
@@ -616,9 +642,6 @@ def manageRuns(lims):
                     continue
 
 
-
-
-
                 #Group the samples per projectID (needed for combined runs)
                 logger.info('Extracting sample / project information from samplesheet')
                 projectIDs = set()
@@ -669,13 +692,6 @@ def manageRuns(lims):
                             continue
 
 
-                        #command = f'mv {run_dir}/Conversion/FastQ/Reports/* {run_dir}/Conversion/Reports'
-                        #if not runSystemCommand(command, logger):
-                            # logger.error(f'Failed to move Conversion/FastQ/Reports to Conversion/Reports\n ')
-                            # running_file.unlink()
-                            # failed_file.touch()
-                            # statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                            # continue
 
                         command = f'rm -r {run_dir}/Conversion/FastQ/Reports'
                         if not runSystemCommand(command, logger):
@@ -807,6 +823,7 @@ def statusMail(lims, message, run_dir, projectIDs):
     flowcell_intensity_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_flowcell-Intensity.png')
     q_heatmap_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_q-heat-map.png')
     q_histogram_plot = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_q-histogram.png')
+    multiqc_file = Path(f'{run_dir}/Conversion/Reports/multiqc/{run_dir.name}_multiqc_report.html')
 
 
     status = None
@@ -819,6 +836,8 @@ def statusMail(lims, message, run_dir, projectIDs):
         log = l.read()
 
     expected_reads = getExpectedReads(f'{run_dir}/RunParameters.xml')
+    expected_yields = getExpectedYield(f'{run_dir}/RunInfo.xml', expected_reads)
+
     conversion_stats = {}
     summary_stats = {}
     if demux_stats.is_file():
@@ -826,8 +845,9 @@ def statusMail(lims, message, run_dir, projectIDs):
     if summary_stats_file.is_file():
         summary_stats = parseSummaryStats(summary_stats_file)
 
+
     attachments = {
-        # 'zip_file': f'{run_dir}/{run_dir.name}_Reports.zip',
+        'multiqc_file': str(multiqc_file) if multiqc_file.is_file else None,
         'basepercent_by_cycle_plot': str(basepercent_by_cycle_plot) if basepercent_by_cycle_plot.is_file else None,
         'intensity_by_cycle_plot': str(intensity_by_cycle_plot) if intensity_by_cycle_plot.is_file else None,
         'clusterdensity_by_lane_plot': str(clusterdensity_by_lane_plot) if clusterdensity_by_lane_plot.is_file else None,
@@ -850,6 +870,7 @@ def statusMail(lims, message, run_dir, projectIDs):
         'projects': ",".join(status_txt),
         'run_dir': run_dir.name,
         'nr_reads' : f'{conversion_stats["total_reads"]:,} / {expected_reads:,}' if 'total_reads' in conversion_stats else 0,
+        'expected_yields' : expected_yields,
         'conversion_stats': conversion_stats,
         'summary_stats' : summary_stats
     }

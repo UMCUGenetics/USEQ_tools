@@ -9,6 +9,8 @@
     h3{
       color: rgb(0,113,169);
       text-align: center;
+      padding-top: 12px;
+      /* padding-bottom: 12px; */
     }
     .useq_table {
       font-family: "Open Sans", sans-serif;
@@ -16,9 +18,14 @@
       width: 100%;
     }
 
-    .useq_table td, .useq_table th {
+    .useq_table td {
+      font-family: 'Courier New', monospace;
       border: 1px solid #ddd;
-      padding: 8px;
+      padding: 4px;
+    }
+    .useq_table th {
+      border: 0px solid #ddd;
+      padding: 4px;
     }
 
     .useq_table tr:nth-child(even){background-color: #f2f2f2;}
@@ -29,10 +36,17 @@
       padding-top: 12px;
       padding-bottom: 12px;
       text-align: center;
-      background-color: rgb(0,113,169);
-      color: white;
+      background-color: #d9edf7;
+      /* color: white; */
     }
 
+    .dot {
+      height: 25px;
+      width: 25px;
+      background-color: #bbb;
+      border-radius: 50%;
+      display: inline-block;
+    }
 
     a {
       color: #f77a1e;
@@ -40,7 +54,12 @@
   </style>
 </head>
 <body >
-    <p>Dear USEQ user,</p>
+    {% if name %}
+      <p>Dear {{name}},</p>
+    {% else %}
+      <p>Dear USEQ user,</p>
+    {% endif %}
+    <br>
     {% block content %}{% endblock %}
     <p>Kind regards,</p>
     <br>

@@ -162,6 +162,7 @@ def shareManual(researcher,dir):
         pw = share_response["SUCCES"][1]
 
         template_data = {
+            'name' : f"{researcher.first_name} {researcher.last_name}",
             'dir' : dir.name,
             'nextcloud_host' : Config.NEXTCLOUD_HOST,
             'share_id' : share_id,
@@ -388,6 +389,13 @@ def shareDataById(lims, project_id, fid, link_portal):
 
     sample_measurements = getSampleMeasurements(lims, project_id)
 
+    samples = lims.get_samples(projectlimsid=project_id)
+    analysis_steps = samples[0].udf['Analysis'].split(',')
+
+
+
+
+
     if portal_run.platform == 'Oxford Nanopore':
         run_info = getNanoporeRunDetails(lims, project_id, fid)
 
@@ -487,6 +495,7 @@ def shareDataById(lims, project_id, fid, link_portal):
                 share_id = share_response["SUCCES"][0]
                 pw = share_response["SUCCES"][1]
                 template_data = {
+                    'name' : f"{researcher.first_name} {researcher.last_name}",
                     'project_id' : project_id,
                     'phone' : researcher.phone,
                     'nextcloud_host' : Config.NEXTCLOUD_HOST,
@@ -591,11 +600,13 @@ def shareDataById(lims, project_id, fid, link_portal):
                 template_data = {
                     'project_id' : project_id,
                     'phone' : researcher.phone,
+                    'name' : f"{researcher.first_name} {researcher.last_name}",
                     'nextcloud_host' : Config.NEXTCLOUD_HOST,
                     'share_id' : share_id,
                     'file_list' : file_list,
                     'conversion_stats' : conversion_stats,
-                    'sample_measurements' : sample_measurements
+                    'sample_measurements' : sample_measurements,
+                    'analysis_steps' : analysis_steps,
                 }
 
                 mail_content = renderTemplate('share_illumina_template.html', template_data)
