@@ -33,9 +33,9 @@
     {% if 'Yield' in row -%} <td>{{ row['Yield'] }}</td> {% endif %}
 
     {% if 'Level' in row and row['Level'] == 'Read 1' %}
-      <td>{{ "{:,.0f}".format(expected_yields['r1']) }}</td>
+      <td>{{ "{:,.2f}".format(expected_yields['r1']) }}</td>
     {% elsif 'Level' in row and ( row['Level'] == 'Read 3' or row['Level'] == 'Read 4') %}
-      <td>{{ "{:,.0f}".format(expected_yields['r2']) }}</td>
+      <td>{{ "{:,.2f}".format(expected_yields['r2']) }}</td>
     {% else %}
       <td>-</td>
     {% endif %}
@@ -61,8 +61,13 @@
   <tr>
     <th style="visibility: hidden;border: 0px" colspan="4"></th>
     <!-- <th colspan="2"><b>% Index</b></th> -->
-    <th colspan="2"><b>Mean Quality Score (PF)</b></th>
-    <th colspan="2"><b>% Q30</b></th>
+    {% if 'Read 2 Mean Quality Score (PF)' in conversion_stats.samples[0] %}
+      <th colspan="2"><b>Mean Quality Score (PF)</b></th>
+      <th colspan="2"><b>% Q30</b></th>
+    {% else %}
+      <th colspan="1"><b>Mean Quality Score (PF)</b></th>
+      <th colspan="1"><b>% Q30</b></th>
+    {% endif %}
   </tr>
   <tr>
     <th><b>SampleID</b></th>

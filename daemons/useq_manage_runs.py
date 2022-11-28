@@ -858,7 +858,7 @@ def statusMail(lims, message, run_dir, projectIDs):
         'log' : log,
         'projects': ",".join(status_txt),
         'run_dir': run_dir.name,
-        'nr_reads' : f'{conversion_stats["total_reads"]:,} / {expected_reads:,}' if 'total_reads' in conversion_stats else 0,
+        'nr_reads' : f'{conversion_stats["total_reads"]:,.0f} / {expected_reads:,}' if 'total_reads' in conversion_stats else 0,
         'expected_yields' : expected_yields,
         'conversion_stats': conversion_stats,
         'summary_stats' : summary_stats
