@@ -50,6 +50,8 @@ class Config(object):
     CONV_SCRIPT_DIR=os.environ.get('CONV_SCRIPT_DIR')
     CONV_INTEROP=os.path.join(CONV_SCRIPT_DIR,'interop/InterOp-1.1.12-Linux-GNU/')
     CONV_BCLCONVERT=os.path.join(CONV_SCRIPT_DIR,'bcl-convert-3.10.5-2/usr/bin')
+    CONV_FASTQC=os.path.join(CONV_SCRIPT_DIR,'FastQC-v0.11.9/')
+    
 
     # HPC_RAW_NANOPORE=[
     #     os.path.join(HPC_RAW_ROOT, 'nanopore')
