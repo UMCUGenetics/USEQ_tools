@@ -240,15 +240,15 @@ def getSeqFinance(lims, step_uri):
 
                 elif process_name in Config.RUN_PROCESSES and not runs[pool.id][project_id]['lims_runtype']:
 
-                    if sample_artifact.type == 'ResultFile' and not process_name in ['USEQ - NextSeq Run', 'USEQ - iSeq Run']:continue
-                    # print(pool.id, project_id,sample.udf['Sequencing Runtype'].lower(),sample_artifact.type, process_name )
+                    if sample_artifact.type == 'ResultFile' and not process_name in ['USEQ - NextSeq Run', 'USEQ - iSeq Run', 'AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)']:continue
+                    # print("RUN",pool.id, project_id,sample.udf['Sequencing Runtype'].lower(),sample_artifact.type, process_name )
                     protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
                     runs[pool.id][project_id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 
                     requested_runtype = sample.udf['Sequencing Runtype'].lower()
 
                     step_cost = getClosestStepCost(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
-
+                    # print(pool.id, project_id, process_name,sample_artifact, sample_artifact.parent_process,step_cost)
                     if requested_runtype == 'wgs at hmf' or requested_runtype == 'wgs':
 
                         runs[pool.id][project_id]['run_date'] = sample_artifact.parent_process.date_run
@@ -376,6 +376,7 @@ def getSeqFinance(lims, step_uri):
         for pid in runs[pool]:
             if 'WGS' in runs[pool][pid]['requested_runtype'] or 'WGS at HMF' in runs[pool][pid]['requested_runtype']:
                 if runs[pool][pid]['coverages']:
+                    # print(pid, list(runs[pool][pid]['requested_runtype'])[0].lower(), runs[pool][pid]['run_date'])
                     step_cost = getClosestStepCost(all_costs, list(runs[pool][pid]['requested_runtype'])[0].lower() , runs[pool][pid]['run_date'])
                     for cov in runs[pool][pid]['coverages']:
                         cov = int(cov[:-1])
