@@ -390,7 +390,7 @@ def shareDataById(lims, project_id, fid, link_portal):
     sample_measurements = getSampleMeasurements(lims, project_id)
 
     samples = lims.get_samples(projectlimsid=project_id)
-    analysis_steps = samples[0].udf['Analysis'].split(',')
+
 
 
 
@@ -557,7 +557,7 @@ def shareDataById(lims, project_id, fid, link_portal):
     else:
 
         run_dir, flowcell_id, date_run = getIlluminaRunDetails(lims, project_name, fid)
-
+        analysis_steps = samples[0].udf['Analysis'].split(',')
         if not run_dir:
             sys.exit(f'Error : No Illumina run directory could be found!')
 
