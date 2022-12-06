@@ -416,6 +416,8 @@ def shareDataById(lims, project_id, fid, link_portal):
             fast5_fail_dir = Path(f"{run_dir}/fast5_fail")
             fastq_pass_dir = Path(f"{run_dir}/fastq_pass")
             fastq_fail_dir = Path(f"{run_dir}/fastq_fail")
+            bam_pass_dir = Path(f"{run_dir}/bam_pass")
+            bam_fail_dir = Path(f"{run_dir}/bam_fail")
 
 
             barcode_dirs = [x for x in fastq_pass_dir.iterdir() if x.is_dir() and 'barcode' in x.name or 'unclassified' in x.name ]
@@ -436,29 +438,43 @@ def shareDataById(lims, project_id, fid, link_portal):
                     file_list.append(f"{bd.name}.tar.gz")
                     available_files.write(f"{bd.name}.tar.gz\n")
             else:
-                fast5_pass_dir = Path(f"{run_dir}/fast5_pass")
                 zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fast5_pass_dir.name}.tar.gz {fast5_pass_dir.name}"
                 exit_code= os.system(zip_command)
                 if exit_code:
                     sys.exit(f"Error : Failed to create zip file {upload_dir}/{fast5_pass_dir.name}.tar.gz.")
 
-                fast5_fail_dir = Path(f"{run_dir}/fast5_fail")
                 zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fast5_fail_dir.name}.tar.gz {fast5_fail_dir.name}"
                 exit_code= os.system(zip_command)
                 if exit_code:
                     sys.exit(f"Error : Failed to create zip file {upload_dir}/{fast5_fail_dir.name}.tar.gz.")
 
-                fastq_pass_dir = Path(f"{run_dir}/fastq_pass")
                 zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fastq_pass_dir.name}.tar.gz {fastq_pass_dir.name}"
                 exit_code= os.system(zip_command)
                 if exit_code:
                     sys.exit(f"Error : Failed to create zip file {upload_dir}/{fastq_pass_dir.name}.tar.gz.")
 
-                fastq_fail_dir = Path(f"{run_dir}/fastq_fail")
                 zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fastq_fail_dir.name}.tar.gz {fastq_fail_dir.name}"
                 exit_code= os.system(zip_command)
                 if exit_code:
                     sys.exit(f"Error : Failed to create zip file {upload_dir}/{fastq_fail_dir.name}.tar.gz.")
+
+                if bam_pass_dir.is_dir():
+                    zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{bam_pass_dir.name}.tar.gz {bam_pass_dir.name}"
+                    exit_code= os.system(zip_command)
+                    if exit_code:
+                        sys.exit(f"Error : Failed to create zip file {upload_dir}/{bam_pass_dir.name}.tar.gz.")
+
+                    available_files.write(f"{bam_pass_dir.name}.tar.gz\n")
+                    file_list.append(f"{bam_pass_dir.name}.tar.gz")
+
+                if bam_fail_dir.is_dir():
+                    zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{bam_fail_dir.name}.tar.gz {bam_fail_dir.name}"
+                    exit_code= os.system(zip_command)
+                    if exit_code:
+                        sys.exit(f"Error : Failed to create zip file {upload_dir}/{bam_fail_dir.name}.tar.gz.")
+
+                    available_files.write(f"{bam_fail_dir.name}.tar.gz\n")
+                    file_list.append(f"{bam_fail_dir.name}.tar.gz")
 
                 available_files.write(f"{fastq_fail_dir.name}.tar.gz\n")
                 available_files.write(f"{fastq_pass_dir.name}.tar.gz\n")
