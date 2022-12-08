@@ -48,7 +48,7 @@ class Config(object):
     CONV_MAIN_DIR=os.environ.get('CONV_MAIN_DIR')
     CONV_STAGING_DIR=os.path.join(CONV_MAIN_DIR,'staging')
     CONV_SCRIPT_DIR=os.environ.get('CONV_SCRIPT_DIR')
-    CONV_INTEROP=os.path.join(CONV_SCRIPT_DIR,'interop/InterOp-1.1.12-Linux-GNU/')
+    CONV_INTEROP=os.path.join(CONV_SCRIPT_DIR,'interop/interop-1.2.0-Linux-GNU')
     CONV_BCLCONVERT=os.path.join(CONV_SCRIPT_DIR,'bcl-convert-3.10.5-2/usr/bin')
     CONV_FASTQC=os.path.join(CONV_SCRIPT_DIR,'FastQC-v0.11.9/')
     
