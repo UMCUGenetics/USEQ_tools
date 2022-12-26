@@ -16,5 +16,5 @@ SQLAlchemy==1.4.31
 texttable==1.6.4
 typing-extensions==4.0.1
 urllib3==1.26.8
-wheel==0.29.0
+wheel==0.38.1
 zipp==3.6.0
