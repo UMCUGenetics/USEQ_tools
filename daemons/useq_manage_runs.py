@@ -847,7 +847,7 @@ def statusMail(lims, message, run_dir, projectIDs):
 
 
     attachments = {
-        'multiqc_file': str(multiqc_file) if multiqc_file.is_file else None,
+        #'multiqc_file': str(multiqc_file) if multiqc_file.is_file else None,
         'basepercent_by_cycle_plot': str(basepercent_by_cycle_plot) if basepercent_by_cycle_plot.is_file else None,
         'intensity_by_cycle_plot': str(intensity_by_cycle_plot) if intensity_by_cycle_plot.is_file else None,
         'clusterdensity_by_lane_plot': str(clusterdensity_by_lane_plot) if clusterdensity_by_lane_plot.is_file else None,
