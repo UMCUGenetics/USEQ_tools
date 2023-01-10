@@ -110,7 +110,7 @@ def parseConversionStats( conversion_stats_file ):
     return conversion_stats
 
 def parseRunSummary( summary ):
-    
+
     stats = {
         'phix_aligned' : [],
         'cluster_density':0,
@@ -393,9 +393,8 @@ def getProjectDetails( lims, project,run_dirs ):
                     # adapter_stats = parseAdapterMetrics(adapter_metrics_file)
                     # run['perc_bases_q30'] = (demux_stats['nr_bases_q30_pf']/adapter_stats['total_bases'])*100
 
-                if summary_stats_file.is_file():
+                if summary_stats_file.is_file() and summary_stats_file.stat().st_size > 100:
                     summary_stats = parseRunSummary(summary_stats_file)
-                    # print(summary_stats)
                     run['cluster_density'] = summary_stats['cluster_density']
                     run['perc_bases_q30'] = summary_stats['perc_q30']
                     run['perc_occupied'] = summary_stats['perc_occupied']
@@ -479,8 +478,8 @@ def updateProjectOverview( lims, ovw ):
         run_dirs[flowcell[1:]] = d
     # c = 0
     # print('Processing projects')
-    # for pr in projects[::-1]:
-    for pr in projects:
+    for pr in projects[::-1]:
+    # for pr in projects:
 
         try:
             application = pr.udf['Application']
