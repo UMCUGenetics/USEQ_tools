@@ -10,7 +10,7 @@ import os
 import time
 import shutil
 import re
-
+import time
 from genologics.entities import Project
 from itertools import islice
 from pathlib import Path
@@ -386,24 +386,24 @@ def uploadToHPC(lims, run_dir, projectIDs, logger):
 
 def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
     machine = run_dir.parents[0].name
-
+    flowcell = run_dir.name.split("_")[-1]
     #Create .tar files for upload to nextcloud
     if mode == 'fastq':
         for pid in projectIDs:
             pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
             pid_staging.mkdir(parents=True, exist_ok=True)
 
-            tmp_dir = Path(f'{run_dir}/{pid}')
-            tmp_dir.mkdir(parents=True, exist_ok=True)
-
-            logger.info(f'Creating nextcloud dir for {pid}')
-            command = f"scp -r {tmp_dir} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
-            if not runSystemCommand(command, logger):
-                logger.error(f'Failed to create nextcloud dir for {pid}')
-                tmp_dir.rmdir()
-                raise
-
-            tmp_dir.rmdir()
+            # tmp_dir = Path(f'{run_dir}/{pid}')
+            # tmp_dir.mkdir(parents=True, exist_ok=True)
+            #
+            # logger.info(f'Creating nextcloud dir for {pid}')
+            # command = f"scp -r {tmp_dir} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
+            # if not runSystemCommand(command, logger):
+            #     logger.error(f'Failed to create nextcloud dir for {pid}')
+            #     tmp_dir.rmdir()
+            #     raise
+            #
+            # tmp_dir.rmdir()
 
             pid_samples  = set()
             pid_dir = Path(f'{run_dir}/Conversion/FastQ/{pid}')
@@ -447,18 +447,18 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
         pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
         pid_staging.mkdir(parents=True, exist_ok=True)
 
-        tmp_dir = Path(f'{run_dir}/{pid}')
-        tmp_dir.mkdir(parents=True, exist_ok=True)
-
-
-        logger.info(f'Creating nextcloud dir for {pid}')
-        command = f"scp -r {tmp_dir} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
-        if not runSystemCommand(command, logger):
-            logger.error(f'Failed to create nextcloud dir for {pid}')
-            tmp_dir.rmdir()
-            raise
-
-        tmp_dir.rmdir()
+        # tmp_dir = Path(f'{run_dir}/{pid}')
+        # tmp_dir.mkdir(parents=True, exist_ok=True)
+        #
+        #
+        # logger.info(f'Creating nextcloud dir for {pid}')
+        # command = f"scp -r {tmp_dir} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
+        # if not runSystemCommand(command, logger):
+        #     logger.error(f'Failed to create nextcloud dir for {pid}')
+        #     tmp_dir.rmdir()
+        #     raise
+        #
+        # tmp_dir.rmdir()
 
         zipped_run = Path(f'{pid_staging}/{pid}.tar')
         zip_done = Path(f'{pid_staging}/{pid}.tar.done')
@@ -478,10 +478,47 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
 
     #Upload .tar/stats & md5sums to nextcloud
     for pid in projectIDs:
-        pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
-        transfer_done = Path(f'{Config.CONV_STAGING_DIR}/{pid}.done')
 
-        logger.info(f'Creating md5sums for {pid}')
+        upload_id = f"{pid}_{flowcell}"
+
+        pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
+
+        transfer_done = Path(f'{Config.CONV_STAGING_DIR}/{upload_id}.done')
+
+
+        if nextcloud_util.checkExists(upload_id) and nextcloud_util.checkExists(f'{upload_id}.done'):
+            #Previous upload succeeded but needs to be replaced (e.g. conversion incorrect)
+            logger.info(f'Deleting previous version of {upload_id} on Nextcloud')
+            nextcloud_util.delete(upload_id)
+            nextcloud_util.delete(f'{upload_id}.done')
+        elif nextcloud_util.checkExists(upload_id):
+            #Previous upload failed and needs to be replaced. First make sure a .done file get's uploaded, wait 1 minute for the user rights to change & delete it
+            logger.info(f'Deleting previous version of {upload_id} on Nextcloud')
+            transfer_done.touch()
+
+            command = f"scp -r {transfer_done} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
+            logger.info(f'Transferring {transfer_done} to nextcloud')
+            if not runSystemCommand(command, logger):
+                logger.error(f'Failed to upload {transfer_done} to nextcloud')
+                raise
+            transfer_done.unlink()
+            time.sleep(60)
+            nextcloud_util.delete(upload_id)
+            nextcloud_util.delete(f'{upload_id}.done')
+
+        tmp_dir = Path(f'{run_dir}/{upload_id}')
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f'Creating nextcloud dir for {upload_id}')
+        command = f"scp -r {tmp_dir} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
+        if not runSystemCommand(command, logger):
+            logger.error(f'Failed to create nextcloud dir for {upload_id}')
+            tmp_dir.rmdir()
+            raise
+
+        tmp_dir.rmdir()
+
+
+        logger.info(f'Creating md5sums for {upload_id}')
         os.chdir(pid_staging)
         command = f'md5sum *.tar > {pid_staging}/md5sums.txt'
         if not runSystemCommand(command, logger, shell=True):
@@ -490,20 +527,20 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
 
 
         logger.info(f'Transferring {pid_staging}/*.tar to nextcloud')
-        command = f"scp -r {pid_staging}/*.tar {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{pid}"
+        command = f"scp -r {pid_staging}/*.tar {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{upload_id}"
         if not runSystemCommand(command, logger, shell=True):
             logger.error(f'Failed to upload {pid_staging}/*.tar to nextcloud')
             raise
 
         if mode == 'fastq':
             logger.info(f'Transferring {pid_staging}/*.csv to nextcloud')
-            command = f"scp -r {pid_staging}/*.csv {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{pid}"
+            command = f"scp -r {pid_staging}/*.csv {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{upload_id}"
             if not runSystemCommand(command, logger, shell=True):
                 logger.error(f'Failed to upload {pid_staging}/*.csv to nextcloud')
                 raise
 
         logger.info(f'Transferring {pid_staging}/*.txt to nextcloud')
-        command = f"scp -r {pid_staging}/*.txt {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{pid} "
+        command = f"scp -r {pid_staging}/*.txt {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{upload_id} "
         if not runSystemCommand(command, logger, shell=True):
             logger.error(f'Failed to upload {pid_staging}/*.txt to nextcloud')
             raise

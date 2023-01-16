@@ -393,9 +393,6 @@ def shareDataById(lims, project_id, fid, link_portal):
 
 
 
-
-
-
     if portal_run.platform == 'Oxford Nanopore':
         run_info = getNanoporeRunDetails(lims, project_id, fid)
 
@@ -403,8 +400,7 @@ def shareDataById(lims, project_id, fid, link_portal):
         if not run_info:
             sys.exit(f'Error : No Nanopore run directory could be found!')
 
-        if nextcloud_util.checkExists( f'{project_id}' ):
-            sys.exit(f'Error : {project_id} was already uploaded to Nextcloud, please delete it first!')
+
 
         print ("\nAre you sure you want to send the following dataset (yes/no): ")
         table = Texttable(max_width=0)
@@ -418,6 +414,13 @@ def shareDataById(lims, project_id, fid, link_portal):
             fastq_fail_dir = Path(f"{run_dir}/fastq_fail")
             bam_pass_dir = Path(f"{run_dir}/bam_pass")
             bam_fail_dir = Path(f"{run_dir}/bam_fail")
+
+            if nextcloud_util.checkExists( f'{project_id}' ):
+                # sys.exit(f'Error : {project_id} was already uploaded to Nextcloud, please delete it first!')
+                logger.info(f'Deleting previous version of {project_id} on Nextcloud')
+                nextcloud_util.delete(project_id)
+                nextcloud_util.delete(f'{project_id}.done')
+
 
 
             barcode_dirs = [x for x in fastq_pass_dir.iterdir() if x.is_dir() and 'barcode' in x.name or 'unclassified' in x.name ]
@@ -577,12 +580,13 @@ def shareDataById(lims, project_id, fid, link_portal):
         if not run_dir:
             sys.exit(f'Error : No Illumina run directory could be found!')
 
-        if not nextcloud_util.checkExists( f'{project_id}' ):
+        nextcloud_runid = f'{project_id}_{flowcell_id}'
+        if not nextcloud_util.checkExists( nextcloud_runid ):
             sys.exit(f'Error : {project_id} was not uploaded to Nextcloud yet!')
 
-        file_list = nextcloud_util.simpleFileList(project_id)
+        file_list = nextcloud_util.simpleFileList(nextcloud_runid)
         if not file_list:
-            sys.exit(f"{name}\tError : No files found in nextcloud dir  {project_id}!")
+            sys.exit(f"{name}\tError : No files found in nextcloud dir  {nextcloud_runid}!")
 
         available_files = open(f'{run_dir}/available_files.txt', 'w', newline='\n')
         for file in file_list:
@@ -605,10 +609,10 @@ def shareDataById(lims, project_id, fid, link_portal):
         print (table.draw())
 
         if check():
-            share_response = nextcloud_util.share(project_id, researcher.email)
+            share_response = nextcloud_util.share(nextcloud_runid, researcher.email)
 
             if "ERROR" in share_response:
-                sys.exit (f"{name}\tError : Failed to share {project_id} with message:\n\t{share_response['ERROR']}")
+                sys.exit (f"{name}\tError : Failed to share {nextcloud_runid} with message:\n\t{share_response['ERROR']}")
             else:
                 share_id = share_response["SUCCES"][0]
                 pw = share_response["SUCCES"][1]
