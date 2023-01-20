@@ -87,6 +87,11 @@ def create_samplesheet(args):
 def parse_worksheet(args):
     """Parse xslx worksheet"""
     epp.useq_parse_worksheet.run(lims, args.step, args.aid, args.output_file, args.mode)
+
+def check_barcodes(args):
+    """Check if barcodes are attached to samples in step"""
+    epp.useq_check_barcodes.run(lims, args.step)
+
 #Daemon scripts
 def nextcloud_monitor(args):
     """Is intended to run as a daemon to check the space remaining on the Nextcloud storage"""
@@ -229,6 +234,11 @@ if __name__ == "__main__":
     parser_parse_worksheet.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
     parser_parse_worksheet.add_argument('-m', '--mode', help='Mode, choose illumina or ont. Affects which barcodes are available.', choices=['illumina','ont'], required=True)
     parser_parse_worksheet.set_defaults(func=parse_worksheet)
+
+    parser_check_barcodes = subparser_epp.add_parser('check_barcodes')
+    parser_check_barcodes.add_argument('-s', '--step', help='Step URI', required=True)
+    parser_check_barcodes.set_defaults(func=check_barcodes)
+    # check_barcodes
 # epp.useq_parse_worksheet.run(lims, args.step, args.aid)
 
     #Daemon parsers
