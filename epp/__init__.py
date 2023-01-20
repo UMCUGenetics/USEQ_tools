@@ -7,3 +7,4 @@ import epp.useq_close_projects
 import epp.useq_create_recipe
 import epp.useq_create_samplesheet
 import epp.useq_parse_worksheet
+import epp.useq_check_barcodes
