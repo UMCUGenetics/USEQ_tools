@@ -140,9 +140,10 @@ USEQ is subsidized by the University Medical Center Utrecht and The Netherlands 
   </tr>
 
 
+
   {% for sample in conversion_stats.samples %}
-  {% set perc_pindex = (sample['# Perfect Index Reads'] / sample['# Reads']) * 100 %}
-  {% set perc_of_total = (sample['# Reads'] / conversion_stats.total_reads) * 100 %}
+  {% set perc_pindex = (sample['# Perfect Index Reads'] / sample['# Reads']) * 100 if sample['# Reads'] else 0 %}
+  {% set perc_of_total = (sample['# Reads'] / conversion_stats.total_reads) * 100 if conversion_stats.total_reads else 0 %}
   {% if perc_pindex <= 80 %}
     {% set perc_pindex_color = color_list1[0] %}
   {% else %}
