@@ -581,9 +581,17 @@ def shareDataById(lims, project_id, fid, link_portal):
             sys.exit(f'Error : No Illumina run directory could be found!')
 
         nextcloud_runid = f'{project_id}_{flowcell_id}'
-        if not nextcloud_util.checkExists( nextcloud_runid ):
+        nextcloud_runida = f'{project_id}_A{flowcell_id}'
+        nextcloud_runidb = f'{project_id}_B{flowcell_id}'
+        if nextcloud_util.checkExists( nextcloud_runid ):
+            nextcloud_runid = f'{project_id}_{flowcell_id}'
+        elif nextcloud_util.checkExists( nextcloud_runida ):
+            nextcloud_runid = nextcloud_runida
+        elif nextcloud_util.checkExists( nextcloud_runidb ):
+            nextcloud_runid = nextcloud_runidb
+        else:
             sys.exit(f'Error : {project_id} was not uploaded to Nextcloud yet!')
-
+            
         file_list = nextcloud_util.simpleFileList(nextcloud_runid)
         if not file_list:
             sys.exit(f"{name}\tError : No files found in nextcloud dir  {nextcloud_runid}!")
