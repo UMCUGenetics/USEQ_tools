@@ -256,11 +256,13 @@ def getIlluminaRunDetails( lims, project_name, fid ):
     for process in project_processes:
         flowcell_id = None
         # print(process.type.name)
-        if fid:
-            flowcell_id = fid
-        elif 'Flow Cell ID' in process.udf:
+
+        if 'Flow Cell ID' in process.udf:
             flowcell_id = process.udf['Flow Cell ID']
-        runs[ process.date_run ] = flowcell_id
+            runs[ process.date_run ] = flowcell_id
+        elif fid:
+            flowcell_id = fid
+            runs[ process.date_run ] = flowcell_id
 
     if not runs:
         return None
@@ -268,7 +270,8 @@ def getIlluminaRunDetails( lims, project_name, fid ):
     run_dates = [datetime.datetime.strptime(ts, "%Y-%m-%d") for ts in runs.keys()]
     sorted_run_dates = [datetime.datetime.strftime(ts, "%Y-%m-%d") for ts in sorted(run_dates)]
     latest_flowcell_id = runs[sorted_run_dates[-1]] #the most recent run, this is the run we want to share
-    print(latest_flowcell_id)
+
+    # print(runs)
     #Try to determine run directory
     for machine in Config.MACHINE_ALIASES:
         machine_dir = f"{Config.HPC_RAW_ROOT}/{machine}"
@@ -591,7 +594,7 @@ def shareDataById(lims, project_id, fid, link_portal):
             nextcloud_runid = nextcloud_runidb
         else:
             sys.exit(f'Error : {project_id} was not uploaded to Nextcloud yet!')
-            
+
         file_list = nextcloud_util.simpleFileList(nextcloud_runid)
         if not file_list:
             sys.exit(f"{name}\tError : No files found in nextcloud dir  {nextcloud_runid}!")
