@@ -159,6 +159,7 @@ def getSeqFinance(lims, step_uri):
 
         for sample in pool.samples:
             project_id = sample.project.id
+
             if project_id not in runs[pool.id]:
                 runs[pool.id][project_id] = {
                     'errors' : set(),
@@ -190,12 +191,9 @@ def getSeqFinance(lims, step_uri):
 
             for sample_artifact in sample_artifacts:
 
-                if not sample_artifact.parent_process: continue
+                if not sample_artifact.parent_process or not sample_artifact.parent_process.date_run: continue
                 process_name = sample_artifact.parent_process.type.name
-                # print(sample.name, process_name)
-                # print(process_name)
 
-                # print(pool.id, project_id,process_name, runs[pool.id][project_id]['lims_runtype'] )
                 if process_name in Config.ISOLATION_PROCESSES :
 
                     if sample_artifact.type == 'ResultFile':continue
@@ -244,11 +242,12 @@ def getSeqFinance(lims, step_uri):
                 elif process_name in Config.RUN_PROCESSES and not runs[pool.id][project_id]['lims_runtype']:
 
                     if sample_artifact.type == 'ResultFile' and not process_name in ['USEQ - NextSeq Run', 'USEQ - iSeq Run', 'AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)']:continue
-                    # print("RUN",pool.id, project_id,sample.udf['Sequencing Runtype'].lower(),sample_artifact.type, process_name )
+
                     protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
                     runs[pool.id][project_id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 
                     requested_runtype = sample.udf['Sequencing Runtype'].lower()
+                    # print("RUN",pool.id, project_id,sample.udf['Sequencing Runtype'].lower(),sample_artifact.type, process_name, requested_runtype , sample_artifact.parent_process.date_run )
 
                     step_cost = getClosestStepCost(all_costs, requested_runtype , sample_artifact.parent_process.date_run)
                     # print(pool.id, project_id, process_name,sample_artifact, sample_artifact.parent_process,step_cost)
