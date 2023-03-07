@@ -474,8 +474,8 @@ def getSnpFinance(lims, step_uri):
         plate_personell_costs = runs[id]['plate_personell_costs']
         # print(id, len(runs[id]['samples']))
         nr_samples = len(runs[id]['samples'])
-        runs[id]['total_step_costs'] += (plate_step_costs / 45) * nr_samples
-        runs[id]['total_personell_costs'] += (plate_personell_costs / 45) * nr_samples
+        runs[id]['total_step_costs'] += plate_step_costs
+        runs[id]['total_personell_costs'] += plate_personell_costs 
 
     return renderTemplate('snp_finance_overview_template.csv', {'runs':runs})
 
