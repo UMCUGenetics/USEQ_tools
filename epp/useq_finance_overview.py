@@ -434,7 +434,7 @@ def getSeqFinance(lims, step_uri):
     for pool in runs:
         # if len(runs[pool].keys()) > 1:
         for pid in runs[pool]:
-            print(pid,runs[pool][pid]['requested_runtype'])
+            # print(pid,runs[pool][pid]['requested_runtype'])
             if 'WGS' in runs[pool][pid]['requested_runtype'] or 'WGS at HMF' in runs[pool][pid]['requested_runtype']:
                 if runs[pool][pid]['coverages']:
                     # print(pid, list(runs[pool][pid]['requested_runtype'])[0].lower(), runs[pool][pid]['run_date'])
