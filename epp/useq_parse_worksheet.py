@@ -87,11 +87,11 @@ def parse(lims, step_uri, aid, output_file, mode):
 
         if current_step == 'USEQ - Post LibPrep QC':
             if not columns['post conc ng/ul']:
-                sys.exit('ERROR : No "pre conc ng/ul" column found.')
+                sys.exit('ERROR : No "post conc ng/ul" column found.')
             if row_cells[ columns['post conc ng/ul'] ].value:
                 sample['post conc ng/ul'] = row_cells[ columns['post conc ng/ul'] ].value
             else:
-                sys.exit(f'ERROR : No "pre conc ng/ul" found at row {row_nr}.')
+                sys.exit(f'ERROR : No "post conc ng/ul" found at row {row_nr}.')
 
             if not columns['size']:
                 sys.exit('ERROR : No "size" column found.')
