@@ -54,7 +54,7 @@ def parse(lims, step_uri, aid, output_file, mode):
         sample = {}
         if not row_cells[ columns['sample'] ].value:
             continue
-        print(row_cells[ columns['sample'] ].value)
+        # print(row_cells[ columns['sample'] ].value)
         # sample['sample_name'] = row_cells[ columns['sample'] ].value
         if current_step == 'USEQ - Isolation' or current_step == 'USEQ - Isolation v2':
             if not columns['pre conc ng/ul']:
