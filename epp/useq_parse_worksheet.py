@@ -43,9 +43,8 @@ def parse(lims, step_uri, aid, output_file, mode):
     sample_worksheet = wb['Samples']
     for col in sample_worksheet.iter_cols(max_row=1,max_col=sample_worksheet.max_column):
         if col[0].value in columns:
-            columns[col[0].value] = col[0].column-1
+            columns[ col[0].value] = col[0].column-1
 
-    #Check if all neccessary columns are set for a step
     if not columns['sample']:
         sys.exit('ERROR : No "sample" column found.')
 
@@ -55,6 +54,7 @@ def parse(lims, step_uri, aid, output_file, mode):
         sample = {}
         if not row_cells[ columns['sample'] ].value:
             continue
+        print(row_cells[ columns['sample'] ].value)
         # sample['sample_name'] = row_cells[ columns['sample'] ].value
         if current_step == 'USEQ - Isolation' or current_step == 'USEQ - Isolation v2':
             if not columns['pre conc ng/ul']:
@@ -101,7 +101,7 @@ def parse(lims, step_uri, aid, output_file, mode):
                 sys.exit(f'ERROR : No "size" found at row {row_nr}.')
 
         if row_cells[ columns['sample'] ].value not in samples:
-            samples[ row_cells[ columns['sample'] ].value ] = sample
+            samples[ str(row_cells[ columns['sample'] ].value) ] = sample
         row_nr +=1
     artifacts_to_update = []
     containers_to_update = []
@@ -113,7 +113,7 @@ def parse(lims, step_uri, aid, output_file, mode):
         if io_map[1]['output-generation-type'] == 'PerInput':
             artifact = io_map[1]['uri'] #output artifact
             artifact_sample = artifact.samples[0]
-            sample_info = samples[ artifact_sample.name ]
+            sample_info = samples[ str(artifact_sample.name) ]
             project_id = artifact_sample.project.id
 
             if 'pre conc ng/ul' in sample_info and not 'Concentration Qubit QC (DNA) 5.0 (ng/ul)' in artifact.udf:
