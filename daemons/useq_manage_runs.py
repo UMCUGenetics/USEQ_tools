@@ -41,7 +41,7 @@ def cleanup(run_dir, logger):
 
 def demuxCheck(run_dir,logger):
 
-    skip_demux = False
+
 
     sample_sheet = Path(f'{run_dir}/SampleSheet.csv')
     sample_sheet_parsed = parseSampleSheet( sample_sheet )
@@ -132,18 +132,18 @@ def filterStats(lims, pid, pid_staging, report_dir):
     adapter_metrics_filtered = Path(f'{pid_staging}/Adapter_Metrics.csv')
     demultiplex_stats = Path(f'{report_dir}/Demultiplex_Stats.csv')
     demultiplex_stats_filtered = Path(f'{pid_staging}/Demultiplex_Stats.csv')
-
-    with open(adapter_metrics, 'r') as original, open(adapter_metrics_filtered, 'w') as filtered:
-        for line in original.readlines():
-            parts = line.split(',')
-            if line.startswith('Lane') or parts[1] in sample_names:
-                filtered.write(line)
-
-    with open(demultiplex_stats, 'r') as original, open(demultiplex_stats_filtered, 'w') as filtered:
-        for line in original.readlines():
-            parts = line.split(',')
-            if line.startswith('Lane') or parts[1] in sample_names:
-                filtered.write(line)
+    if adapter_metrics.is_file():
+        with open(adapter_metrics, 'r') as original, open(adapter_metrics_filtered, 'w') as filtered:
+            for line in original.readlines():
+                parts = line.split(',')
+                if line.startswith('Lane') or parts[1] in sample_names:
+                    filtered.write(line)
+    if demultiplex_stats.is_file():
+        with open(demultiplex_stats, 'r') as original, open(demultiplex_stats_filtered, 'w') as filtered:
+            for line in original.readlines():
+                parts = line.split(',')
+                if line.startswith('Lane') or parts[1] in sample_names:
+                    filtered.write(line)
 
 
 def generateRunStats(run_dir, logger):
@@ -157,6 +157,7 @@ def generateRunStats(run_dir, logger):
     os.chdir(stats_dir)
 
     try:
+
         logger.info('Generating run summary')
         summary_csv = open(f'{stats_dir}/{run_dir.name}_summary.csv', 'w')
         subprocess.run([f'{Config.CONV_INTEROP}/bin/summary',run_dir], stdout=summary_csv, check=True, stderr=subprocess.PIPE)
@@ -346,9 +347,12 @@ def updateStatus(file, status, step, bool):
 def uploadToArchive(run_dir, logger):
 
     machine = run_dir.parents[0].name
-
+    command = None
     logger.info('Uploading run folder to archive storage')
-    command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {Config.USEQ_USER}@{Config.HPC_TRANSFER_SERVER}:{Config.HPC_ARCHIVE_DIR}/{machine}"
+    if machine == 'WES-WGS':
+        command = f"rsync -rahm --exclude '*jpg' {run_dir} {Config.USEQ_USER}@{Config.HPC_TRANSFER_SERVER}:{Config.HPC_ARCHIVE_DIR}/{machine}"
+    else:
+        command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {Config.USEQ_USER}@{Config.HPC_TRANSFER_SERVER}:{Config.HPC_ARCHIVE_DIR}/{machine}"
 
     if not runSystemCommand(command, logger):
         logger.error(f'Failed upload run folder to archive storage')
@@ -392,18 +396,6 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
         for pid in projectIDs:
             pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
             pid_staging.mkdir(parents=True, exist_ok=True)
-
-            # tmp_dir = Path(f'{run_dir}/{pid}')
-            # tmp_dir.mkdir(parents=True, exist_ok=True)
-            #
-            # logger.info(f'Creating nextcloud dir for {pid}')
-            # command = f"scp -r {tmp_dir} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
-            # if not runSystemCommand(command, logger):
-            #     logger.error(f'Failed to create nextcloud dir for {pid}')
-            #     tmp_dir.rmdir()
-            #     raise
-            #
-            # tmp_dir.rmdir()
 
             pid_samples  = set()
             pid_dir = Path(f'{run_dir}/Conversion/FastQ/{pid}')
@@ -560,7 +552,7 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
 
     return True
 
-def manageRuns(lims):
+def manageRuns(lims, skip_demux_check):
     for machine in Config.MACHINE_ALIASES:
         machine_dir= Path(f"{Config.CONV_MAIN_DIR}/{machine}")
         md_path = Path(machine_dir)
@@ -575,6 +567,7 @@ def manageRuns(lims):
             failed_file = Path(f'{run_dir}/.mgr_failed')
             done_file = Path(f'{run_dir}/.mgr_done')
             status_file = Path(f'{run_dir}/status.json')
+            dx_transfer_done = Path(f'{run_dir}/TransferDone.txt') #Only appears in WGS / WES runs
             log_file = Path(f'{run_dir}/mgr.log')
             # error_file = Path(f'{run_dir}/Conversion/Logs/mgr.err')
             if rta_complete.is_file() and not (running_file.is_file() or failed_file.is_file() or done_file.is_file()): #Run is done and not being processed/has failed/is done
@@ -688,7 +681,7 @@ def manageRuns(lims):
 
 
                 #If demultiplexing check was not succesfull/not done
-                if status['Demux-check'] == False:
+                if status['Demux-check'] == False and not skip_demux_check:
                     logger.info('Starting demultiplexing check')
                     try:
                         status['Demux-check']  = demuxCheck( run_dir, logger )
@@ -701,7 +694,7 @@ def manageRuns(lims):
                         continue
 
 
-                if status['Demux-check']: #Demultiplexing will probably succeed, so carry on
+                if status['Demux-check'] or skip_demux_check: #Demultiplexing will probably succeed, so carry on
 
                     if not status['Conversion']:
                         logger.info('Starting demultiplexing')
@@ -836,18 +829,130 @@ def manageRuns(lims):
                         statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
                         continue
 
-###
 
-                if status['Conversion'] and status['Transfer-nc'] and status['Transfer-hpc'] and status['Archive']:
-                    cleanup(run_dir, logger)
-                    statusMail(lims,'Finished', run_dir, projectIDs)
-                    running_file.unlink()
-                    done_file.touch()
-                elif status['Transfer-nc'] and status['Transfer-hpc'] and status['Archive']:
+                if status['Transfer-nc'] and status['Transfer-hpc'] and status['Archive']:
                     cleanup(run_dir, logger)
                     statusMail(lims,'Finished', run_dir,projectIDs)
                     running_file.unlink()
                     done_file.touch()
+            elif dx_transfer_done.is_file() and not (running_file.is_file() or failed_file.is_file() or done_file.is_file()): #Route for WGS / WES runs
+                #Lock directory
+                running_file.touch()
+
+                #Logging set up
+                logger = logging.getLogger('Run_Manager')
+                logger.setLevel(logging.DEBUG)
+
+                #Set up file log handler
+                fh = logging.FileHandler( log_file )
+                fh.setLevel(logging.INFO)
+
+                #Set up console log handler
+                ch = logging.StreamHandler()
+                ch.setLevel(logging.DEBUG)
+
+                #Create and add formatter
+                formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                ch.setFormatter(formatter)
+                fh.setFormatter(formatter)
+
+                #Add handlers to log
+                logger.addHandler(fh)
+                logger.addHandler(ch)
+
+
+                status = {
+                    'Demux-check' : True,
+                    'Conversion' : True,
+                    'Transfer-nc' : False,
+                    'Transfer-hpc' : False,
+                    'Archive' : False,
+                }
+                try:
+                    #Set up important directories
+                    logger.info('Creating conversion directories')
+                    Path(f'{run_dir}/Conversion/Reports').mkdir(parents=True, exist_ok=True)
+                    Path(f'{run_dir}/Conversion/FastQ').mkdir(parents=True, exist_ok=True)
+                except :
+                    logger.error(f'Failed to create conversion directories:\n{traceback.format_exc() }')
+                    running_file.unlink()
+                    failed_file.touch()
+                    statusMail(lims,'Failed (see logs)', run_dir, [])
+                    continue
+                flowcell = run_dir.name.split("_")[-1]
+                data_dir = Path(f'{run_dir}/Data/Intensities/BaseCalls/')
+                #Check if samplesheet is now present, if not give error
+                if not sample_sheet.is_file():
+                    logger.error(f'Failed to find SampleSheet.csv')
+                    running_file.unlink()
+                    failed_file.touch()
+                    statusMail(lims,'Failed (see logs)', run_dir, [])
+                    continue
+
+                #Group the samples per projectID (needed for combined runs)
+                logger.info('Extracting sample / project information from samplesheet')
+                projectIDs = set()
+                sheet = parseSampleSheet(sample_sheet)
+                for sample in sheet['samples']:
+                    projectIDs.add( sample[ sheet['header'].index('Sample_Project') ] )
+
+                #Move data from Dx dir structure to useq
+                logger.info('Moving FastQ from Dx dirs to USEQ dirs')
+                for pid in projectIDs:
+                    pid_dir = Path(f'{data_dir}/{pid}')
+                    if pid_dir.is_dir():
+                        shutil.move(f'{pid_dir}', f'{run_dir}/Conversion/FastQ/')
+                        logger.info(f'Moving {pid_dir} to {run_dir}/Conversion/FastQ/ ')
+
+                #Generate Run stats
+                try:
+                    generateRunStats(run_dir, logger)
+                except Exception as e:
+                    logger.error(f'Failed to create run statistics. The sequencing run probably failed.\n{traceback.format_exc() }')
+                    running_file.unlink()
+                    failed_file.touch()
+                    statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
+                    continue
+
+                if not status['Transfer-nc']:
+                    try:
+                        status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'fastq',projectIDs,logger)
+                        updateStatus(status_file, status, 'Transfer-nc',status['Transfer-nc'])
+                    except Exception as e:
+                        logger.error(f'Failed to run transfer to Nextcloud\n{traceback.format_exc() }')
+                        running_file.unlink()
+                        failed_file.touch()
+                        statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
+                        continue
+                if not status['Transfer-hpc']:
+                    try:
+                        status['Transfer-hpc'] = uploadToHPC(lims, run_dir, projectIDs,logger)
+                        updateStatus(status_file, status, 'Transfer-hpc',status['Transfer-hpc'])
+                    except Exception as e:
+                        logger.error(f'Failed to run transfer to HPC\n{traceback.format_exc() }')
+                        running_file.unlink()
+                        failed_file.touch()
+                        statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
+                        continue
+                if not status['Archive']:
+                    try:
+                        status['Archive'] = uploadToArchive(run_dir, logger)
+                        updateStatus(status_file, status, 'Archive',status['Archive'])
+                    except Exception as e:
+                        logger.error(f'Failed to run transfer to archive storage\n{traceback.format_exc() }')
+                        running_file.unlink()
+                        failed_file.touch()
+                        statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
+                        continue
+
+                if status['Transfer-nc'] and status['Transfer-hpc'] and status['Archive']:
+                    statusMail(lims,'Finished', run_dir, projectIDs)
+                    running_file.unlink()
+                    done_file.touch()
+
+
+
+
 
 def statusMail(lims, message, run_dir, projectIDs):
     status_file = Path(f'{run_dir}/status.json')
@@ -943,7 +1048,7 @@ def zipConversionReport(run_dir,logger):
 
     return zip_file
 
-def run(lims):
+def run(lims, skip_demux_check=False):
     """Runs the manageRuns function"""
 
     #Set up nextcloud
@@ -953,4 +1058,4 @@ def run(lims):
     nextcloud_util.setup( Config.NEXTCLOUD_USER, Config.NEXTCLOUD_PW, Config.NEXTCLOUD_WEBDAV_ROOT,Config.NEXTCLOUD_RAW_DIR,Config.MAIL_SENDER )
 
 
-    manageRuns(lims )
+    manageRuns(lims, skip_demux_check )
