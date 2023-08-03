@@ -256,6 +256,7 @@ def getIlluminaRunDetails( lims, project_name, fid ):
     for process in project_processes:
         flowcell_id = None
         # print(process.type.name)
+        if not process.date_run: continue
 
         if 'Flow Cell ID' in process.udf:
             flowcell_id = process.udf['Flow Cell ID']
@@ -266,6 +267,7 @@ def getIlluminaRunDetails( lims, project_name, fid ):
 
     if not runs:
         return None
+    print(runs)
 
     run_dates = [datetime.datetime.strptime(ts, "%Y-%m-%d") for ts in runs.keys()]
     sorted_run_dates = [datetime.datetime.strftime(ts, "%Y-%m-%d") for ts in sorted(run_dates)]
