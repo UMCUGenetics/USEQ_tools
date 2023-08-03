@@ -267,7 +267,6 @@ def getIlluminaRunDetails( lims, project_name, fid ):
 
     if not runs:
         return None
-    print(runs)
 
     run_dates = [datetime.datetime.strptime(ts, "%Y-%m-%d") for ts in runs.keys()]
     sorted_run_dates = [datetime.datetime.strftime(ts, "%Y-%m-%d") for ts in sorted(run_dates)]
