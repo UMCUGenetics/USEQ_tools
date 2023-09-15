@@ -24,10 +24,10 @@ def getResearchers(lims):
         line.append(u'{}'.format(lab.name))
         line.append(u'{}'.format(lab.id))
 
-        line.append(f"{lab.billing_address.get('street', None)}\t{lab.billing_address.get('city',None)}\t{lab.billing_address.get('state',None)}\t{lab.billing_address.get('country',None)}\t{lab.billing_address.get('postalCode',None)}\t{lab.billing_address.get('institution',None)}\t{lab.billing_address.get('department',None)}")
+        line.append(f"{lab.billing_address.get('street', None)};{lab.billing_address.get('city',None)};{lab.billing_address.get('state',None)};{lab.billing_address.get('country',None)};{lab.billing_address.get('postalCode',None)};{lab.billing_address.get('institution',None)};{lab.billing_address.get('department',None)}")
 
 
-        print ('\t'.join( (v) for v in line))
+        print (';'.join( (v) for v in line))
 
         # line = ",".join(line)
 
