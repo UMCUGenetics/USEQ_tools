@@ -51,6 +51,12 @@ def route_project(args):
 def sample_report(args):
     utilities.useq_sample_report.run(lims,args.project_id)
 
+def finish_run(args):
+    utilities.useq_finished_run.run(lims,args.project_id, args.fid, args.succesful)
+
+def update_stats(args):
+    utilities.useq_update_stats_db.run(lims)
+
 #Clarity epp scripts
 def run_status_mail(args):
     """Send run started mail"""
@@ -177,10 +183,16 @@ if __name__ == "__main__":
     parser_sample_report = subparser_utilities.add_parser('sample_report')
     parser_sample_report.add_argument('-i', '--project_id')
     parser_sample_report.set_defaults(func=sample_report)
-    # sample_report
 
-    # utilities.useq_route_project.run(lims. args.project_id, args.protocol_type)
+    parser_finish_run = subparser_utilities.add_parser('finish_run')
+    parser_finish_run.add_argument('-i', '--project_id')
+    parser_finish_run.add_argument('-f', '--fid')
+    parser_finish_run.add_argument('-s', '--succesful', action=argparse.BooleanOptionalAction)
+    parser_finish_run.set_defaults(func=finish_run)
+    # finish_run
 
+    parser_update_stats = subparser_utilities.add_parser('update_stats')
+    parser_update_stats.set_defaults(func=update_stats)
 
     #epp parsers
     parser_epp = subparser.add_parser('epp',help='Clarity epp functions: run_status_mail, modify_samplesheet, group_permissions, finance_overview, route_artifacts, close_projects ')

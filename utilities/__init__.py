@@ -9,3 +9,5 @@ import utilities.useq_link_run_results
 import utilities.useq_year_overview
 import utilities.useq_route_project
 import utilities.useq_sample_report
+import utilities.useq_finished_run
+import utilities.useq_update_stats_db

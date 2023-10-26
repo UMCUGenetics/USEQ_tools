@@ -22,9 +22,6 @@ import json
 
 def createDBSession():
 
-    # global Run
-    # global IlluminaSequencingStats
-    # global NanoporeSequencingStats
 
     #Set up portal db connection +
     Base = automap_base()
@@ -38,6 +35,76 @@ def createDBSession():
     session = Session(engine)
 
     return (session,Run, IlluminaSequencingStats,NanoporeSequencingStats)
+
+def parseSummaryStats(dir):
+    run_name = dir.name
+    summary_stats = Path(f'{dir}/Conversion/Reports/{run_name}_summary.csv')
+    if not summary_stats.is_file():
+        print(f'Warning : Could not find {summary_stats} file.')
+        return None
+
+    stats = {
+        'yield_r1' : 0,
+        'yield_r2' : 0,
+        'reads' : 0,
+        'cluster_density' : 0,
+        'perc_q30_r1' : 0,
+        'perc_q30_r2' : 0,
+        'perc_occupied' : 0,
+        'phix_aligned' : 0
+    }
+
+    with open(summary_stats, 'r') as sumcsv:
+        lines = sumcsv.readlines()
+        line_nr = 0
+        while line_nr < len(lines):
+            # print(line_nr)
+            line = lines[line_nr].rstrip()
+            if not line: line_nr+=1;continue
+
+            if line.startswith('Read') and len(line) == 6:
+                read_nr = 2 if stats["reads"] else 1
+                total_yield = []
+                total_reads = []
+                total_density = []
+                total_q30 = []
+                total_occupied = []
+                total_aligned = []
+
+                #Parse stat block for read nr
+                sub_counter = 0
+                for sub_line in lines[line_nr+2:]:
+                    cols = sub_line.split(",")
+                    sub_counter += 1
+                    # print(cols)
+                    if cols[0].rstrip().isdigit():
+                        if '-' in cols[1]:
+
+                            total_yield.append(float( cols[11].rstrip() ))
+                            total_reads.append(float(cols[9].rstrip() ))
+                            total_density.append( int(cols[3].split("+")[0].rstrip() ))
+                            total_q30.append(float(cols[10].rstrip() ))
+                            total_occupied.append(float(cols[18].split("+")[0].rstrip() ))
+                            total_aligned.append(float(cols[13].split("+")[0].rstrip() ))
+                    else:
+                        sub_counter -= 1
+                        break
+
+                line_nr += sub_counter
+                #
+                stats[f"yield_r{read_nr}"] = round (float(sum(total_yield) ),2)
+                stats["reads"] = round(float(sum(total_reads)),2)
+                stats["cluster_density"] = round(float(sum(total_density) / len(total_density)),2)
+                stats[f"perc_q30_r{read_nr}"] =round(float(sum(total_q30) / len(total_q30)),2)
+                stats["perc_occupied"] =round(float(sum(total_occupied) / len(total_occupied)),2)
+                stats["phix_aligned"] = round(float(sum(total_aligned) / len(total_aligned)),2)
+
+            else:
+                line_nr +=1
+
+    return stats
+
+
 
 def parseConversionStats(lims, dir, pid):
 
@@ -58,6 +125,8 @@ def parseConversionStats(lims, dir, pid):
         'total_reads' : 0,
         'total_mean_qual' : 0,
         'total_q30' : 0,
+        'avg_quality_r1' : 0,
+        'avg_quality_r2' : 0,
         'samples' : [],
     }
 
@@ -81,9 +150,10 @@ def parseConversionStats(lims, dir, pid):
             samples_tmp[ row['SampleID'] ]['# Reads'] += int(row['# Reads'])
             samples_tmp[ row['SampleID'] ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
             samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
-            # stats['samples'].append(row)
-    # print(samples_tmp)
+
+
     qual_metrics_rows = 0
+    rows = 0
     with open(qual_metrics,'r') as q:
         csv_reader = csv.DictReader(q)
         for row in csv_reader:
@@ -95,6 +165,14 @@ def parseConversionStats(lims, dir, pid):
             if q30 not in samples_tmp[ row['SampleID'] ]:
                 samples_tmp[ row['SampleID'] ][q30] = 0
 
+            if row['ReadNumber'] == '1':
+                rows +=1
+                stats['avg_quality_r1'] += float(row['Mean Quality Score (PF)'])
+            elif row['ReadNumber'] == '2':
+                stats['avg_quality_r2'] += float(row['Mean Quality Score (PF)'])
+
+
+
             samples_tmp[ row['SampleID'] ][mqs] += float(row['Mean Quality Score (PF)'])
             samples_tmp[ row['SampleID'] ][q30] += float(row['% Q30'])
             stats['total_q30'] += float(row['% Q30'])
@@ -102,6 +180,8 @@ def parseConversionStats(lims, dir, pid):
 
     stats['total_q30'] = (stats['total_q30']/qual_metrics_rows) * 100
     stats['total_mean_qual'] = stats['total_mean_qual'] / qual_metrics_rows
+    stats['avg_quality_r1'] = round(stats['avg_quality_r1'] / rows, 2)
+    stats['avg_quality_r2'] =  round(stats['avg_quality_r2'] / rows,2)
 
     for sampleID in samples_tmp:
 
@@ -246,11 +326,11 @@ def getNanoporeRunDetails( lims, project_id, fid ):
 def getIlluminaRunDetails( lims, project_name, fid ):
     """Get the most recent raw run info based on project name and allowed RUN_PROCESSES"""
 
-
+    # illumina_seq_steps = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['names'] + ['NextSeq Run (NextSeq) 1.0','MiSeq Run (MiSeq) 4.0','HiSeq Run (HiSeq) 5.0']
     runs = {}
     project_processes = lims.get_processes(
         projectname=project_name,
-        # type=Config.RUN_PROCESSES
+
     )
 
     for process in project_processes:
@@ -260,17 +340,29 @@ def getIlluminaRunDetails( lims, project_name, fid ):
 
         if 'Flow Cell ID' in process.udf:
             flowcell_id = process.udf['Flow Cell ID']
-            runs[ process.date_run ] = flowcell_id
+            runs[ process.date_run ] = {
+                'flowcell_id' : flowcell_id,
+                'date_started' : process.date_run,
+                'phix_loaded' : process.parent_processes()[0].udf.get('% PhiX Control', ''),
+                'load_conc' : process.input_output_maps[0][0]['uri'].udf.get("Loading Conc. (pM)", '' )
+            }
+            #
         elif fid:
             flowcell_id = fid
-            runs[ process.date_run ] = flowcell_id
+
+            runs[ process.date_run ] = {
+                'flowcell_id' : flowcell_id,
+                'date_started' : '',
+                'phix_loaded' : '',
+                'load_conc' : ''
+            }
 
     if not runs:
         return None
 
     run_dates = [datetime.datetime.strptime(ts, "%Y-%m-%d") for ts in runs.keys()]
     sorted_run_dates = [datetime.datetime.strftime(ts, "%Y-%m-%d") for ts in sorted(run_dates)]
-    latest_flowcell_id = runs[sorted_run_dates[-1]] #the most recent run, this is the run we want to share
+    latest_flowcell_id = runs[sorted_run_dates[-1]]['flowcell_id'] #the most recent run, this is the run we want to share
 
     # print(runs)
     #Try to determine run directory
@@ -279,11 +371,11 @@ def getIlluminaRunDetails( lims, project_name, fid ):
         md_path = Path(machine_dir)
         for run_dir in md_path.glob("*"):
             if run_dir.name.endswith("_000000000-"+latest_flowcell_id): #MiSeq
-                return (Path(run_dir),latest_flowcell_id,sorted_run_dates[-1])
+                return (Path(run_dir),latest_flowcell_id,runs[sorted_run_dates[-1]])
             elif run_dir.name.endswith("_"+latest_flowcell_id): #NextSeq
-                return (Path(run_dir),latest_flowcell_id,sorted_run_dates[-1])
+                return (Path(run_dir),latest_flowcell_id,runs[sorted_run_dates[-1]])
             elif run_dir.name.endswith("A"+latest_flowcell_id) or run_dir.name.endswith("B"+latest_flowcell_id): #HiSeq
-                return (Path(run_dir),latest_flowcell_id,sorted_run_dates[-1])
+                return (Path(run_dir),latest_flowcell_id,runs[sorted_run_dates[-1]])
 
     return None
 
@@ -418,7 +510,9 @@ def shareDataById(lims, project_id, fid, link_portal):
             fastq_fail_dir = Path(f"{run_dir}/fastq_fail")
             bam_pass_dir = Path(f"{run_dir}/bam_pass")
             bam_fail_dir = Path(f"{run_dir}/bam_fail")
-
+            pod5_pass_dir = Path(f"{run_dir}/pod5_pass")
+            pod5_fail_dir = Path(f"{run_dir}/pod5_fail")
+            data_dirs = [fast5_pass_dir,fast5_fail_dir,fastq_pass_dir,fastq_fail_dir,bam_pass_dir,bam_fail_dir,pod5_pass_dir,pod5_fail_dir]
             if nextcloud_util.checkExists( f'{project_id}' ):
                 # sys.exit(f'Error : {project_id} was already uploaded to Nextcloud, please delete it first!')
                 logger.info(f'Deleting previous version of {project_id} on Nextcloud')
@@ -437,60 +531,31 @@ def shareDataById(lims, project_id, fid, link_portal):
             available_files = open(f'{run_dir}/available_files.txt', 'w', newline='\n')
             if barcode_dirs:
                 for bd in barcode_dirs:
-                    zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{bd.name}.tar.gz fast5_fail/{bd.name} fast5_pass/{bd.name} fastq_fail/{bd.name} fastq_pass/{bd.name}"
+                    zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{bd.name}.tar.gz"
 
+                    for data_dir in data_dirs:
+                        if Path(f"{data_dir}/{bd.name}").is_dir():
+                            zip_command += f" {data_dir.name}/{bd.name}"
+
+                    # print(zip_command)
                     exit_code= os.system(zip_command)
                     if exit_code:
                         sys.exit(f"Error : Failed to create zip file {upload_dir}/{bd.name}.tar.gz.")
                     file_list.append(f"{bd.name}.tar.gz")
                     available_files.write(f"{bd.name}.tar.gz\n")
             else:
-                zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fast5_pass_dir.name}.tar.gz {fast5_pass_dir.name}"
-                exit_code= os.system(zip_command)
-                if exit_code:
-                    sys.exit(f"Error : Failed to create zip file {upload_dir}/{fast5_pass_dir.name}.tar.gz.")
+                for data_dir in data_dirs:
+                    if data_dir.is_dir():
+                        zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{data_dir.name}.tar.gz {data_dir.name}"
+                        print(zip_command)
+                        exit_code= os.system(zip_command)
+                        if exit_code:
+                            sys.exit(f"Error : Failed to create zip file {upload_dir}/{data_dir.name}.tar.gz.")
 
-                zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fast5_fail_dir.name}.tar.gz {fast5_fail_dir.name}"
-                exit_code= os.system(zip_command)
-                if exit_code:
-                    sys.exit(f"Error : Failed to create zip file {upload_dir}/{fast5_fail_dir.name}.tar.gz.")
+                        available_files.write(f"{data_dir.name}.tar.gz\n")
+                        file_list.append(f"{data_dir.name}.tar.gz")
 
-                zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fastq_pass_dir.name}.tar.gz {fastq_pass_dir.name}"
-                exit_code= os.system(zip_command)
-                if exit_code:
-                    sys.exit(f"Error : Failed to create zip file {upload_dir}/{fastq_pass_dir.name}.tar.gz.")
 
-                zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{fastq_fail_dir.name}.tar.gz {fastq_fail_dir.name}"
-                exit_code= os.system(zip_command)
-                if exit_code:
-                    sys.exit(f"Error : Failed to create zip file {upload_dir}/{fastq_fail_dir.name}.tar.gz.")
-
-                if bam_pass_dir.is_dir():
-                    zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{bam_pass_dir.name}.tar.gz {bam_pass_dir.name}"
-                    exit_code= os.system(zip_command)
-                    if exit_code:
-                        sys.exit(f"Error : Failed to create zip file {upload_dir}/{bam_pass_dir.name}.tar.gz.")
-
-                    available_files.write(f"{bam_pass_dir.name}.tar.gz\n")
-                    file_list.append(f"{bam_pass_dir.name}.tar.gz")
-
-                if bam_fail_dir.is_dir():
-                    zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{bam_fail_dir.name}.tar.gz {bam_fail_dir.name}"
-                    exit_code= os.system(zip_command)
-                    if exit_code:
-                        sys.exit(f"Error : Failed to create zip file {upload_dir}/{bam_fail_dir.name}.tar.gz.")
-
-                    available_files.write(f"{bam_fail_dir.name}.tar.gz\n")
-                    file_list.append(f"{bam_fail_dir.name}.tar.gz")
-
-                available_files.write(f"{fastq_fail_dir.name}.tar.gz\n")
-                available_files.write(f"{fastq_pass_dir.name}.tar.gz\n")
-                available_files.write(f"{fast5_fail_dir.name}.tar.gz\n")
-                available_files.write(f"{fast5_pass_dir.name}.tar.gz\n")
-                file_list.append(f"{fastq_fail_dir.name}.tar.gz")
-                file_list.append(f"{fastq_pass_dir.name}.tar.gz")
-                file_list.append(f"{fast5_fail_dir.name}.tar.gz")
-                file_list.append(f"{fast5_pass_dir.name}.tar.gz")
             zip_stats = f"cd {run_dir} && tar -czf {upload_dir}/stats.tar.gz other_reports/ *.*"
             exit_code = os.system(zip_stats)
 
@@ -561,6 +626,8 @@ def shareDataById(lims, project_id, fid, link_portal):
                 nan_stats = NanoporeSequencingStats(
                     general_stats = Path(run_info['stats_file']).name,
                     date = run_info['date'],
+                    date_started = run_info['date'],
+                    date_send = datetime.datetime.today(),
                     flowcell_id = run_info['flowcell_id'],
                     run_id=portal_run.id
                 )
@@ -571,15 +638,19 @@ def shareDataById(lims, project_id, fid, link_portal):
                 nan_stats = NanoporeSequencingStats(
                     general_stats = '',
                     date = run_info['date'],
+                    date_started = run_info['date'],
+                    date_send = datetime.datetime.today(),
                     flowcell_id = run_info['flowcell_id'],
                     run_id=portal_run.id
                 )
+
+
                 session.add(nan_stats)
                 session.commit()
                 print(f'Uploaded only flowcell ID for {project_id} to portal db. No stats pdf could be found.')
     else:
 
-        run_dir, flowcell_id, date_run = getIlluminaRunDetails(lims, project_name, fid)
+        run_dir, flowcell_id, run_meta = getIlluminaRunDetails(lims, project_name, fid)
         analysis_steps = samples[0].udf['Analysis'].split(',')
         if not run_dir:
             sys.exit(f'Error : No Illumina run directory could be found!')
@@ -605,11 +676,14 @@ def shareDataById(lims, project_id, fid, link_portal):
             available_files.write(f"{file}\n")
         available_files.close()
         conversion_stats = parseConversionStats(lims, run_dir ,project_id )
+        summary_stats = parseSummaryStats(run_dir)
+
 
         if not conversion_stats:
             print(f'Warning : No conversion stats could be found for {run_dir}!')
 
-
+        if not summary_stats:
+            sys.exit(f'Error : No summary stats could be found for {run_dir}!')
 
         print ("\nAre you sure you want to send the following datasets (yes/no): ")
         table = Texttable(max_width=0)
@@ -652,8 +726,9 @@ def shareDataById(lims, project_id, fid, link_portal):
                     os.system(f"ssh usfuser@{Config.SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
 
 
-
                 print(f'Shared {project_id} with {researcher.email}')
+
+
 
                 session,Run, IlluminaSequencingStats,NanoporeSequencingStats = createDBSession()
                 prev_results = session.query(IlluminaSequencingStats).filter_by(flowcell_id=flowcell_id).first()
@@ -675,10 +750,27 @@ def shareDataById(lims, project_id, fid, link_portal):
                     if exit_code :
                         sys.exit(f'Error : Failed tot copy plots to {Config.PORTAL_STORAGE}. Please fix this manually using link_run_results!')
 
+
                     ill_stats = IlluminaSequencingStats(
                         flowcell_id=flowcell_id,
                         general_stats=conversion_stats_json_file.name,
-                        date=date_run,
+                        date=run_meta['date_started'],
+                        date_started = run_meta['date_started'],
+                        date_send = datetime.datetime.today(),
+                        run_name = run_dir.name,
+                        yield_r1 = summary_stats['yield_r1'],
+                        yield_r2 = summary_stats['yield_r2'],
+                        reads = summary_stats['reads'],
+                        avg_quality_r1 = conversion_stats['avg_quality_r1'],
+                        avg_quality_r2 = conversion_stats['avg_quality_r2'],
+                        cluster_density = summary_stats['cluster_density'],
+                        load_conc = run_meta['load_conc'],
+                        perc_q30_r1 = summary_stats['perc_q30_r1'],
+                        perc_q30_r2 = summary_stats['perc_q30_r2'],
+                        perc_occupied = summary_stats['perc_occupied'],
+                        phix_loaded = run_meta['phix_loaded'],
+                        phix_aligned = summary_stats['phix_aligned'],
+                        # succesful = #TODO
                         flowcell_intensity_plot = f'{run_dir.name}_flowcell-Intensity.png',
                         flowcell_density_plot = f'{run_dir.name}_Clusters-by-lane.png',
                         total_qscore_lanes_plot = f'{run_dir.name}_q-histogram.png',
@@ -689,15 +781,32 @@ def shareDataById(lims, project_id, fid, link_portal):
                     )
                     session.add(ill_stats)
                     session.commit()
+                    # print(ill_stats)
                     print(f'Uploaded stats for {project_id} to portal db.')
                 else:
                     ill_stats = IlluminaSequencingStats(
                         flowcell_id=flowcell_id,
-                        date=date_run,
+                        date=run_meta['date_started'],
+                        date_started = run_meta['date_started'],
+                        date_send = datetime.datetime.today(),
+                        run_name = run_dir.name,
+                        yield_r1 = summary_stats['yield_r1'],
+                        yield_r2 = summary_stats['yield_r2'],
+                        reads = summary_stats['reads'],
+                        avg_quality_r1 = '',
+                        avg_quality_r2 = '',
+                        cluster_density = summary_stats['cluster_density'],
+                        load_conc = run_meta['load_conc'],
+                        perc_q30_r1 = summary_stats['perc_q30_r1'],
+                        perc_q30_r2 = summary_stats['perc_q30_r2'],
+                        perc_occupied = summary_stats['perc_occupied'],
+                        phix_loaded = run_meta['phix_loaded'],
+                        phix_aligned = summary_stats['phix_aligned'],
                         run_id=portal_run.id
                     )
                     print(f'Uploaded only flowcell_id for {project_id} to portal db.')
                     session.add(ill_stats)
+                    # print(ill_stats)
                     session.commit()
 
 
@@ -707,21 +816,6 @@ def run(lims, ids, username, dir, fid, link_portal):
     """Runs raw, processed or manual function based on mode"""
 
     global nextcloud_util
-    # global session
-    # global Run
-    # global IlluminaSequencingStats
-    # global NanoporeSequencingStats
-    #
-    # #Set up portal db connection +
-    # Base = automap_base()
-    # ssl_args = {'ssl_ca': '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt'}
-    # engine = create_engine(Config.PORTAL_DB_URI, connect_args=ssl_args, pool_pre_ping=True)
-    #
-    # Base.prepare(engine, reflect=True)
-    # Run = Base.classes.run
-    # IlluminaSequencingStats = Base.classes.illumina_sequencing_stats
-    # NanoporeSequencingStats = Base.classes.nanopore_sequencing_stats
-    # session = Session(engine)
 
     #Set up nextcloud
     nextcloud_util = NextcloudUtil()
