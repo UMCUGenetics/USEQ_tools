@@ -515,7 +515,7 @@ def shareDataById(lims, project_id, fid, link_portal):
             data_dirs = [fast5_pass_dir,fast5_fail_dir,fastq_pass_dir,fastq_fail_dir,bam_pass_dir,bam_fail_dir,pod5_pass_dir,pod5_fail_dir]
             if nextcloud_util.checkExists( f'{project_id}' ):
                 # sys.exit(f'Error : {project_id} was already uploaded to Nextcloud, please delete it first!')
-                logger.info(f'Deleting previous version of {project_id} on Nextcloud')
+                print(f'Warning : Deleting previous version of {project_id} on Nextcloud')
                 nextcloud_util.delete(project_id)
                 nextcloud_util.delete(f'{project_id}.done')
 
