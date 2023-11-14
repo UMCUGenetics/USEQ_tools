@@ -57,6 +57,9 @@ def finish_run(args):
 def update_stats(args):
     utilities.useq_update_stats_db.run(lims)
 
+def update_step_udf(args):
+    utilities.useq_update_step_udf.run(lims,args.step, args.name, args.value)
+
 #Clarity epp scripts
 def run_status_mail(args):
     """Send run started mail"""
@@ -194,6 +197,12 @@ if __name__ == "__main__":
     parser_update_stats = subparser_utilities.add_parser('update_stats')
     parser_update_stats.set_defaults(func=update_stats)
 
+    # update_step_udf
+    parser_update_step_udf = subparser_utilities.add_parser('update_step_udf')
+    parser_update_step_udf.add_argument('-s', '--step', help='Step URI', required=True)
+    parser_update_step_udf.add_argument('-u', '--name', help='UDF name', required=True)
+    parser_update_step_udf.add_argument('-v', '--value', help='UDF value', required=True)
+    parser_update_step_udf.set_defaults(func=update_step_udf)
     #epp parsers
     parser_epp = subparser.add_parser('epp',help='Clarity epp functions: run_status_mail, modify_samplesheet, group_permissions, finance_overview, route_artifacts, close_projects ')
     subparser_epp = parser_epp.add_subparsers()
