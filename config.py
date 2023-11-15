@@ -42,7 +42,7 @@ class Config(object):
     HPC_TMP_DIR = os.path.join(basedir, 'tmp')
     HPC_RAW_ROOT = os.path.join(HPC_MAIN_DIR,'raw_data')
     HPC_STATS_DIR = os.path.join(HPC_RAW_ROOT, 'runstats')
-    HPC_TRANSFER_SERVER='hpct02'
+    HPC_TRANSFER_SERVER='hpct04'
 
     ##CONVERSION SERVER SETTINGS##
     CONV_MAIN_DIR=os.environ.get('CONV_MAIN_DIR')
