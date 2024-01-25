@@ -347,8 +347,8 @@ def getIlluminaRunDetails( lims, project_name, fid ):
             runs[ process.date_run ] = {
                 'flowcell_id' : flowcell_id,
                 'date_started' : process.date_run,
-                'phix_loaded' : process.parent_processes()[0].udf.get('% PhiX Control', ''),
-                'load_conc' : process.input_output_maps[0][0]['uri'].udf.get("Loading Conc. (pM)", '' )
+                'phix_loaded' : process.parent_processes()[0].udf.get('% PhiX Control', 0),
+                'load_conc' : process.input_output_maps[0][0]['uri'].udf.get("Loading Conc. (pM)", 0 )
             }
             #
         elif fid:
@@ -356,9 +356,9 @@ def getIlluminaRunDetails( lims, project_name, fid ):
 
             runs[ process.date_run ] = {
                 'flowcell_id' : flowcell_id,
-                'date_started' : '',
-                'phix_loaded' : '',
-                'load_conc' : ''
+                'date_started' : datetime.datetime.today(),
+                'phix_loaded' : 0,
+                'load_conc' : 0
             }
 
     if not runs:
