@@ -392,7 +392,7 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
     machine = run_dir.parents[0].name
     flowcell = run_dir.name.split("_")[-1]
     #Create .tar files for upload to nextcloud
-    if mode == 'fastq':
+    if mode == 'fastq' or mode == 'wgs':
         for pid in projectIDs:
             pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
             pid_staging.mkdir(parents=True, exist_ok=True)
@@ -417,7 +417,8 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
                     else:
                         sample_zip_done.touch()
 
-            if len(projectIDs) == 1:
+            if len(projectIDs) == 1 and mode != 'wgs':
+                
                 logging.info(f'Zipping undetermined reads')
                 und_zip = Path(f'{pid_staging}/undetermined.tar')
                 und_zip_done = Path(f'{pid_staging}/Undetermined.tar.done')
@@ -916,7 +917,7 @@ def manageRuns(lims, skip_demux_check):
 
                 if not status['Transfer-nc']:
                     try:
-                        status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'fastq',projectIDs,logger)
+                        status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'wgs',projectIDs,logger)
                         updateStatus(status_file, status, 'Transfer-nc',status['Transfer-nc'])
                     except Exception as e:
                         logger.error(f'Failed to run transfer to Nextcloud\n{traceback.format_exc() }')

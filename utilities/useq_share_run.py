@@ -339,12 +339,16 @@ def getIlluminaRunDetails( lims, project_name, fid ):
         if not process.date_run: continue
 
         if 'Flow Cell ID' in process.udf:
-            flowcell_id = process.udf['Flow Cell ID']
+            if fid :
+                flowcell_id = fid
+            else:
+                flowcell_id = process.udf['Flow Cell ID']
+
             runs[ process.date_run ] = {
                 'flowcell_id' : flowcell_id,
                 'date_started' : process.date_run,
-                'phix_loaded' : process.parent_processes()[0].udf.get('% PhiX Control', ''),
-                'load_conc' : process.input_output_maps[0][0]['uri'].udf.get("Loading Conc. (pM)", '' )
+                'phix_loaded' : process.parent_processes()[0].udf.get('% PhiX Control', 0),
+                'load_conc' : process.input_output_maps[0][0]['uri'].udf.get("Loading Conc. (pM)", 0 )
             }
             #
         elif fid:
@@ -352,9 +356,9 @@ def getIlluminaRunDetails( lims, project_name, fid ):
 
             runs[ process.date_run ] = {
                 'flowcell_id' : flowcell_id,
-                'date_started' : '',
-                'phix_loaded' : '',
-                'load_conc' : ''
+                'date_started' : datetime.datetime.today(),
+                'phix_loaded' : 0,
+                'load_conc' : 0
             }
 
     if not runs:
@@ -364,7 +368,6 @@ def getIlluminaRunDetails( lims, project_name, fid ):
     sorted_run_dates = [datetime.datetime.strftime(ts, "%Y-%m-%d") for ts in sorted(run_dates)]
     latest_flowcell_id = runs[sorted_run_dates[-1]]['flowcell_id'] #the most recent run, this is the run we want to share
 
-    # print(runs)
     #Try to determine run directory
     for machine in Config.MACHINE_ALIASES:
         machine_dir = f"{Config.HPC_RAW_ROOT}/{machine}"
@@ -514,7 +517,6 @@ def shareDataById(lims, project_id, fid, link_portal):
             pod5_fail_dir = Path(f"{run_dir}/pod5_fail")
             data_dirs = [fast5_pass_dir,fast5_fail_dir,fastq_pass_dir,fastq_fail_dir,bam_pass_dir,bam_fail_dir,pod5_pass_dir,pod5_fail_dir]
             if nextcloud_util.checkExists( f'{project_id}' ):
-                # sys.exit(f'Error : {project_id} was already uploaded to Nextcloud, please delete it first!')
                 print(f'Warning : Deleting previous version of {project_id} on Nextcloud')
                 nextcloud_util.delete(project_id)
                 nextcloud_util.delete(f'{project_id}.done')

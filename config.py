@@ -42,7 +42,7 @@ class Config(object):
     HPC_TMP_DIR = os.path.join(basedir, 'tmp')
     HPC_RAW_ROOT = os.path.join(HPC_MAIN_DIR,'raw_data')
     HPC_STATS_DIR = os.path.join(HPC_RAW_ROOT, 'runstats')
-    HPC_TRANSFER_SERVER='hpct02'
+    HPC_TRANSFER_SERVER='hpct04'
 
     ##CONVERSION SERVER SETTINGS##
     CONV_MAIN_DIR=os.environ.get('CONV_MAIN_DIR')
@@ -84,7 +84,7 @@ class Config(object):
         'SEQUENCING' : {
             'steps' : {
                 'ISOLATION' : {
-                    'names':['USEQ - Isolation', 'USEQ - Isolation v2'],
+                    'names':['USEQ - Isolation', 'USEQ - Isolation v2', 'USEQ - Chromium iX Run'],
                     'stage_nrs': {
                         'USEQ - Isolation' : '1152:4695'
                     }
@@ -95,8 +95,10 @@ class Config(object):
                         'Truseq DNA nano' : '1152:4696',
                         'Truseq RNA stranded polyA' : '1152:4699',
                         'Truseq RNA stranded ribo-zero' : '1152:4702',
+                        "Chromium iX Single Cell 3'RNA" : '1903:10082', #ON TEST SERVER
                         'USEQ - LIBPREP-ONT-DNA' : '1152:4705',
-                        'USEQ - LIBPREP-ONT-RNA' : '1152:4708'
+                        'USEQ - LIBPREP-ONT-RNA' : '1152:4708',
+
                     }
                 },
                 'POOLING' : {
