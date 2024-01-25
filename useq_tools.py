@@ -190,7 +190,7 @@ if __name__ == "__main__":
     parser_finish_run = subparser_utilities.add_parser('finish_run')
     parser_finish_run.add_argument('-i', '--project_id')
     parser_finish_run.add_argument('-f', '--fid')
-    parser_finish_run.add_argument('-s', '--succesful', action=argparse.BooleanOptionalAction)
+    parser_finish_run.add_argument('-s', '--succesful', default=True)
     parser_finish_run.set_defaults(func=finish_run)
     # finish_run
 
