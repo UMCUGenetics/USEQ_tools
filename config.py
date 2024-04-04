@@ -122,6 +122,7 @@ class Config(object):
                         'Illumina MiSeq' : '1152:4719',
                         'Illumina NovaSeq' : '1152:4722',
                         'Illumina NovaSeq 6000' : '1152:4722',
+                        'Illumina NovaSeq X' : '1152:4722',#TMP FIX FOR NOVASEQ X
                         'Illumina iSeq' : '1152:4725',
                         'Illumina iSeq 100' : '1152:4725'
                     }
@@ -161,7 +162,7 @@ class Config(object):
 
 
     ###Will be integrated in workflow steps###
-    RUN_PROCESSES=['USEQ - NextSeq Run','USEQ - MiSeq Run','USEQ - HiSeq Run', 'USEQ - iSeq Run', 'USEQ - Nanopore Run', 'USEQ - Denature, Dilute and Load (NovaSeq)', 'USEQ - NextSeq2000 Run', 'USEQ - Denature, Dilute and Load (NextSeq2000)','AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)']
+    RUN_PROCESSES=['USEQ - NextSeq Run','USEQ - MiSeq Run','USEQ - HiSeq Run', 'USEQ - iSeq Run', 'USEQ - Nanopore Run', 'USEQ - Denature, Dilute and Load (NovaSeq)', 'USEQ - NextSeq2000 Run', 'USEQ - Denature, Dilute and Load (NextSeq2000)','AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)','USEQ - Denature, Dilute and Load (NovaSeq) v2']
     ISOLATION_PROCESSES=['USEQ - Isolation','USEQ - Isolation v2']
     LIBPREP_PROCESSES=['USEQ - Adenylate ends & Ligate Adapters','USEQ - LibPrep Illumina','USEQ - LibPrep Nanopore']
     ANALYSIS_PROCESSES=['USEQ - Analysis']
