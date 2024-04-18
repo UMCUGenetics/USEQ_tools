@@ -107,6 +107,9 @@ def getAllCosts():
     costs_lower['sp : 100 cycles (default : 2x50bp)'] = costs_lower[ 'novaseq6000 100-cycle sp' ]
     costs_lower['sp : 300 cycles (default : 2x150bp)'] = costs_lower['novaseq6000 300-cycle sp' ]
     costs_lower['sp : 500 cycles (default : 2x250bp)'] = costs_lower[ 'novaseq6000 500-cycle sp']
+
+
+
     costs_lower['wgs at hmf'] = costs_lower['wgs (100 gb)']
     costs_lower['wgs'] = costs_lower['wgs (100 gb)']
     costs_lower['wes (100x coverage)'] = costs_lower['wes (100x coverage)']
@@ -131,6 +134,7 @@ def getAllCosts():
     costs_lower['150 cycles (default : 2x75bp)'] = costs_lower['iseq100 150-cycle']
     costs_lower['300 cycles (default : 2x150bp)'] = costs_lower['iseq100 300-cycle']
 
+    #NS2000
     costs_lower['p1 : 1 x 100 bp'] = costs_lower['nextseq2000 100-cycle p1']
     costs_lower['p1 : 2 x 300 bp'] = costs_lower['nextseq2000 600-cycle p1']
     costs_lower['p1 : 1 x 300 bp'] = costs_lower['nextseq2000 300-cycle p1']
@@ -154,8 +158,19 @@ def getAllCosts():
     costs_lower['p3 : 100 cycles (default : 2x50bp)'] = costs_lower['nextseq2000 100-cycle p3']
     costs_lower['p3 : 200 cycles (default : 2x100bp)'] = costs_lower['nextseq2000 200-cycle p3']
     costs_lower['p3 : 300 cycles (default : 2x150bp)'] = costs_lower['nextseq2000 300-cycle p3']
+    costs_lower['p4 : 50 cycles (default : 1x50bp)'] = costs_lower['nextseq2000 50-cycle p4']
+    costs_lower['p4 : 100 cycles (default : 2x50bp)'] = costs_lower['nextseq2000 100-cycle p4']
+    costs_lower['p4 : 200 cycles (default : 2x100bp)'] = costs_lower['nextseq2000 200-cycle p4']
+    costs_lower['p4 : 300 cycles (default : 2x150bp)'] = costs_lower['nextseq2000 300-cycle p4']
 
-
+    #NOVASEQ # X
+    costs_lower['1.5b : 100 cycles (default : 2x50bp)'] = costs_lower['novaseqx 100-cycle 1.5b']
+    costs_lower['1.5b : 200 cycles (default : 2x100bp)'] = costs_lower['novaseqx 200-cycle 1.5b']
+    costs_lower['1.5b : 300 cycles (default : 2x150bp)'] = costs_lower['novaseqx 300-cycle 1.5b']
+    costs_lower['10b : 100 cycles (default : 2x50bp)'] = costs_lower['novaseqx 100-cycle 10b']
+    costs_lower['10b : 200 cycles (default : 2x100bp)'] = costs_lower['novaseqx 200-cycle 10b']
+    costs_lower['10b : 300 cycles (default : 2x150bp)'] = costs_lower['novaseqx 300-cycle 10b']
+    costs_lower['25b : 300 cycles (default : 2x150bp)'] = costs_lower['novaseqx 300-cycle 25b']
     return costs_lower
 
 def getClosestStepCost(all_costs, step ,step_date):
