@@ -26,7 +26,7 @@
   <code style="font-family: 'Source Code Pro', courier,monospace;">
   while read file; do
     curl -u '{{ share_id }}:PASSWORD' -H 'X-Requested-With: XMLHttpRequest' \
-    'https://ncie01.op.umcutrecht.nl/public.php/webdav/'$file -o $file;
+    'https://ncie02.op.umcutrecht.nl/public.php/webdav/'$file -o $file;
   done < /path/to/available_files.txt
   </code>
 </pre>
