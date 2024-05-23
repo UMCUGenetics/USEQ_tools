@@ -515,15 +515,17 @@ def shareDataById(lims, project_id, fid, link_portal):
             bam_fail_dir = Path(f"{run_dir}/bam_fail")
             pod5_pass_dir = Path(f"{run_dir}/pod5_pass")
             pod5_fail_dir = Path(f"{run_dir}/pod5_fail")
-            data_dirs = [fast5_pass_dir,fast5_fail_dir,fastq_pass_dir,fastq_fail_dir,bam_pass_dir,bam_fail_dir,pod5_pass_dir,pod5_fail_dir]
+            pod5_dir = Path(f"{run_dir}/pod5")
+            barcode_dirs = None
+            data_dirs = [fast5_pass_dir,fast5_fail_dir,fastq_pass_dir,fastq_fail_dir,bam_pass_dir,bam_fail_dir,pod5_pass_dir,pod5_fail_dir,pod5_dir,pod5_dir]
             if nextcloud_util.checkExists( f'{project_id}' ):
                 print(f'Warning : Deleting previous version of {project_id} on Nextcloud')
                 nextcloud_util.delete(project_id)
                 nextcloud_util.delete(f'{project_id}.done')
 
 
-
-            barcode_dirs = [x for x in fastq_pass_dir.iterdir() if x.is_dir() and 'barcode' in x.name or 'unclassified' in x.name ]
+            if fastq_pass_dir.is_dir():
+                barcode_dirs = [x for x in fastq_pass_dir.iterdir() if x.is_dir() and 'barcode' in x.name or 'unclassified' in x.name ]
 
             upload_dir = Path(f"{run_dir}/{project_id}")
             upload_dir_done = Path(f"{run_dir}/{project_id}.done")
