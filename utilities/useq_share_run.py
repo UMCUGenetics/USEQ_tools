@@ -463,7 +463,7 @@ def shareDataByUser(lims, username, dir):
             process.join()
 
 
-def shareDataById(lims, project_id, fid, link_portal):
+def shareDataById(lims, project_id, fid, all_dirs_ont):
 
     run_info = {}
     project = None
@@ -533,7 +533,7 @@ def shareDataById(lims, project_id, fid, link_portal):
             upload_dir.mkdir()
             file_list = []
             available_files = open(f'{run_dir}/available_files.txt', 'w', newline='\n')
-            if barcode_dirs:
+            if barcode_dirs and not all_dirs_ont:
                 for bd in barcode_dirs:
                     zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{bd.name}.tar.gz"
 
@@ -816,7 +816,7 @@ def shareDataById(lims, project_id, fid, link_portal):
 
 
 
-def run(lims, ids, username, dir, fid, link_portal):
+def run(lims, ids, username, dir, fid, all_dirs_ont):
     """Runs raw, processed or manual function based on mode"""
 
     global nextcloud_util
@@ -827,7 +827,7 @@ def run(lims, ids, username, dir, fid, link_portal):
 
     if ids:
         nextcloud_util.setup( Config.NEXTCLOUD_USER, Config.NEXTCLOUD_PW, Config.NEXTCLOUD_WEBDAV_ROOT,Config.NEXTCLOUD_RAW_DIR,Config.MAIL_SENDER )
-        shareDataById(lims, ids, fid, link_portal)
+        shareDataById(lims, ids, fid, all_dirs_ont)
 
     elif username and dir:
         nextcloud_util.setup( Config.NEXTCLOUD_USER, Config.NEXTCLOUD_PW, Config.NEXTCLOUD_WEBDAV_ROOT,Config.NEXTCLOUD_MANUAL_DIR,Config.MAIL_SENDER )
