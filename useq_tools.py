@@ -91,7 +91,7 @@ def create_recipe(args):
 
 def create_samplesheet(args):
     """Create generic v2 samplesheet"""
-    epp.useq_create_samplesheet.run(lims, args.step,args.output_file)
+    epp.useq_create_samplesheet.run(lims, args.step,args.output_file, args.type)
 
 def parse_worksheet(args):
     """Parse xslx worksheet"""
@@ -247,6 +247,7 @@ if __name__ == "__main__":
     parser_create_samplesheet = subparser_epp.add_parser('create_samplesheet', help='Creates a v2 samplesheet.')
     parser_create_samplesheet.add_argument('-s', '--step', help='Step URI', required=True)
     parser_create_samplesheet.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
+    parser_create_samplesheet.add_argument('-t', '--type', help='Sample Sheet type', default=None)
     parser_create_samplesheet.set_defaults(func=create_samplesheet)
 
     parser_parse_worksheet = subparser_epp.add_parser('parse_worksheet')

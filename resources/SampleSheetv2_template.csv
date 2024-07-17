@@ -10,6 +10,17 @@ OverrideCycles,{{override_cycles}}
 {% if trim_umi %}TrimUMI,0{% endif %}
 CreateFastqForIndexReads,1
 [Data]
+{% if lanes -%}
+Lane,Sample_ID,index,{% if index2_cycles %}index2,{% endif %}Sample_Project
+{% for lane in samples -%}
+{% set lane_nr = loop.index -%}
+{% for sample in lane -%}
+{{lane_nr}},{{sample['Sample_ID']}},{{sample['index']}},{% if index2_cycles %}{{sample['index2']}},{% endif %}{{sample['Sample_Project']}}
+{% endfor -%}
+{% endfor -%}
+{% else -%}
 Sample_ID,index,{% if index2_cycles %}index2,{% endif %}Sample_Project
-{% for sample in samples %}{{sample['Sample_ID']}},{{sample['index']}},{% if index2_cycles %}{{sample['index2']}},{% endif %}{{sample['Sample_Project']}}
-{% endfor %}
+{% for sample in samples -%}
+{{sample['Sample_ID']}},{{sample['index']}},{% if index2_cycles %}{{sample['index2']}},{% endif %}{{sample['Sample_Project']}}
+{% endfor -%}
+{% endif -%}
