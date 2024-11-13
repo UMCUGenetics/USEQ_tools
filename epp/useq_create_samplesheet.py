@@ -128,8 +128,8 @@ def createSamplesheetNovaseqX(lims, step_uri):
 
         samples = sample_pool.samples
         project_id = samples[0].project.id
-        nr_lanes = samples[0].udf.get('Number Lanes', 1)
-        #
+        nr_lanes = samples[0].udf.get('Number Lanes', 8)
+        # print(f'Number lanes : {nr_lanes}')
         for nr in range(nr_lanes):
             lane = []
             for sample in sample_pool.samples:
@@ -158,7 +158,6 @@ def createSamplesheetNovaseqX(lims, step_uri):
         samplesheet_data['override_cycles'] += f'Y{ samplesheet_data["read2_cycles"] };'
 
     samplesheet_data['override_cycles'] = samplesheet_data['override_cycles'][:-1]
-
 
     ######################################
     samplesheet = renderTemplate('SampleSheetv2_template.csv', samplesheet_data)
