@@ -238,12 +238,13 @@ def parseConversionStats(dir):
             if row['SampleID'] not in samples_tmp:
                 samples_tmp[ row['SampleID'] ] = {
                     'Index' : None,
+                    'Lanes' : [],
                     '# Reads' : 0,
                     '# Perfect Index Reads' : 0,
                     '# One Mismatch Index Reads' : 0,
                 }
             samples_tmp[ row['SampleID'] ]['Index'] = row['Index']
-            samples_tmp[ row['SampleID'] ]['Lane'] = int(row['Lane'])
+            samples_tmp[ row['SampleID'] ]['Lanes'].append(int(row['Lane']))
             samples_tmp[ row['SampleID'] ]['# Reads'] += int(row['# Reads'])
             samples_tmp[ row['SampleID'] ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
             samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
@@ -268,9 +269,9 @@ def parseConversionStats(dir):
         sample = {}
         for read_number in ['1','2','I1','I2']:
             if f'Read {read_number} Mean Quality Score (PF)' in samples_tmp[sampleID]:
-                sample[f'Read {read_number} Mean Quality Score (PF)'] = samples_tmp[sampleID][f'Read {read_number} Mean Quality Score (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
+                sample[f'Read {read_number} Mean Quality Score (PF)'] = samples_tmp[sampleID][f'Read {read_number} Mean Quality Score (PF)'] / len(samples_tmp[ sampleID ]['Lanes'])
             if f'Read {read_number} % Q30' in samples_tmp[sampleID]:
-                sample[f'Read {read_number} % Q30'] = (samples_tmp[sampleID][f'Read {read_number} % Q30'] / samples_tmp[ row['SampleID'] ]['Lane'])*100
+                sample[f'Read {read_number} % Q30'] = (samples_tmp[sampleID][f'Read {read_number} % Q30'] / len(samples_tmp[ sampleID ]['Lanes']))*100
         sample['SampleID'] = sampleID
         sample['Index'] = samples_tmp[sampleID]['Index']
         sample['# Reads'] = samples_tmp[sampleID]['# Reads']
@@ -345,8 +346,11 @@ def updateStatus(file, status, step, bool):
         f.write(json.dumps(status))
 
 def uploadToArchive(run_dir, logger):
-
-    machine = run_dir.parents[0].name
+    machine = None
+    if 'MyRun' in run_dir.parents[0].name:
+        machine = run_dir.parents[1].name
+    else:
+        machine = run_dir.parents[0].name
     command = None
     logger.info('Uploading run folder to archive storage')
     if machine == 'WES-WGS':
@@ -361,7 +365,11 @@ def uploadToArchive(run_dir, logger):
     return True
 
 def uploadToHPC(lims, run_dir, projectIDs, logger):
-    machine = run_dir.parents[0].name
+    machine = None
+    if 'MyRun' in run_dir.parents[0].name:
+        machine = run_dir.parents[1].name
+    else:
+        machine = run_dir.parents[0].name
     to_sync = ''
     command = '/usr/bin/rsync -rah --update --stats --verbose --prune-empty-dirs '
     for pid in projectIDs:
@@ -389,7 +397,11 @@ def uploadToHPC(lims, run_dir, projectIDs, logger):
     return True
 
 def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
-    machine = run_dir.parents[0].name
+    machine = None
+    if 'MyRun' in run_dir.parents[0].name:
+        machine = run_dir.parents[1].name
+    else:
+        machine = run_dir.parents[0].name
     flowcell = run_dir.name.split("_")[-1]
     #Create .tar files for upload to nextcloud
     if mode == 'fastq' or mode == 'wgs':
@@ -418,7 +430,7 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
                         sample_zip_done.touch()
 
             if len(projectIDs) == 1 and mode != 'wgs':
-                
+
                 logging.info(f'Zipping undetermined reads')
                 und_zip = Path(f'{pid_staging}/undetermined.tar')
                 und_zip_done = Path(f'{pid_staging}/Undetermined.tar.done')
