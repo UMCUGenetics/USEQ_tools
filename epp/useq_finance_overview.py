@@ -278,13 +278,17 @@ def getSeqFinance(lims, step_uri):
 				'Authorization' : f'Bearer {Config.PORTAL_API_KEY}'
 			}
 
-			data = json.dumps(run_meta)
+			if len(pid_sequenced[project_id]) > 1:
+				runs[pool.id][project_id]['errors'].add("Warning : Run was sequenced before more than once!")
+				#In case of reruns always bill at the costs of the oldest run
+				run_meta['date'] = min( pid_sequenced[project_id] )
 
+			data = json.dumps(run_meta)
+			# print(project_id, data)
 			response = requests.post(url, headers=headers, data=data)
 
 			costs = response.json()
-			if len(pid_sequenced[project_id]) > 1:
-				runs[pool.id][project_id]['errors'].add("Warning : Run was sequenced before more than once!")
+
 			if 'error' in costs:
 				runs[pool.id][project_id]['errors'].add(costs['error'])
 			else:
