@@ -62,7 +62,7 @@ class Config(object):
     NEXTCLOUD_HOST = os.environ.get('NEXTCLOUD_HOST')
     NEXTCLOUD_USER = USEQ_USER
     NEXTCLOUD_PW = os.environ.get('NEXTCLOUD_PW')
-    NEXTCLOUD_DATA_ROOT = '/data/ncie01/nextcloud/usfuser/files/'
+    NEXTCLOUD_DATA_ROOT = '/data/ncie02/nextcloud/usfuser/files/'
     NEXTCLOUD_WEBDAV_ROOT = 'remote.php/dav/files/usfuser/'
     NEXTCLOUD_RAW_DIR = 'raw_data/'
     NEXTCLOUD_PROCESSED_DIR = 'processed_data/'
