@@ -80,78 +80,81 @@ class Config(object):
     ##LIMS SETTINGS##
     PROJECT_TYPES = {'Sequencing': 'USF - Sequencing', 'SNP Fingerprinting':'USF - SNP genotyping'}
 
+
+    # 'ISOLATION' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5499'},
+    # 'LIBPREP-DNA-NANO' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5500'},
+    # 'LIBPREP-RNA-POLYA' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5503'},
+    # 'LIBPREP-RNA-RIBOZERO' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5506'},
+
+    # 'LIBPREP-ONT-DNA' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5509'},
+    # 'LIBPREP-ONT-RNA' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5512'},
+    # 'LIBPREP-CHROMIUM-RNA' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1454/stages/5538'},
+    # 'POOLING' : {'uri': f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5515'},
+    # 'BILLING' : {'uri': f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5535'},
+
+
+
     WORKFLOW_STEPS = {
         'SEQUENCING' : {
             'steps' : {
                 'ISOLATION' : {
-                    'names':['USEQ - Isolation', 'USEQ - Isolation v2', 'USEQ - Chromium iX Run'],
+                    'names':['USEQ - Isolation', 'USEQ - Isolation v2'],
                     'stage_nrs': {
-                        #'USEQ - Isolation' : '1152:4695' #PRODUCTION
-                        'USEQ - Isolation' : '2002:10202' #TEST
+                        'USEQ - Isolation' : '1453:5499'
                     }
                 },
                 'LIBPREP' : {
                     'names':['USEQ - Post LibPrep QC','USEQ - Bioanalyzer QC DNA', 'USEQ - Qubit QC','USEQ - Adenylate ends & Ligate Adapters','USEQ - Chromium iX Run v1.0'],
                     'stage_nrs' : {
-                        ##PRODUCTION##
-                        # 'Truseq DNA nano' : '1152:4696',
-                        # 'Truseq RNA stranded polyA' : '1152:4699',
-                        # 'Truseq RNA stranded ribo-zero' : '1152:4702',
-                        # "Chromium iX Single Cell 3'RNA" : '1903:10082', #ON TEST SERVER
-                        # 'USEQ - LIBPREP-ONT-DNA' : '1152:4705',
-                        # 'USEQ - LIBPREP-ONT-RNA' : '1152:4708',
-                        ##TEST SERVER##
-                        'Truseq DNA nano' : '2002:10203',
-                        'Truseq RNA stranded polyA' : '2002:10206',
-                        'Truseq RNA stranded ribo-zero' : '2002:10209',
-                        "Chromium iX Single Cell 3'RNA" : '2053:10247', #ON TEST SERVER
-                        'USEQ - LIBPREP-ONT-DNA' : '2002:10218',
-                        'USEQ - LIBPREP-ONT-RNA' : '2002:10238',
+                        'Truseq DNA nano' : '1453:5500',
+                        'Truseq RNA stranded polyA' : '1453:5503',
+                        'Truseq RNA stranded ribo-zero' : '1453:5506',
+                        "Chromium iX Single Cell 3'RNA" : '1454:5538', #ON TEST SERVER
+                        'USEQ - LIBPREP-ONT-DNA' : '1453:5509',
+                        'USEQ - LIBPREP-ONT-RNA' : '1453:5512',
+
                     }
                 },
                 'POOLING' : {
                     'names':['USEQ - Library Pooling'],
                     'stage_nrs' :{
-                        # 'USEQ - Library Pooling' : '1152:4711',#PRODUCTION
-                        'USEQ - Library Pooling' : '2002:10218',#TEST
+                        'USEQ - Library Pooling' : '1453:5515',
                     }
                 },
                 'POOL QC' : {
                     'names':['USEQ - Aggregate QC (Library Pooling)'],
                     'stage_nrs' : {
-                        # 'USEQ - Pool QC' : '1152:4712',#PRODUCTION
-                        'USEQ - Pool QC' : '2002:10219',#TEST
+                        'USEQ - Pool QC' : '1453:5515',
                     }
                 },
                 'ILLUMINA SEQUENCING' : {
                     'names':['USEQ - MiSeq Run','USEQ - NextSeq Run', 'USEQ - Automated NovaSeq Run v2', 'USEQ - iSeq Run', 'USEQ - NextSeq2000 Run','AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)'],
                     'stage_nrs' : {
+                        'Illumina NextSeq' : '1453:5517',
+                        'Illumina NextSeq500' : '1453:5517',
+                        'Illumina NextSeq2000' : '1453:5520',
+                        #'Illumina MiSeq' : '1453:4719',
+                        'Illumina NovaSeq' : '1453:5523',
 
-                        'Illumina NextSeq' : '1152:4713',
-                        'Illumina NextSeq500' : '1152:4713',
-                        'Illumina NextSeq2000' : '1152:4716',
-                        'Illumina MiSeq' : '1152:4719',
-                        'Illumina NovaSeq' : '1152:4722',
-                        'Illumina NovaSeq 6000' : '1152:4722',
-                        'Illumina NovaSeq X' : '1152:4722',#TMP FIX FOR NOVASEQ X
-                        'Illumina iSeq' : '1152:4725',
-                        'Illumina iSeq 100' : '1152:4725'
-
+                        'Illumina NovaSeq 6000' : '1453:5523',
+                        'Illumina NovaSeq X' : '1453:5526',
+                        'Illumina iSeq' : '1453:5529',
+                        'Illumina iSeq 100' : '1453:5529'
                     }
                 },
                 'NANOPORE SEQUENCING' :{
                     'names':['USEQ - Nanopore Run','USEQ - Nanopore Run v2'],
                     'stage_nrs': {
-                        'Oxford Nanopore' : '2002:10235',
+                        'Oxford Nanopore' : '1453:5532',
                     }
 
                 },
                 'POST SEQUENCING' : {
                     'names':['USEQ - BCL to FastQ','USEQ - Process Raw Data','USEQ - Analysis'],
                     'stage_nrs' : {
-                        'USEQ - Post Sequencing' : '2002:10236',
-                        'USEQ - Analysis' : '2002:10237',
-                        'USEQ - Ready for billing' : '2002:10238',
+                        'USEQ - Post Sequencing' : '1453:5533',
+                        'USEQ - Analysis' : '1453:5534',
+                        'USEQ - Ready for billing' : '1453:5535',
                     }
                 }
             }
@@ -174,8 +177,8 @@ class Config(object):
 
 
     ###Will be integrated in workflow steps###
-    RUN_PROCESSES=['USEQ - NextSeq Run','USEQ - MiSeq Run','USEQ - HiSeq Run', 'USEQ - iSeq Run', 'USEQ - Nanopore Run', 'USEQ - Denature, Dilute and Load (NovaSeq)', 'USEQ - NextSeq2000 Run', 'USEQ - Denature, Dilute and Load (NextSeq2000)','AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)','USEQ - Denature, Dilute and Load (NovaSeq) v2']
-    ISOLATION_PROCESSES=['USEQ - Isolation','USEQ - Isolation v2']
+    RUN_PROCESSES=['USEQ - NextSeq Run','USEQ - MiSeq Run','USEQ - HiSeq Run', 'USEQ - iSeq Run', 'USEQ - Nanopore Run', 'USEQ - Denature, Dilute and Load (NovaSeq)', 'USEQ - NextSeq2000 Run', 'USEQ - Denature, Dilute and Load (NextSeq2000)','AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)','USEQ - NovaSeq X Run']
+    ISOLATION_PROCESSES=['USEQ - Isolation','USEQ - Isolation v2','USEQ - Chromium iX Cell Suspension & QC']
     LIBPREP_PROCESSES=['USEQ - Adenylate ends & Ligate Adapters','USEQ - LibPrep Illumina','USEQ - LibPrep Nanopore']
     ANALYSIS_PROCESSES=['USEQ - Analysis']
     ###
