@@ -463,7 +463,7 @@ def shareDataByUser(lims, username, dir):
             process.join()
 
 
-def shareDataById(lims, project_id, fid, link_portal):
+def shareDataById(lims, project_id, fid, all_dirs_ont):
 
     run_info = {}
     project = None
@@ -515,15 +515,17 @@ def shareDataById(lims, project_id, fid, link_portal):
             bam_fail_dir = Path(f"{run_dir}/bam_fail")
             pod5_pass_dir = Path(f"{run_dir}/pod5_pass")
             pod5_fail_dir = Path(f"{run_dir}/pod5_fail")
-            data_dirs = [fast5_pass_dir,fast5_fail_dir,fastq_pass_dir,fastq_fail_dir,bam_pass_dir,bam_fail_dir,pod5_pass_dir,pod5_fail_dir]
+            pod5_dir = Path(f"{run_dir}/pod5")
+            barcode_dirs = None
+            data_dirs = [fast5_pass_dir,fast5_fail_dir,fastq_pass_dir,fastq_fail_dir,bam_pass_dir,bam_fail_dir,pod5_pass_dir,pod5_fail_dir,pod5_dir,pod5_dir]
             if nextcloud_util.checkExists( f'{project_id}' ):
                 print(f'Warning : Deleting previous version of {project_id} on Nextcloud')
                 nextcloud_util.delete(project_id)
                 nextcloud_util.delete(f'{project_id}.done')
 
 
-
-            barcode_dirs = [x for x in fastq_pass_dir.iterdir() if x.is_dir() and 'barcode' in x.name or 'unclassified' in x.name ]
+            if fastq_pass_dir.is_dir():
+                barcode_dirs = [x for x in fastq_pass_dir.iterdir() if x.is_dir() and 'barcode' in x.name or 'unclassified' in x.name ]
 
             upload_dir = Path(f"{run_dir}/{project_id}")
             upload_dir_done = Path(f"{run_dir}/{project_id}.done")
@@ -531,7 +533,7 @@ def shareDataById(lims, project_id, fid, link_portal):
             upload_dir.mkdir()
             file_list = []
             available_files = open(f'{run_dir}/available_files.txt', 'w', newline='\n')
-            if barcode_dirs:
+            if barcode_dirs and not all_dirs_ont:
                 for bd in barcode_dirs:
                     zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{bd.name}.tar.gz"
 
@@ -814,7 +816,7 @@ def shareDataById(lims, project_id, fid, link_portal):
 
 
 
-def run(lims, ids, username, dir, fid, link_portal):
+def run(lims, ids, username, dir, fid, all_dirs_ont):
     """Runs raw, processed or manual function based on mode"""
 
     global nextcloud_util
@@ -825,7 +827,7 @@ def run(lims, ids, username, dir, fid, link_portal):
 
     if ids:
         nextcloud_util.setup( Config.NEXTCLOUD_USER, Config.NEXTCLOUD_PW, Config.NEXTCLOUD_WEBDAV_ROOT,Config.NEXTCLOUD_RAW_DIR,Config.MAIL_SENDER )
-        shareDataById(lims, ids, fid, link_portal)
+        shareDataById(lims, ids, fid, all_dirs_ont)
 
     elif username and dir:
         nextcloud_util.setup( Config.NEXTCLOUD_USER, Config.NEXTCLOUD_PW, Config.NEXTCLOUD_WEBDAV_ROOT,Config.NEXTCLOUD_MANUAL_DIR,Config.MAIL_SENDER )

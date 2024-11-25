@@ -34,7 +34,7 @@ class Config(object):
     ##TRELLO##
     TRELLO_ANALYSIS_BOARD='swboymans+dz1sjzuejttnkxhgya6p@boards.trello.com'
 
-    MACHINE_ALIASES=['miseq_umc01','nextseq_umc03','nextseq2000_umc01','nextseq2000_umc02','novaseq_umc01','novaseq_umc02','iseq_umc01']
+    MACHINE_ALIASES=['miseq_umc01','nextseq_umc03','nextseq2000_umc01','nextseq2000_umc02','novaseq_umc01','novaseq_umc02','iseq_umc01','novaseq_umc01/MyRun','novaseq_umc02/MyRun']
 
     ##HPC SERVER SETTINGS##
     HPC_MAIN_DIR = os.environ.get('HPC_MAIN_DIR')
@@ -196,7 +196,11 @@ class Config(object):
         "SP" : 750000000,
         "NextSeq 1000/2000 P1 Flow Cell Cartridge" : 100000000,
         "NextSeq 1000/2000 P2 Flow Cell Cartridge" : 400000000,
-        "NextSeq 2000 P3 Flow Cell Cartridge" : 1000000000
+        "NextSeq 2000 P3 Flow Cell Cartridge" : 1000000000,
+        "NextSeq 2000 P4 Flow Cell Cartridge" : 1800000000,
+        "1.5B Sequencing" :  1500000000,
+        "10B Sequencing" : 10000000000,
+        "25B Sequencing" : 25000000000,
     }
 
     UMI_BARCODES={k : f"{k}i7-{k}i5" for k in range(1,385)}

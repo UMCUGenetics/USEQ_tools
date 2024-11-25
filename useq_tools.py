@@ -25,7 +25,7 @@ def client_mail(args):
 
 def share_data(args):
     """Encrypt and Share one or more datasets"""
-    utilities.useq_share_run.run(lims, args.ids, args.username, args.dir, args.fid, args.link_portal)
+    utilities.useq_share_run.run(lims, args.ids, args.username, args.dir, args.fid, args.all_dirs_ont)
 
 def budget_overview(args):
     utilities.useq_budget_overview.run(lims, args.budgetnrs, args.output_file)
@@ -91,7 +91,7 @@ def create_recipe(args):
 
 def create_samplesheet(args):
     """Create generic v2 samplesheet"""
-    epp.useq_create_samplesheet.run(lims, args.step,args.output_file)
+    epp.useq_create_samplesheet.run(lims, args.step,args.output_file, args.type)
 
 def parse_worksheet(args):
     """Parse xslx worksheet"""
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     parser_share_data.add_argument('-u', '--username', help='Username to share data with.', default=None)
     parser_share_data.add_argument('-d', '--dir', help='Directory containing data to share.', default=None)
     parser_share_data.add_argument('-f', '--fid', help='Overrides the Flowcell ID found in the LIMS, ONLY use when the Flowcell ID in the LIMS is wrong (ROOOBIIIIN!!).', default=None)
-    parser_share_data.add_argument('-l', '--link_portal', help='Try and link run results to portal instance of run. Only works in combination with --ids.', default=None)
+    parser_share_data.add_argument('-a', '--all_dirs_ont', help='Share all Nanopore dirs. Only works for Nanopore data AND ignores the check for barcode dirs being present. Using this option can result in a lot of data being shared!!', default=False)
     parser_share_data.set_defaults(func=share_data)
 
     parser_budget_ovw = subparser_utilities.add_parser('budget_overview', help='Get an overview of all costs booked to supplied budget numbers.')
@@ -247,6 +247,7 @@ if __name__ == "__main__":
     parser_create_samplesheet = subparser_epp.add_parser('create_samplesheet', help='Creates a v2 samplesheet.')
     parser_create_samplesheet.add_argument('-s', '--step', help='Step URI', required=True)
     parser_create_samplesheet.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
+    parser_create_samplesheet.add_argument('-t', '--type', help='Sample Sheet type', default=None)
     parser_create_samplesheet.set_defaults(func=create_samplesheet)
 
     parser_parse_worksheet = subparser_epp.add_parser('parse_worksheet')
