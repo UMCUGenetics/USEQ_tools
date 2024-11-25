@@ -38,14 +38,14 @@ def routeArtifacts(lims, step_uri, input):
                     next_stage = Config.WORKFLOW_STEPS['FINGERPRINTING']['steps']['FINGERPRINTING']['stage_nrs'][ 'USEQ - Fingerprinting' ]
         elif current_step in Config.WORKFLOW_STEPS['SEQUENCING']['steps']['LIBPREP']['names']:
             # next_step = STEP_URIS[ 'USEQ - Library Pooling' ]
-            if first_sample.udf['Platform'] == 'Illumina NovaSeq X' and first_sample.udf['Sequencing Runtype'] == '10B : 300 Cycles (Default : 2x150bp)':
-                next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOLING']['stage_nrs'][ 'Dx Multiplexen sequence pool v1.2' ]
-                if next_stage not in to_route:
-                    to_route[ next_stage ] = []
-                to_route[ next_stage ].append( artifact)
-                next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOLING']['stage_nrs'][ 'USEQ - Library Pooling' ]
-            else:
-                next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOLING']['stage_nrs'][ 'USEQ - Library Pooling' ]
+            # if first_sample.udf['Platform'] == 'Illumina NovaSeq X' and first_sample.udf['Sequencing Runtype'] == '10B : 300 Cycles (Default : 2x150bp)':
+            #     next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOLING']['stage_nrs'][ 'Dx Multiplexen sequence pool v1.2' ]
+            #     if next_stage not in to_route:
+            #         to_route[ next_stage ] = []
+            #     to_route[ next_stage ].append( artifact)
+            #     next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOLING']['stage_nrs'][ 'USEQ - Library Pooling' ]
+            # else:
+            next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOLING']['stage_nrs'][ 'USEQ - Library Pooling' ]
 
         elif current_step in Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOLING']['names']:
             sample_type = first_sample.udf['Sample Type']
@@ -59,14 +59,14 @@ def routeArtifacts(lims, step_uri, input):
                     next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['NANOPORE SEQUENCING']['stage_nrs']['Oxford Nanopore']
                 else:
                     ##########
-                    if platform == 'Illumina NovaSeq X' and runtype == '10B : 300 Cycles (Default : 2x150bp)':
-                        next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOLING']['stage_nrs'][ 'Dx Multiplexen sequence pool v1.2' ]
-                        if next_stage not in to_route:
-                            to_route[ next_stage ] = []
-                        to_route[ next_stage ].append( artifact)
-                        next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][ platform ]
-                    else:
-                        next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][ platform ]
+                    # if platform == 'Illumina NovaSeq X' and runtype == '10B : 300 Cycles (Default : 2x150bp)':
+                    #     next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOLING']['stage_nrs'][ 'Dx Multiplexen sequence pool v1.2' ]
+                    #     if next_stage not in to_route:
+                    #         to_route[ next_stage ] = []
+                    #     to_route[ next_stage ].append( artifact)
+                    #     next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][ platform ]
+                    # else:
+                    next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][ platform ]
                     ##########
                     # next_stage = next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][platform]
 
@@ -78,14 +78,14 @@ def routeArtifacts(lims, step_uri, input):
                 next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['NANOPORE SEQUENCING']['stage_nrs']['Oxford Nanopore']
             else:
                 ##########
-                if platform == 'Illumina NovaSeq X' and runtype == '10B : 300 Cycles (Default : 2x150bp)':
-                    next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOLING']['stage_nrs'][ 'Dx Multiplexen sequence pool v1.2' ]
-                    if next_stage not in to_route:
-                        to_route[ next_stage ] = []
-                    to_route[ next_stage ].append( artifact)
-                    next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][ platform ]
-                else:
-                    next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][ platform ]
+                # if platform == 'Illumina NovaSeq X' and runtype == '10B : 300 Cycles (Default : 2x150bp)':
+                #     next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOLING']['stage_nrs'][ 'Dx Multiplexen sequence pool v1.2' ]
+                #     if next_stage not in to_route:
+                #         to_route[ next_stage ] = []
+                #     to_route[ next_stage ].append( artifact)
+                #     next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][ platform ]
+                # else:
+                next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][ platform ]
                 ##########
 
 
