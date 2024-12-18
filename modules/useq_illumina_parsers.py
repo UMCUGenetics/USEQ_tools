@@ -79,18 +79,7 @@ def parseConversionStats( conversion_stats_file ):
                     conversion_stats['unknown'][bc_seq] = bc_count
 
             elem.clear()
-    # for top_unknown in tree.findall("TopUnknownBarcodes"):
 
-    # for event, elem in ET.iterparse(conversion_stats_file):
-    #     if elem.tag =='TopUnknownBarcodes':
-    #         for barcode in elem.findall("Barcode"):
-    #             bc_count = int(barcode.attrib["count"])
-    #             bc_seq = barcode.attrib["sequence"]
-    #             if bc_seq in conversion_stats['unknown']:
-    #                 conversion_stats['unknown'][bc_seq] += bc_count
-    #             else:
-    #                 conversion_stats['unknown'][bc_seq] = bc_count
-    #         elem.clear()
     for bc in conversion_stats['unknown']:
 
         conversion_stats['unknown'][bc] = "{0:,}".format(conversion_stats['unknown'][bc])
@@ -122,6 +111,12 @@ def getExpectedReads( run_parameters):
         application_name = run_parameters.getElementsByTagName('ApplicationName')[0].firstChild.nodeValue
     except:
         application_name = ''
+
+    try:
+        application_name = run_parameters.getElementsByTagName('RecipeName')[0].firstChild.nodeValue
+    except:
+        application_name = ''
+
 
 
     if run_chem in Config.RUNTYPE_YIELDS:
