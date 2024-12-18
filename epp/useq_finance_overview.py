@@ -192,10 +192,12 @@ def getSeqFinance(lims, step_uri):
 							runs[pool.id][project_id]['libprep_date'].add(sample_artifact.parent_process.date_run)
 
 						elif process_name in Config.RUN_PROCESSES or process_name in Config.LOAD_PROCESSES:
+
 							protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 							runs[pool.id][project_id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 
 							if not runs[pool.id][project_id]['run_date']:
+
 								runs[pool.id][project_id]['run_date'] = run_date
 								runs[pool.id][project_id]['times_sequenced'] = 1
 								run_meta['date'] = runs[pool.id][project_id]['run_date']
@@ -282,12 +284,15 @@ def getSeqFinance(lims, step_uri):
 				runs[pool.id][project_id]['errors'].add("Warning : Run was sequenced before more than once!")
 				#In case of reruns always bill at the costs of the oldest run
 				run_meta['date'] = min( pid_sequenced[project_id] )
+			if not run_meta['date']:
+				run_meta['date'] = min( pid_sequenced[project_id] )
 
 			data = json.dumps(run_meta)
-			# print(project_id, data)
+
 			response = requests.post(url, headers=headers, data=data)
 
 			costs = response.json()
+
 
 			if 'error' in costs:
 				runs[pool.id][project_id]['errors'].add(costs['error'])
