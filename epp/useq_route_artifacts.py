@@ -1,6 +1,6 @@
 from genologics.entities import Step
 from config import Config
-
+import sys
 from epp.useq_run_status_mail import run_finished
 
 def routeArtifacts(lims, step_uri, input):
@@ -18,6 +18,7 @@ def routeArtifacts(lims, step_uri, input):
         else:
             artifact = io_map[1]['uri'] #output artifact
 
+        # print(current_step, artifact)
         first_sample = artifact.samples[0]
 
         if current_step in Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ISOLATION']['names']:
@@ -57,6 +58,10 @@ def routeArtifacts(lims, step_uri, input):
                 runtype = first_sample.udf['Sequencing Runtype']
                 if platform == 'Oxford Nanopore':
                     next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['NANOPORE SEQUENCING']['stage_nrs']['Oxford Nanopore']
+                elif platform == '10X Chromium iX Single Cell':
+                    sequencing_platform = io_map[0]['uri'].parent_process.udf.get('Sequencing Platform', None)
+                    next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][sequencing_platform]
+
                 else:
                     ##########
                     # if platform == 'Illumina NovaSeq X' and runtype == '10B : 300 Cycles (Default : 2x150bp)':
