@@ -17,6 +17,8 @@ class Config(object):
     PORTAL_SERVER=os.environ.get('PORTAL_SERVER')
     PORTAL_USER=os.environ.get('PORTAL_USER')
     PORTAL_STORAGE=os.environ.get('PORTAL_STORAGE')
+    PORTAL_URL=os.environ.get('PORTAL_URL')
+    PORTAL_API_KEY=os.environ.get('PORTAL_API_KEY')
     # PORTAL_DB_USER=os.environ.get('PORTAL_DB_USER')
     # PORTAL_DB_PW=os.environ.get('PORTAL_DB_PW')
     PORTAL_DB_URI=os.environ.get('PORTAL_DB_URI')
@@ -73,7 +75,7 @@ class Config(object):
 
 
     ##SMS SERVER SETTINGS##
-    SMS_SERVER = 'sumak.op.umcutrecht.nl'
+    SMS_SERVER = os.environ.get('SMS_SERVER')
 
     SSL_CERT = '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt'
 
@@ -128,7 +130,7 @@ class Config(object):
                     }
                 },
                 'ILLUMINA SEQUENCING' : {
-                    'names':['USEQ - MiSeq Run','USEQ - NextSeq Run', 'USEQ - Automated NovaSeq Run v2', 'USEQ - iSeq Run', 'USEQ - NextSeq2000 Run','AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)'],
+                    'names':['USEQ - MiSeq Run','USEQ - NextSeq Run', 'USEQ - Automated NovaSeq Run v2', 'USEQ - iSeq Run', 'USEQ - NextSeq2000 Run','AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)','USEQ - NovaSeq X Run'],
                     'stage_nrs' : {
                         'Illumina NextSeq' : '1453:5517',
                         'Illumina NextSeq500' : '1453:5517',
@@ -177,9 +179,25 @@ class Config(object):
 
 
     ###Will be integrated in workflow steps###
-    RUN_PROCESSES=['USEQ - NextSeq Run','USEQ - MiSeq Run','USEQ - HiSeq Run', 'USEQ - iSeq Run', 'USEQ - Nanopore Run', 'USEQ - Denature, Dilute and Load (NovaSeq)', 'USEQ - NextSeq2000 Run', 'USEQ - Denature, Dilute and Load (NextSeq2000)','AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)','USEQ - NovaSeq X Run', 'USEQ - Denature, Dilute and Load (NovaSeq) v2']
-    ISOLATION_PROCESSES=['USEQ - Isolation','USEQ - Isolation v2','USEQ - Chromium iX Cell Suspension & QC']
-    LIBPREP_PROCESSES=['USEQ - Adenylate ends & Ligate Adapters','USEQ - LibPrep Illumina','USEQ - LibPrep Nanopore']
+    RUN_PROCESSES=[
+        'USEQ - NextSeq Run',
+        'USEQ - MiSeq Run',
+        'USEQ - HiSeq Run',
+        'USEQ - iSeq Run',
+        'USEQ - Nanopore Run v2' ,
+        'USEQ - Nanopore Run',
+        'USEQ - NextSeq2000 Run',
+        'AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)',
+        'USEQ - NovaSeq X Run',
+
+        ]
+    LOAD_PROCESSES = [
+        'USEQ - Denature, Dilute and Load (NovaSeq) v2',
+        'USEQ - Denature, Dilute and Load (NextSeq2000)',
+        'USEQ - Denature, Dilute and Load (NovaSeq)',
+    ]
+    ISOLATION_PROCESSES=['USEQ - Isolation','USEQ - Isolation v2']
+    LIBPREP_PROCESSES=['USEQ - Adenylate ends & Ligate Adapters','USEQ - LibPrep Illumina','USEQ - LibPrep Nanopore','USEQ - Chromium iX Cell Suspension & QC']
     ANALYSIS_PROCESSES=['USEQ - Analysis']
     ###
 
