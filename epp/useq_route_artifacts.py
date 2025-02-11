@@ -18,7 +18,7 @@ def routeArtifacts(lims, step_uri, input):
         else:
             artifact = io_map[1]['uri'] #output artifact
 
-        print(current_step, artifact)
+        # print(current_step, artifact)
         first_sample = artifact.samples[0]
 
         if current_step in Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ISOLATION']['names']:
