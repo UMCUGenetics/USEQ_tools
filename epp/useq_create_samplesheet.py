@@ -9,8 +9,8 @@ def createSamplesheet(lims, step_uri):
         'experiment_name' : None,
         'date' : None,
         'lanes':False,
-        'read1_cycles' : None,
-        'read2_cycles' : None,
+        'read1_cycles' : '',
+        'read2_cycles' : '',
         'dual_index' : False,
         'trim_umi' : None,
         'samples' : [
@@ -50,7 +50,7 @@ def createSamplesheet(lims, step_uri):
         index_seqs = [index for index in reagent.sequence.split('-')]
 
         read1_cycles = f"Y{samplesheet_data['read1_cycles']};"
-        read2_cycles = f"Y{samplesheet_data['read2_cycles']};"
+        read2_cycles = f"Y{samplesheet_data['read2_cycles']}" if samplesheet_data['read2_cycles'] else ''
         index1_cycles = 'I8U9;' if index_cat == 'Illumina IDT 384 UMI' else f"I{len(index_seqs[0])};"
         index2_cycles = ''
 
@@ -66,7 +66,7 @@ def createSamplesheet(lims, step_uri):
             read2_cycles = f"Y{int(sample.udf['USEQ Read2 Cycles']) + 1}"
 
         override_cycles = f'{read1_cycles}{index1_cycles}{index2_cycles}{read2_cycles}'
-
+        override_cycles = override_cycles.rstrip(";")
         s = {
             'Sample_ID' : sample.name,
             'index' : index_seqs[0],
@@ -146,7 +146,7 @@ def createSamplesheetNovaseqX(lims, step_uri):
             for sample in sample_pool.samples:
 
                 read1_cycles = f"Y{samplesheet_data['read1_cycles']};"
-                read2_cycles = f"Y{samplesheet_data['read2_cycles']};"
+                read2_cycles = f"Y{samplesheet_data['read2_cycles']}" if samplesheet_data['read2_cycles'] else ''
                 index1_cycles = 'I8U9;' if sample_demux[sample.name]['index_cat'] == 'Illumina IDT 384 UMI' else f"I{len(sample_demux[sample.name]['index_seq'][0])};"
                 index2_cycles = ''
 
@@ -162,8 +162,9 @@ def createSamplesheetNovaseqX(lims, step_uri):
                 if 'USEQ Read2 Cycles' in sample.udf:
                     read2_cycles = f"Y{int(sample.udf['USEQ Read2 Cycles']) + 1}"
 
-                override_cycles = f'{read1_cycles}{index1_cycles}{index2_cycles}{read2_cycles}'
 
+                override_cycles = f'{read1_cycles}{index1_cycles}{index2_cycles}{read2_cycles}'
+                override_cycles = override_cycles.rstrip(";")
                 s = {
                     'Sample_ID' : sample.name,
                     'index' : sample_demux[sample.name]['index_seq'][0],
