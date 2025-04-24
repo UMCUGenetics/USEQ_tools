@@ -254,7 +254,7 @@ if __name__ == "__main__":
     parser_parse_worksheet.add_argument('-s', '--step', help='Step URI', required=True)
     parser_parse_worksheet.add_argument('-a', '--aid', help='Artifact ID', required=True)
     parser_parse_worksheet.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
-    parser_parse_worksheet.add_argument('-m', '--mode', help='Mode, choose illumina or ont. Affects which barcodes are available.', choices=['illumina','ont'], required=True)
+    parser_parse_worksheet.add_argument('-m', '--mode', help='Mode, choose illumina or ont. Affects which barcodes are available.', choices=['illumina','ont', 'snp'], required=True)
     parser_parse_worksheet.set_defaults(func=parse_worksheet)
 
     parser_check_barcodes = subparser_epp.add_parser('check_barcodes')

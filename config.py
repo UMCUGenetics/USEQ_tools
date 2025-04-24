@@ -84,74 +84,98 @@ class Config(object):
         'SEQUENCING' : {
             'steps' : {
                 'ISOLATION' : {
-                    'names':['USEQ - Isolation', 'USEQ - Isolation v2', 'USEQ - Chromium iX Run'],
+                    'names':[
+                        'USEQ - Isolation', #old
+                        'USEQ - Isolation v2'
+                    ],
                     'stage_nrs': {
-                        #'USEQ - Isolation' : '1152:4695' #PRODUCTION
-                        'USEQ - Isolation' : '2002:10202' #TEST
+                        'USEQ - Isolation' : '1602:5895' #PRODUCTION
+                        # 'USEQ - Isolation' : '2002:10202' #TEST
                     }
                 },
                 'LIBPREP' : {
-                    'names':['USEQ - Post LibPrep QC','USEQ - Bioanalyzer QC DNA', 'USEQ - Qubit QC','USEQ - Adenylate ends & Ligate Adapters','USEQ - Chromium iX Run v1.0'],
+                    'names':[
+                        'USEQ - Chromium X Run',
+                        'USEQ - Post LibPrep QC',
+                        'USEQ - Bioanalyzer QC DNA', #old
+                        'USEQ - Qubit QC', #old
+                        'USEQ - Adenylate ends & Ligate Adapters', #old
+                        'USEQ - Chromium iX Run v1.0' #old-ish
+                    ],
                     'stage_nrs' : {
                         ##PRODUCTION##
-                        # 'Truseq DNA nano' : '1152:4696',
-                        # 'Truseq RNA stranded polyA' : '1152:4699',
-                        # 'Truseq RNA stranded ribo-zero' : '1152:4702',
-                        # "Chromium iX Single Cell 3'RNA" : '1903:10082', #ON TEST SERVER
-                        # 'USEQ - LIBPREP-ONT-DNA' : '1152:4705',
-                        # 'USEQ - LIBPREP-ONT-RNA' : '1152:4708',
+                        'Truseq DNA nano' : '1602:5896',
+                        'Truseq RNA stranded polyA' : '1602:5899',
+                        'Truseq RNA stranded ribo-zero' : '1152:4702', #old
+                        # "Chromium iX Single Cell 3'RNA" : '1903:10082', #not in new workflow
+                        'USEQ - LIBPREP-ONT-DNA' : '1602:5905',
+                        'USEQ - LIBPREP-ONT-RNA' : '1602:5908',
+                        'USEQ - LIBPREP-FINGERPRINTING' : '1602:5902',
                         ##TEST SERVER##
-                        'Truseq DNA nano' : '2002:10203',
-                        'Truseq RNA stranded polyA' : '2002:10206',
-                        'Truseq RNA stranded ribo-zero' : '2002:10209',
-                        "Chromium iX Single Cell 3'RNA" : '2053:10247', #ON TEST SERVER
-                        'USEQ - LIBPREP-ONT-DNA' : '2002:10218',
-                        'USEQ - LIBPREP-ONT-RNA' : '2002:10238',
+                        # 'Truseq DNA nano' : '2002:10203',
+                        # 'Truseq RNA stranded polyA' : '2002:10206',
+                        # 'Truseq RNA stranded ribo-zero' : '2002:10209',
+                        # "Chromium iX Single Cell 3'RNA" : '2053:10247', #ON TEST SERVER
+                        # 'USEQ - LIBPREP-ONT-DNA' : '2002:10218',
+                        # 'USEQ - LIBPREP-ONT-RNA' : '2002:10238',
                     }
                 },
                 'POOLING' : {
                     'names':['USEQ - Library Pooling'],
                     'stage_nrs' :{
-                        # 'USEQ - Library Pooling' : '1152:4711',#PRODUCTION
-                        'USEQ - Library Pooling' : '2002:10218',#TEST
+                        'USEQ - Library Pooling' : '1602:5913',#PRODUCTION
+                        # 'USEQ - Library Pooling' : '2002:10218',#TEST
                     }
                 },
                 'POOL QC' : {
                     'names':['USEQ - Aggregate QC (Library Pooling)'],
                     'stage_nrs' : {
-                        # 'USEQ - Pool QC' : '1152:4712',#PRODUCTION
-                        'USEQ - Pool QC' : '2002:10219',#TEST
+                        'USEQ - Pool QC' : '1602:5914',#PRODUCTION
+                        # 'USEQ - Pool QC' : '2002:10219',#TEST
                     }
                 },
                 'ILLUMINA SEQUENCING' : {
-                    'names':['USEQ - MiSeq Run','USEQ - NextSeq Run', 'USEQ - Automated NovaSeq Run v2', 'USEQ - iSeq Run', 'USEQ - NextSeq2000 Run','AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)'],
+                    'names':[
+                        'USEQ - MiSeq Run', #old
+                        'USEQ - NextSeq Run', #old
+                        'USEQ - Automated NovaSeq Run v2', #old
+                        'AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)'#old
+                        'USEQ - iSeq Run',
+                        'USEQ - NextSeq2000 Run',
+                        'USEQ - NovaSeq X Run'
+                    ],
                     'stage_nrs' : {
-
-                        'Illumina NextSeq' : '1152:4713',
-                        'Illumina NextSeq500' : '1152:4713',
-                        'Illumina NextSeq2000' : '1152:4716',
-                        'Illumina MiSeq' : '1152:4719',
-                        'Illumina NovaSeq' : '1152:4722',
-                        'Illumina NovaSeq 6000' : '1152:4722',
-                        'Illumina NovaSeq X' : '1152:4722',#TMP FIX FOR NOVASEQ X
-                        'Illumina iSeq' : '1152:4725',
-                        'Illumina iSeq 100' : '1152:4725'
+                        # 'Illumina NextSeq' : '1152:4713',
+                        # 'Illumina NextSeq500' : '1152:4713',
+                        'Illumina NextSeq2000' : '1602:5916',
+                        'NextSeq2000': '1602:5916',
+                        # 'Illumina MiSeq' : '1152:4719',
+                        # 'Illumina NovaSeq' : '1152:4722',
+                        # 'Illumina NovaSeq 6000' : '1152:4722',
+                        'Illumina NovaSeq X' : '1602:5922',
+                        'NovaSeq X' : '1602:5922',
+                        'iSeq 100' : '1602:5919',
+                        'Illumina iSeq' : '1602:5919',
+                        'Illumina iSeq 100' : '1602:5919'
 
                     }
                 },
                 'NANOPORE SEQUENCING' :{
-                    'names':['USEQ - Nanopore Run','USEQ - Nanopore Run v2'],
+                    'names':[
+                        'USEQ - Nanopore Run', #old
+                        'USEQ - Nanopore Run v2'
+                    ],
                     'stage_nrs': {
-                        'Oxford Nanopore' : '2002:10235',
+                        'Oxford Nanopore' : '1602:5915',
                     }
 
                 },
                 'POST SEQUENCING' : {
                     'names':['USEQ - BCL to FastQ','USEQ - Process Raw Data','USEQ - Analysis'],
                     'stage_nrs' : {
-                        'USEQ - Post Sequencing' : '2002:10236',
-                        'USEQ - Analysis' : '2002:10237',
-                        'USEQ - Ready for billing' : '2002:10238',
+                        'USEQ - Post Sequencing' : '1602:5925',
+                        'USEQ - Analysis' : '1602:5926',
+                        'USEQ - Ready for billing' : '1602:5927',
                     }
                 }
             }
@@ -163,7 +187,7 @@ class Config(object):
                 'FINGERPRINTING' : {
                     'names':['USEQ - Fingerprinting'],
                     'stage_nrs' :{
-                        'USEQ - Fingerprinting' : '652:2054',
+                        'USEQ - Fingerprinting' : '652:2054',#old
                     }
                 }
             }
@@ -174,7 +198,18 @@ class Config(object):
 
 
     ###Will be integrated in workflow steps###
-    RUN_PROCESSES=['USEQ - NextSeq Run','USEQ - MiSeq Run','USEQ - HiSeq Run', 'USEQ - iSeq Run', 'USEQ - Nanopore Run', 'USEQ - Denature, Dilute and Load (NovaSeq)', 'USEQ - NextSeq2000 Run', 'USEQ - Denature, Dilute and Load (NextSeq2000)','AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)','USEQ - Denature, Dilute and Load (NovaSeq) v2']
+    RUN_PROCESSES=[
+        'USEQ - NextSeq Run',
+        'USEQ - MiSeq Run',
+        'USEQ - HiSeq Run',
+        'USEQ - iSeq Run',
+        'USEQ - Nanopore Run',
+        'USEQ - Nanopore Run v2',
+        'USEQ - Denature, Dilute and Load (NovaSeq)',
+        'USEQ - NextSeq2000 Run',
+        'USEQ - Denature, Dilute and Load (NextSeq2000)',
+        'AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)',
+        'USEQ - Denature, Dilute and Load (NovaSeq) v2']
     ISOLATION_PROCESSES=['USEQ - Isolation','USEQ - Isolation v2']
     LIBPREP_PROCESSES=['USEQ - Adenylate ends & Ligate Adapters','USEQ - LibPrep Illumina','USEQ - LibPrep Nanopore']
     ANALYSIS_PROCESSES=['USEQ - Analysis']
@@ -214,4 +249,30 @@ class Config(object):
         'NB73' : 'NB73 (AAGAAACAGGATGACAGAACCCTC)','NB74' : 'NB74 (TACAAGCATCCCAACACTTCCACT)','NB75' : 'NB75 (GACCATTGTGATGAACCCTGTTGT)','NB76' : 'NB76 (ATGCTTGTTACATCAACCCTGGAC)','NB77' : 'NB77 (CGACCTGTTTCTCAGGGATACAAC)','NB78' : 'NB78 (AACAACCGAACCTTTGAATCAGAA)','NB79' : 'NB79 (TCTCGGAGATAGTTCTCACTGCTG)','NB80' : 'NB80 (CGGATGAACATAGGATAGCGATTC)',
         'NB81' : 'NB81 (CCTCATCTTGTGAAGTTGTTTCGG)','NB82' : 'NB82 (ACGGTATGTCGAGTTCCAGGACTA)','NB83' : 'NB83 (TGGCTTGATCTAGGTAAGGTCGAA)','NB84' : 'NB84 (GTAGTGGACCTAGAACCTGTGCCA)','NB85' : 'NB85 (AACGGAGGAGTTAGTTGGATGATC)','NB86' : 'NB86 (AGGTGATCCCAACAAGCGTAAGTA)','NB87' : 'NB87 (TACATGCTCCTGTTGTTAGGGAGG)','NB88' : 'NB88 (TCTTCTACTACCGATCCGAAGCAG)',
         'NB89' : 'NB89 (ACAGCATCAATGTTTGGCTAGTTG)','NB90' : 'NB90 (GATGTAGAGGGTACGGTTTGAGGC)','NB91' : 'NB91 (GGCTCCATAGGAACTCACGCTACT)','NB92' : 'NB92 (TTGTGAGTGGAAAGATACAGGACC)','NB93' : 'NB93 (AGTTTCCATCACTTCAGACTTGGG)','NB94' : 'NB94 (GATTGTCCTCAAACTGCCACCTAC)','NB95' : 'NB95 (CCTGTCTGGAAGAAGAATGGACTT)','NB96' : 'NB96 (CTGAACGGTCATAGAGTCCACCAT)'
+    }
+    NIMAGEN_BARCODES = {
+        'RPU0097' : 'RPU0097 (GGATATACGG-AAGTTCGTAA)','RPU0098' : 'RPU0098 (CAACGGTCTT-ACTAATCCAG)','RPU0099' : 'RPU0099 (TCAGATTCTT-TGCCGCAGAG)','RPU0100' : 'RPU0100 (ATGCGATTGA-TTAGAGCTGA)',
+        'RPU0101' : 'RPU0101 (GCCGTAATCG-TGGCGTTGGC)','RPU0102' : 'RPU0102 (CGAGTTCGCC-GAATTCTCCA)','RPU0103' : 'RPU0103 (CCGGCTGAGC-ATCGAATCTG)','RPU0104' : 'RPU0104 (TGAATCCGGA-TATAGGTATG)',
+        'RPU0105' : 'RPU0105 (CTAAGAGTTA-TAAGTAAGTA)','RPU0106' : 'RPU0106 (GCCAAGGCAA-AAGATCAGTT)','RPU0107' : 'RPU0107 (AATTGAGTTA-TACCTTAGCT)','RPU0108' : 'RPU0108 (TATATGACGT-TATTCCTTGC)',
+        'RPU0109' : 'RPU0109 (GTTAGGAGCG-ACCAGTTCAG)','RPU0110' : 'RPU0110 (ATGCTAACCT-AAGGATCCAA)','RPU0111' : 'RPU0111 (TGCAGAGATG-TGGTATTATT)','RPU0112' : 'RPU0112 (TTATTAAGAA-CATCTATTCG)',
+        'RPU0113' : 'RPU0113 (TCGTTCATTA-TAATGGTAGA)','RPU0114' : 'RPU0114 (ATTCAATTAA-TAAGGCTGGT)','RPU0115' : 'RPU0115 (CTGCGGACGT-GTTATATGCA)','RPU0116' : 'RPU0116 (AAGAAGTCTA-GTCGACCATT)',
+        'RPU0117' : 'RPU0117 (TTAACTCATA-CTGCAGATCC)','RPU0118' : 'RPU0118 (AGAATTAGCA-CGGTCCGCGG)','RPU0119' : 'RPU0119 (AACCTATAGT-TTCTCTACGA)','RPU0120' : 'RPU0120 (TCCTGGTCAA-AAGCTATGCC)',
+        'RPU0121' : 'RPU0121 (AGTCATGGAT-GCTGGTTATG)','RPU0122' : 'RPU0122 (TGGAGGCGAA-GAGATTCCAA)','RPU0123' : 'RPU0123 (TTGGCCAGGT-TGAACGGCGT)','RPU0124' : 'RPU0124 (CCTCTAGGAC-CGGATCTCCG)',
+        'RPU0125' : 'RPU0125 (TAAGGAACGG-AGACCGCAAG)','RPU0126' : 'RPU0126 (CCGGTCCTAA-TAAGCTCGCC)','RPU0127' : 'RPU0127 (CGTCAGTCAA-TATCTGCCTA)','RPU0128' : 'RPU0128 (TCTTAAGGAC-TCTAGTTCCA)',
+        'RPU0129' : 'RPU0129 (GATCATGATA-CATATTGCAT)','RPU0130' : 'RPU0130 (CAAGTAGGAC-CCTGCGTATT)','RPU0131' : 'RPU0131 (CGGCATCTTG-AAGGCCATCA)','RPU0132' : 'RPU0132 (ATTACGTAGG-CAACCTATCA)',
+        'RPU0133' : 'RPU0133 (AGACCAGGTT-ATGGCAACTT)','RPU0134' : 'RPU0134 (CCTTGGCTCT-GCGTCCAGGT)','RPU0135' : 'RPU0135 (TAACCAGTTA-CGTAAGCGAA)','RPU0136' : 'RPU0136 (GTATCAATAT-ATTCTGCGGT)',
+        'RPU0137' : 'RPU0137 (ATATGGTACC-GTATACGTAA)','RPU0138' : 'RPU0138 (GCTCTTACTT-TACTCCTCGA)','RPU0139' : 'RPU0139 (TGCCTCGCAA-ACTCGGCATA)','RPU0140' : 'RPU0140 (GACCGTTACT-TGAGTTGGAC)',
+        'RPU0141' : 'RPU0141 (CCATATGCTC-GGTCTAGGAA)','RPU0142' : 'RPU0142 (CTAACCTACC-TGACGCGACC)','RPU0143' : 'RPU0143 (ACTAGACGTT-GGTACTTCCA)','RPU0144' : 'RPU0144 (GACCTCCTTG-TATGCTTACT)',
+        'RPU0145' : 'RPU0145 (GGTCTTCGGT-CGAGCGGCCT)','RPU0146' : 'RPU0146 (GGATGGTATT-GAACGTCAGG)','RPU0147' : 'RPU0147 (CCGTTAGCAA-CGTAGCCGTA)','RPU0148' : 'RPU0148 (CTGGCAGCGG-TTATAGGAGA)',
+        'RPU0149' : 'RPU0149 (TGCGAATCGG-TACGCTGGCG)','RPU0150' : 'RPU0150 (TGGACCAAGG-AGGAGTAAGG)','RPU0151' : 'RPU0151 (GCGGTTGGAA-CTACGACTAT)','RPU0152' : 'RPU0152 (TCTGACGAAC-GATCCATAAC)',
+        'RPU0153' : 'RPU0153 (TGGATCGTTA-TATCGGCAGT)','RPU0154' : 'RPU0154 (AATGATGCTC-GCTGATAATT)','RPU0155' : 'RPU0155 (GAGTATACCT-ATCCTTGGAG)','RPU0156' : 'RPU0156 (TTCATCGTAA-GTTCGAGGCG)',
+        'RPU0157' : 'RPU0157 (TGCCGGTACC-CCTATTACCT)','RPU0158' : 'RPU0158 (GAGGAGAGCT-AGCTGAACGC)','RPU0159' : 'RPU0159 (ACTCTCTAGT-TCGATAAGAA)','RPU0160' : 'RPU0160 (ACGTACTAGG-ATATAGGTTG)',
+        'RPU0161' : 'RPU0161 (GCAGAGCCAT-CTAGTTAAGT)','RPU0162' : 'RPU0162 (CATTCTGATG-GTTCGTCTGA)','RPU0163' : 'RPU0163 (CCGAAGGTTA-TGCTGCATCC)','RPU0164' : 'RPU0164 (GCATTAGGCG-GTTCTTATAA)',
+        'RPU0165' : 'RPU0165 (AGTTACGCCG-ACCTTCTGGA)','RPU0166' : 'RPU0166 (GCCGGAGCGG-ACGATAGCTG)','RPU0167' : 'RPU0167 (GTCCTATGAA-CGATATATCT)','RPU0168' : 'RPU0168 (ATGCCAGCAA-TAGATCCTAA)',
+        'RPU0169' : 'RPU0169 (TAACTGGCTT-TTACTAGTAC)','RPU0170' : 'RPU0170 (TTCTGATTAA-GACTTCTACT)','RPU0171' : 'RPU0171 (AAGCGGCATT-TGCCATGGAA)','RPU0172' : 'RPU0172 (ACGGTAATTG-CTTCTCGACT)',
+        'RPU0173' : 'RPU0173 (CGTATTATAC-ACCGGTCTGC)','RPU0174' : 'RPU0174 (TCTGCTATAA-TACTGGACGG)','RPU0175' : 'RPU0175 (ATCGGCTTGA-AATATAGCGG)','RPU0176' : 'RPU0176 (TAATTCCGGT-ATGAAGCTTG)',
+        'RPU0177' : 'RPU0177 (GGCTGCGACG-TGGTCTTGAA)','RPU0178' : 'RPU0178 (ACCGGAAGAA-TCAGCGCAAT)','RPU0179' : 'RPU0179 (GGAGGCCTCC-AACCAGCATG)','RPU0180' : 'RPU0180 (TTGATGCCTC-CTTCAGTAGT)',
+        'RPU0181' : 'RPU0181 (GTTCCAACTT-TATCGTAGGA)','RPU0182' : 'RPU0182 (CGGATAAGCT-ATAGCATCAA)','RPU0183' : 'RPU0183 (TGCGTCTATA-CTGACTACTT)','RPU0184' : 'RPU0184 (GGTATCATCT-GCTATACTGG)',
+        'RPU0185' : 'RPU0185 (ACTTGCTGAT-TCTGGACTCA)','RPU0186' : 'RPU0186 (TTCCAAGTAA-TTAGCGGAAC)','RPU0187' : 'RPU0187 (AGGTTGCAAG-GCGACTCGAT)','RPU0188' : 'RPU0188 (CTATGGCCTA-TCTTAATCAG)',
+        'RPU0189' : 'RPU0189 (ATGGAGCTAC-ATGAGTAATA)','RPU0190' : 'RPU0190 (GTTCTCTCCT-CGCCTACCAA)','RPU0191' : 'RPU0191 (TTATATTGAA-GACTCGAGGA)','RPU0192' : 'RPU0192 (TTGGTCGAAT-ACTCCAGATT)'
     }
