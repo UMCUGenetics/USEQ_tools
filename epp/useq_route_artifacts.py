@@ -82,6 +82,7 @@ def routeArtifacts(lims, step_uri, input):
                     next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][ platform ]
 
 
+
         elif current_step in Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOL QC']['names']:
 
             platform = None
