@@ -27,16 +27,19 @@ def routeArtifacts(lims, step_uri, input):
                 # next_step = STEP_URIS[ first_sample.udf['Library prep kit'] ]
                 next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['LIBPREP']['stage_nrs'][ first_sample.udf['Library prep kit'] ]
             else:
-                if first_sample.udf['Platform'] == 'Oxford Nanopore':
+                if first_sample.udf['Platform'] in ['Oxford Nanopore','MinIon','PromethIon']:
                     if first_sample.udf['Sample Type'] == 'RNA total isolated':
                         # next_step = STEP_URIS['USEQ - LIBPREP-ONT-RNA']
                         next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['LIBPREP']['stage_nrs'][ 'USEQ - LIBPREP-ONT-RNA' ]
                     else:
                         # next_step = STEP_URIS['USEQ - LIBPREP-ONT-DNA']
                         next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['LIBPREP']['stage_nrs'][ 'USEQ - LIBPREP-ONT-DNA' ]
-                else:
+                elif first_sample.udf['Platform'] == 'SNP Fingerprinting': #old fingerprinting workflow
                     # next_step = STEP_URIS[ 'USEQ - Fingerprinting' ]
                     next_stage = Config.WORKFLOW_STEPS['FINGERPRINTING']['steps']['FINGERPRINTING']['stage_nrs'][ 'USEQ - Fingerprinting' ]
+                elif first_sample.udf['Platform'] == '60 SNP NimaGen panel':
+                    next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['LIBPREP']['stage_nrs'][ 'USEQ - LIBPREP-FINGERPRINTING' ]
+
         elif current_step in Config.WORKFLOW_STEPS['SEQUENCING']['steps']['LIBPREP']['names']:
             # next_step = STEP_URIS[ 'USEQ - Library Pooling' ]
             # if first_sample.udf['Platform'] == 'Illumina NovaSeq X' and first_sample.udf['Sequencing Runtype'] == '10B : 300 Cycles (Default : 2x150bp)':
@@ -54,9 +57,14 @@ def routeArtifacts(lims, step_uri, input):
                 # next_step = STEP_URIS['USEQ - Pool QC']
                 next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOL QC']['stage_nrs'][ 'USEQ - Pool QC' ]
             else:#Pool QC has already been done
-                platform = first_sample.udf['Platform']
+                platform = None
+                if 'Sequencing Platform' in step.details.udf:
+                    platform = step.details.udf['Sequencing Platform']
+                else:
+                    platform = first_sample.udf['Platform']
                 runtype = first_sample.udf['Sequencing Runtype']
-                if platform == 'Oxford Nanopore':
+
+                if platform in ['Oxford Nanopore','MinIon','PromethIon']:
                     next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['NANOPORE SEQUENCING']['stage_nrs']['Oxford Nanopore']
                 elif platform == '10X Chromium iX Single Cell':
                     sequencing_platform = io_map[0]['uri'].parent_process.udf.get('Sequencing Platform', None)
@@ -72,14 +80,19 @@ def routeArtifacts(lims, step_uri, input):
                     #     next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][ platform ]
                     # else:
                     next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][ platform ]
-                    ##########
-                    # next_stage = next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['stage_nrs'][platform]
+
+
 
         elif current_step in Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOL QC']['names']:
 
-            platform = first_sample.udf['Platform']
+            platform = None
+            if 'Sequencing Platform' in io_map[0]['uri'].parent_process.udf:
+                platform = io_map[0]['uri'].parent_process.udf['Sequencing Platform']
+            else:
+                platform = first_sample.udf['Platform']
             runtype = first_sample.udf['Sequencing Runtype']
-            if platform == 'Oxford Nanopore':
+
+            if platform in ['Oxford Nanopore','MinIon','PromethIon']:
                 next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['NANOPORE SEQUENCING']['stage_nrs']['Oxford Nanopore']
             else:
                 ##########

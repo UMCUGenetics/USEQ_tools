@@ -19,6 +19,8 @@ def parse(lims, step_uri, aid, output_file, mode):
         barcode_set = Config.UMI_BARCODES
     elif mode == 'ont':
         barcode_set = Config.ONT_BARCODES
+    elif mode == 'snp':
+        barcode_set = Config.NIMAGEN_BARCODES
     # protocol_step = ProtocolStep(lims, uri=step.configuration.uri)
     # step_fields = []
     # for sf in protocol_step.sample_fields:

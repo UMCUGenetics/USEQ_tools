@@ -46,8 +46,8 @@ def linkRuns(lims, run_info):
         if not db_run: sys.exit (f"ERROR : DB_ID {run['DB_ID']} does not exist, skipping.")
         if db_run.run_id: sys.exit (f"ERROR : DB_ID {run['DB_ID']} already has LIMS_ID {db_run.run_id} assigned to it. ")
         if db_run.user.username != run['USERNAME']: sys.exit(f"ERROR : Owner of DB_ID {run['DB_ID']} does not match USERNAME {run['USERNAME']}.")
-        if run['APPLICATION'] not in Config.PROJECT_TYPES.values(): sys.exit(f"ERROR : Invalid APPLICATION, please choose Fingerprinting or Sequencing.")
-        if db_run.application != run['APPLICATION']: sys.exit(f"ERROR : APPLICATION does not match preferred application.")
+        # if run['APPLICATION'] not in Config.PROJECT_TYPES.values(): sys.exit(f"ERROR : Invalid APPLICATION, please choose Fingerprinting or Sequencing.")
+        # if db_run.application != run['APPLICATION']: sys.exit(f"ERROR : APPLICATION does not match preferred application.")
         researchers = lims.get_researchers(username=run['USERNAME'])
         if not researchers: sys.exit(f"ERROR : USERNAME {run['USERNAME']} not found in LIMS.")
 
@@ -79,7 +79,7 @@ def linkRuns(lims, run_info):
                 name = new_project_name,
                 researcher=researchers[0],
                 open_date=datetime.datetime.today().strftime('%Y-%m-%d'),
-                udf = {'Application':run['APPLICATION'], 'Priority':'Standard'}
+                udf = {'Priority':'Standard'}
             )
             db_run.run_id = project.id
             session.commit()
