@@ -17,6 +17,8 @@ class Config(object):
     PORTAL_SERVER=os.environ.get('PORTAL_SERVER')
     PORTAL_USER=os.environ.get('PORTAL_USER')
     PORTAL_STORAGE=os.environ.get('PORTAL_STORAGE')
+    PORTAL_URL=os.environ.get('PORTAL_URL')
+    PORTAL_API_KEY=os.environ.get('PORTAL_API_KEY')
     # PORTAL_DB_USER=os.environ.get('PORTAL_DB_USER')
     # PORTAL_DB_PW=os.environ.get('PORTAL_DB_PW')
     PORTAL_DB_URI=os.environ.get('PORTAL_DB_URI')
@@ -82,6 +84,20 @@ class Config(object):
     ##LIMS SETTINGS##
     PROJECT_TYPES = {'Sequencing': 'USF - Sequencing', 'SNP Fingerprinting':'USF - SNP genotyping'}
 
+
+    # 'ISOLATION' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5499'},
+    # 'LIBPREP-DNA-NANO' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5500'},
+    # 'LIBPREP-RNA-POLYA' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5503'},
+    # 'LIBPREP-RNA-RIBOZERO' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5506'},
+
+    # 'LIBPREP-ONT-DNA' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5509'},
+    # 'LIBPREP-ONT-RNA' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5512'},
+    # 'LIBPREP-CHROMIUM-RNA' : {'uri':f'{LIMS_URI}/api/v2/configuration/workflows/1454/stages/5538'},
+    # 'POOLING' : {'uri': f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5515'},
+    # 'BILLING' : {'uri': f'{LIMS_URI}/api/v2/configuration/workflows/1453/stages/5535'},
+
+
+
     WORKFLOW_STEPS = {
         'SEQUENCING' : {
             'steps' : {
@@ -105,6 +121,7 @@ class Config(object):
                         'USEQ - Chromium iX Run v1.0' #old-ish
                     ],
                     'stage_nrs' : {
+
                         ##PRODUCTION##
                         'Truseq DNA nano' : '1602:5896',
                         'Truseq RNA stranded polyA' : '1602:5899',
@@ -120,13 +137,16 @@ class Config(object):
                         # "Chromium iX Single Cell 3'RNA" : '2053:10247', #ON TEST SERVER
                         # 'USEQ - LIBPREP-ONT-DNA' : '2002:10218',
                         # 'USEQ - LIBPREP-ONT-RNA' : '2002:10238',
+
                     }
                 },
                 'POOLING' : {
                     'names':['USEQ - Library Pooling'],
                     'stage_nrs' :{
+
                         'USEQ - Library Pooling' : '1602:5913',#PRODUCTION
                         # 'USEQ - Library Pooling' : '2002:10218',#TEST
+
                     }
                 },
                 'POOL QC' : {
@@ -160,6 +180,7 @@ class Config(object):
                         'Illumina iSeq' : '1602:5919',
                         'Illumina iSeq 100' : '1602:5919'
 
+
                     }
                 },
                 'NANOPORE SEQUENCING' :{
@@ -178,6 +199,7 @@ class Config(object):
                         'USEQ - Post Sequencing' : '1602:5925',
                         'USEQ - Analysis' : '1602:5926',
                         'USEQ - Ready for billing' : '1602:5927',
+
                     }
                 }
             }
@@ -205,6 +227,7 @@ class Config(object):
         'USEQ - MiSeq Run',
         'USEQ - HiSeq Run',
         'USEQ - iSeq Run',
+
         'USEQ - Nanopore Run',
         'USEQ - Nanopore Run v2',
         'USEQ - Denature, Dilute and Load (NovaSeq)',

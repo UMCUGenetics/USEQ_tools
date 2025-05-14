@@ -3,7 +3,7 @@
 RAW_DATA_PATH=/hpc/useq/raw_data/
 USEQ_TOOLS=/hpc/local/CentOS7/cog_bioinf/USEQ_tools-portal/
 RUNSTATS_PATH=/hpc/useq/raw_data/runstats/
-WEBLOC=sitkaspar:/var/www/html/USEQ-Overview
+WEBLOC=useq_daemon@hemlockspar:/var/www/html/USEQ-Overview/useq-filestore/
 #GATHER RUN STATS
 
 cd $RAW_DATA_PATH
@@ -31,4 +31,4 @@ done
 # python useq_tools.py daemons run_overview -o $RUNSTATS_PATH/overview.json
 
 #COPY UPDATED OVERVIEW TO WEBHOST
-scp -i ~/.ssh/sitkaspar-id $RUNSTATS_PATH/overview* $WEBLOC
+rsync $RUNSTATS_PATH/overview* $WEBLOC
