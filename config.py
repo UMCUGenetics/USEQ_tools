@@ -20,6 +20,8 @@ class Config(object):
     # PORTAL_DB_USER=os.environ.get('PORTAL_DB_USER')
     # PORTAL_DB_PW=os.environ.get('PORTAL_DB_PW')
     PORTAL_DB_URI=os.environ.get('PORTAL_DB_URI')
+    PORTAL_URL=os.environ.get('PORTAL_URL')
+    PORTAL_API_KEY=os.environ.get('PORTAL_API_KEY')
 
     ##LIMS SETTINGS##
     LIMS_URI=os.environ.get('LIMS_URI')
@@ -73,7 +75,7 @@ class Config(object):
 
 
     ##SMS SERVER SETTINGS##
-    SMS_SERVER = 'sumak.op.umcutrecht.nl'
+    SMS_SERVER = os.environ.get('SMS_SERVER')
 
     SSL_CERT = '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt'
 
@@ -209,9 +211,11 @@ class Config(object):
         'USEQ - NextSeq2000 Run',
         'USEQ - Denature, Dilute and Load (NextSeq2000)',
         'AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)',
-        'USEQ - Denature, Dilute and Load (NovaSeq) v2']
+        'USEQ - Denature, Dilute and Load (NovaSeq) v2',
+        'USEQ - NovaSeq X Run'
+    ]
     ISOLATION_PROCESSES=['USEQ - Isolation','USEQ - Isolation v2']
-    LIBPREP_PROCESSES=['USEQ - Adenylate ends & Ligate Adapters','USEQ - LibPrep Illumina','USEQ - LibPrep Nanopore']
+    LIBPREP_PROCESSES=['USEQ - Adenylate ends & Ligate Adapters','USEQ - LibPrep Illumina','USEQ - LibPrep Nanopore','USEQ - Chromium iX Cell Suspension & QC','USEQ - Chromium X Cell Suspension & QC']
     ANALYSIS_PROCESSES=['USEQ - Analysis']
     ###
 
