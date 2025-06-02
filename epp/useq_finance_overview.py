@@ -214,8 +214,9 @@ def getSeqFinance(lims, step_uri):
 								lims_library_prep = 'nanopore flongle library prep'
 							elif 'minion' in sample.udf['Sequencing Runtype'].lower() or 'promethion' in sample.udf['Sequencing Runtype'].lower():
 								lims_library_prep = 'nanopore minion library prep'
-							elif 'chromium' in sample.udf['Library prep kit'].lower():
-								lims_library_prep = sample.udf['Library prep kit'].lower()
+							elif 'gem-x' in sample.udf['Sequencing Runtype'].lower():
+								# lims_library_prep = sample.udf['Library prep kit'].lower()
+								lims_library_prep = sample.udf['Sequencing Runtype'].lower()
 							else:
 								protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 								lims_library_prep = protocol_name.split("-",1)[1].lower().strip()

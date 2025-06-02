@@ -58,7 +58,7 @@ def routeArtifacts(lims, step_uri, input):
                 next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POOL QC']['stage_nrs'][ 'USEQ - Pool QC' ]
             else:#Pool QC has already been done
                 platform = None
-                if 'Sequencing Platform' in step.details.udf:
+                if 'Sequencing Platform' in step.details.udf and step.details.udf['Sequencing Platform']:
                     platform = step.details.udf['Sequencing Platform']
                 else:
                     platform = first_sample.udf['Platform']
