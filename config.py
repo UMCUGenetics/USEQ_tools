@@ -161,7 +161,7 @@ class Config(object):
                         'USEQ - MiSeq Run', #old
                         'USEQ - NextSeq Run', #old
                         'USEQ - Automated NovaSeq Run v2', #old
-                        'AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)'#old
+                        'AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)',#old
                         'USEQ - iSeq Run',
                         'USEQ - NextSeq2000 Run',
                         'USEQ - NovaSeq X Run'

@@ -161,7 +161,15 @@ def createSamplesheetNovaseqX(lims, step_uri):
             index1_cycles = f"I{samplesheet_data['index1_cycles']};"
             if index_cat == 'Illumina IDT 384 UMI':
                 index1_cycles = 'I8U9;'
-            index2_cycles = f"I{samplesheet_data['index2_cycles']};" if samplesheet_data['index2_cycles'] else ''
+
+            if samplesheet_data['index2_cycles']:
+                if len(index_seqs) > 1:
+                    index2_cycles = f"I{samplesheet_data['index2_cycles']};"
+                else:
+                    index2_cycles = f"N{samplesheet_data['index2_cycles']};"
+            else:
+                index2_cycles = ''
+            # index2_cycles = f"I{samplesheet_data['index2_cycles']};" if samplesheet_data['index2_cycles'] else ''
 
             if 'USEQ Read1 Cycles' in sample.udf:
                 r1_c = int(sample.udf['USEQ Read1 Cycles']) + 1
@@ -196,13 +204,13 @@ def createSamplesheetNovaseqX(lims, step_uri):
 
             override_cycles = f'{read1_cycles}{index1_cycles}{index2_cycles}{read2_cycles}'
             override_cycles = override_cycles.rstrip(";")
-
+            print(project_id, index_seqs,index2_cycles)
             s = {
                 'Sample_ID' : artifact_name,
                 'index' : index_seqs[0],
                 'BarcodeMismatchesIndex1' : 1, #set default to 1
-                'index2' : index_seqs[1] if index2_cycles else None,
-                'BarcodeMismatchesIndex2' : 1 if index2_cycles else None, #set default to 1
+                'index2' : index_seqs[1] if len(index_seqs) > 1 else None,
+                'BarcodeMismatchesIndex2' : 1 if len(index_seqs) > 1 else None, #set default to 1
                 'OverrideCycles' : override_cycles,
                 'Sample_Project' : project_id
             }
