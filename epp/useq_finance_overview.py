@@ -67,8 +67,10 @@ def getSeqFinance(lims, step_uri):
 
 
 		for project_id in pool_samples[pool.id]:
-
+			application = None
+			platform = None
 			run_meta = {
+				'Application' : None,
 				'Platform' : None,
 				'Sequencing Runtype' : None,
 				'Library prep kit' : None,
@@ -101,6 +103,8 @@ def getSeqFinance(lims, step_uri):
 					'Sample Type' : '',
 					'Analysis' : '', #optional
 					'Sequencing Coverage' : 0, #optional
+					'Reads' : 0,
+					'Add-ons' : [],
 					'Isolated' : False,
 					'Isolated_date' : None,
 					'Prepped' : False,
@@ -134,9 +138,42 @@ def getSeqFinance(lims, step_uri):
 						runs[pool.id][project_id]['run_lanes'] = 8
 						run_meta['Number Lanes'] = 8
 						runs[pool.id][project_id]['errors'].add('Warning : No Number Lanes UDF found, using default of 8 (all) lanes!')
+				elif 'GEM-X' in sample.udf['Sequencing Runtype']:
+					nr_cells = int(sample.udf.get('Number Cells'))
+					reads_cell = int(sample.udf.get('Reads Per Cell'))
+					reads = round((nr_cells * reads_cell)/1e6)
+					sample_meta['Reads'] = reads
 
-				runs[pool.id][project_id]['platform'] = sample.udf['Platform']
-				run_meta['Platform'] = sample.udf['Platform']
+					sample_meta['Add-ons'] = sample.udf.get('Add-ons')
+
+				if not platform:
+					platform = sample.udf['Platform']
+
+				if not application:
+					application = sample.project.udf['Application']
+
+				if application == 'USF - Sequencing': #old application name support
+					if platform == 'Oxford Nanopore':
+						application = 'ONT Sequencing'
+					elif 'Illumina' in platform:
+						application = 'Illumina Sequencing'
+					elif 'Chromium' in platform:
+
+						application = '10X Single Cell'
+						platform = 'Chromium X'
+
+				elif application == 'USF - SNP genotyping' or application == 'SNP Fingerprinting': #old application name support
+					application = 'SNP Fingerprinting'
+					if platform not in ['SNP Fingerprinting','60 SNP NimaGen panel']:
+						platform = '60 SNP NimaGen panel'
+
+
+				runs[pool.id][project_id]['platform'] = platform.replace('Illumina ', '')
+				run_meta['Platform'] = platform.replace('Illumina ', '')
+
+				runs[pool.id][project_id]['application'] = application
+				run_meta['Application'] = application
+
 
 				if 'Flowcell only' in sample.udf['Sequencing Runtype']:
 					sample_meta['Sequenced'] = True
@@ -167,7 +204,7 @@ def getSeqFinance(lims, step_uri):
 							elif isolation_type == 'dna isolation' and sample.udf['Sample Type'] != 'DNA unisolated':
 								runs[pool.id][project_id]['errors'].add("Warning : Isolation type {0} in LIMS doesn't match sample type {1}".format(isolation_type, sample.udf['Sample Type']))
 
-						elif process_name in Config.LIBPREP_PROCESSES and sample.udf['Sequencing Runtype'] not in ['WGS at HMF', 'WGS','WES (100X Coverage)'] :
+						elif process_name in Config.LIBPREP_PROCESSES and sample.udf['Sequencing Runtype'] not in ['WGS at HMF', 'WGS','WES (100X Coverage)','RNA-seq'] :
 
 							if sample_artifact.type == 'ResultFile':continue
 
@@ -177,8 +214,9 @@ def getSeqFinance(lims, step_uri):
 								lims_library_prep = 'nanopore flongle library prep'
 							elif 'minion' in sample.udf['Sequencing Runtype'].lower() or 'promethion' in sample.udf['Sequencing Runtype'].lower():
 								lims_library_prep = 'nanopore minion library prep'
-							elif 'chromium' in sample.udf['Library prep kit'].lower():
-								lims_library_prep = sample.udf['Library prep kit'].lower()
+							elif 'gem-x' in sample.udf['Sequencing Runtype'].lower():
+								# lims_library_prep = sample.udf['Library prep kit'].lower()
+								lims_library_prep = sample.udf['Sequencing Runtype'].lower()
 							else:
 								protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 								lims_library_prep = protocol_name.split("-",1)[1].lower().strip()
@@ -191,11 +229,13 @@ def getSeqFinance(lims, step_uri):
 							runs[pool.id][project_id]['lims_library_prep'].add(lims_library_prep)
 							runs[pool.id][project_id]['libprep_date'].add(sample_artifact.parent_process.date_run)
 
-						elif process_name in Config.RUN_PROCESSES or process_name in Config.LOAD_PROCESSES:
+						elif process_name in Config.RUN_PROCESSES:
+
 							protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 							runs[pool.id][project_id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 
 							if not runs[pool.id][project_id]['run_date']:
+
 								runs[pool.id][project_id]['run_date'] = run_date
 								runs[pool.id][project_id]['times_sequenced'] = 1
 								run_meta['date'] = runs[pool.id][project_id]['run_date']
@@ -282,11 +322,11 @@ def getSeqFinance(lims, step_uri):
 				runs[pool.id][project_id]['errors'].add("Warning : Run was sequenced before more than once!")
 				#In case of reruns always bill at the costs of the oldest run
 				run_meta['date'] = min( pid_sequenced[project_id] )
+			if not run_meta['date']:
+				run_meta['date'] = min( pid_sequenced[project_id] )
 
 			data = json.dumps(run_meta)
-			# print(project_id, data)
 			response = requests.post(url, headers=headers, data=data)
-
 			costs = response.json()
 
 			if 'error' in costs:
@@ -296,8 +336,8 @@ def getSeqFinance(lims, step_uri):
 				runs[pool.id][project_id]['isolation_personell_costs'] = "{:.2f}".format(float( costs['Isolation']['personell_cost'] ))
 				runs[pool.id][project_id]['libprep_step_costs'] = "{:.2f}".format(float( costs['Library Prep']['step_cost'] ))
 				runs[pool.id][project_id]['libprep_personell_costs'] = "{:.2f}".format(float( costs['Library Prep']['personell_cost'] ))
-				runs[pool.id][project_id]['run_step_costs'] = "{:.2f}".format(float( costs['Sequencing']['step_cost'] ))
-				runs[pool.id][project_id]['run_personell_costs'] = "{:.2f}".format(float( costs['Sequencing']['personell_cost'] ))
+				runs[pool.id][project_id]['run_step_costs'] = "{:.2f}".format(float( costs[application]['step_cost'] ))
+				runs[pool.id][project_id]['run_personell_costs'] = "{:.2f}".format(float( costs[application]['personell_cost'] ))
 				runs[pool.id][project_id]['analysis_step_costs'] = "{:.2f}".format(float( costs['Analysis']['step_cost'] ))
 				runs[pool.id][project_id]['analysis_personell_costs'] = "{:.2f}".format(float( costs['Analysis']['personell_cost'] ))
 				runs[pool.id][project_id]['total_step_costs'] = "{:.2f}".format(float( costs['Total']['step_cost'] ))
@@ -361,8 +401,9 @@ def getSnpFinance(lims, step_uri):
 
     for id in runs:
         run_meta = {
-            'Platform' : 'SNP Fingerprinting',
-            'Sequencing Runtype' : 'SNP Open Array (60 SNPs)',
+            'Application' : 'SNP Fingerprinting',
+            'Platform' : '60 SNP NimaGen panel',
+            'Sequencing Runtype' : '60 SNP NimaGen panel',
             'Library prep kit' : None,
             'Number Lanes' : None,#default
             'date' : runs[id]['received_date'],

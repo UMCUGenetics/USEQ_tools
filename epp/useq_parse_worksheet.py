@@ -1,4 +1,4 @@
-from genologics.entities import Artifact, Step, ProtocolStep
+from genologics.entities import Artifact, Step, ProtocolStep, Protocol
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
 from io import BytesIO
 from openpyxl import load_workbook
@@ -15,16 +15,15 @@ def parse(lims, step_uri, aid, output_file, mode):
     current_step = step.configuration.name
 
     barcode_set = None
+    first_sample = step.details.input_output_maps[0][0]['uri'].samples[0]
+    # print(first_sample.udf['Platform'])
     if mode == 'illumina':
-        barcode_set = Config.UMI_BARCODES
+        if first_sample.udf['Platform'] == '60 SNP NimaGen panel':
+            barcode_set = Config.NIMAGEN_BARCODES
+        else:
+            barcode_set = Config.UMI_BARCODES
     elif mode == 'ont':
         barcode_set = Config.ONT_BARCODES
-    # protocol_step = ProtocolStep(lims, uri=step.configuration.uri)
-    # step_fields = []
-    # for sf in protocol_step.sample_fields:
-    #     if sf['style'] == 'USER_DEFINED':
-    #         step_fields.append(sf['name'])
-
 
     content = lims.get_file_contents(id=worksheet_id).read()
     wb = load_workbook(filename=BytesIO(content))

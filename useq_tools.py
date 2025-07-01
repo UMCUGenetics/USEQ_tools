@@ -101,6 +101,10 @@ def check_barcodes(args):
     """Check if barcodes are attached to samples in step"""
     epp.useq_check_barcodes.run(lims, args.step)
 
+def chromium_addons(args):
+    """"Create add-on derived samples"""
+    epp.useq_chromium_addons.run(lims,args.step)
+
 #Daemon scripts
 def nextcloud_monitor(args):
     """Is intended to run as a daemon to check the space remaining on the Nextcloud storage"""
@@ -254,14 +258,17 @@ if __name__ == "__main__":
     parser_parse_worksheet.add_argument('-s', '--step', help='Step URI', required=True)
     parser_parse_worksheet.add_argument('-a', '--aid', help='Artifact ID', required=True)
     parser_parse_worksheet.add_argument('-o','--output_file',  nargs='?', type=argparse.FileType('w'), default=sys.stdout, help='Output file path (default=stdout)')
-    parser_parse_worksheet.add_argument('-m', '--mode', help='Mode, choose illumina or ont. Affects which barcodes are available.', choices=['illumina','ont'], required=True)
+    parser_parse_worksheet.add_argument('-m', '--mode', help='Mode, choose illumina or ont. Affects which barcodes are available.', choices=['illumina','ont', 'snp'], required=True)
     parser_parse_worksheet.set_defaults(func=parse_worksheet)
 
     parser_check_barcodes = subparser_epp.add_parser('check_barcodes')
     parser_check_barcodes.add_argument('-s', '--step', help='Step URI', required=True)
     parser_check_barcodes.set_defaults(func=check_barcodes)
-    # check_barcodes
-# epp.useq_parse_worksheet.run(lims, args.step, args.aid)
+
+    parser_chromium_addons = subparser_epp.add_parser('chromium_addons')
+    parser_chromium_addons.add_argument('-s','--step', help='Step URI', required=True)
+    parser_chromium_addons.set_defaults(func=chromium_addons)
+
 
     #Daemon parsers
     parser_daemons = subparser.add_parser('daemons', help='USEQ daemon scripts: check_nextcloud_storage,manage_runs ')

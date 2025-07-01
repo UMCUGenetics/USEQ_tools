@@ -492,7 +492,7 @@ def shareDataById(lims, project_id, fid, all_dirs_ont):
 
 
 
-    if portal_run.platform == 'Oxford Nanopore':
+    if project.udf['Application'] == 'ONT Sequencing':
         run_info = getNanoporeRunDetails(lims, project_id, fid)
 
         run_dir = run_info['run_dir']
