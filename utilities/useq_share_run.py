@@ -655,7 +655,7 @@ def shareDataById(lims, project_id, fid, all_dirs_ont):
     else:
 
         run_dir, flowcell_id, run_meta = getIlluminaRunDetails(lims, project_name, fid)
-        analysis_steps = samples[0].udf['Analysis'].split(',')
+        analysis_steps = samples[0].udf.get('Analysis','').split(',')
         if not run_dir:
             sys.exit(f'Error : No Illumina run directory could be found!')
 

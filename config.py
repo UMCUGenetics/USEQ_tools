@@ -243,6 +243,7 @@ class Config(object):
     ISOLATION_PROCESSES=['USEQ - Isolation','USEQ - Isolation v2']
     LIBPREP_PROCESSES=['USEQ - Adenylate ends & Ligate Adapters','USEQ - LibPrep Illumina','USEQ - LibPrep Nanopore','USEQ - Chromium iX Cell Suspension & QC']
     ANALYSIS_PROCESSES=['USEQ - Analysis']
+
     ###
 
     RUNTYPE_YIELDS={
