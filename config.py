@@ -228,19 +228,22 @@ class Config(object):
         'USEQ - MiSeq Run',
         'USEQ - HiSeq Run',
         'USEQ - iSeq Run',
-
+        'USEQ - Nanopore Run v2' ,
         'USEQ - Nanopore Run',
-        'USEQ - Nanopore Run v2',
-        'USEQ - Denature, Dilute and Load (NovaSeq)',
         'USEQ - NextSeq2000 Run',
-        'USEQ - Denature, Dilute and Load (NextSeq2000)',
         'AUTOMATED - NovaSeq Run (NovaSeq 6000 v3.1)',
+        'USEQ - NovaSeq X Run',
+
+    ]
+    LOAD_PROCESSES = [
         'USEQ - Denature, Dilute and Load (NovaSeq) v2',
-        'USEQ - NovaSeq X Run'
+        'USEQ - Denature, Dilute and Load (NextSeq2000)',
+        'USEQ - Denature, Dilute and Load (NovaSeq)',
     ]
     ISOLATION_PROCESSES=['USEQ - Isolation','USEQ - Isolation v2']
-    LIBPREP_PROCESSES=['USEQ - Adenylate ends & Ligate Adapters','USEQ - LibPrep Illumina','USEQ - LibPrep Nanopore','USEQ - Chromium iX Cell Suspension & QC','USEQ - Chromium X Cell Suspension & QC']
+    LIBPREP_PROCESSES=['USEQ - Adenylate ends & Ligate Adapters','USEQ - LibPrep Illumina','USEQ - LibPrep Nanopore','USEQ - Chromium iX Cell Suspension & QC']
     ANALYSIS_PROCESSES=['USEQ - Analysis']
+
     ###
 
     RUNTYPE_YIELDS={
