@@ -1,5 +1,6 @@
 from genologics.entities import Step, StepDetails, Process
 from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTemplate
+from config import Config
 import sys
 
 def createSamplesheet(lims, step_uri):
@@ -8,237 +9,156 @@ def createSamplesheet(lims, step_uri):
         'investigator_name' : None,
         'experiment_name' : None,
         'date' : None,
-        'lanes':False,
-        'read1_cycles' : '',
-        'read2_cycles' : '',
+        'lanes' : False,
+        'read1_cycles' : 0,
+        'read2_cycles' : 0,
+        'index1_cycles' : 0,
+        'index2_cycles' : 0,
         'dual_index' : False,
         'trim_umi' : None,
         'samples' : [
-            # 'Sample_ID' :
-            # 'index' :
-            # 'index2' :
-            # 'Sample_Project' :
-            # 'OverrideCycles' :
-            # 'BarcodeMismatchesIndex1'
-            # 'BarcodeMismatchesIndex2'
+
         ]
     }
     process_id = uri_parts[-1]
 
     process = Process(lims, id=process_id)
+    seq_io_maps = process.input_output_maps
+    seq_io_maps_filtered = [iom for iom in seq_io_maps if iom[1]['output-type'] == 'Analyte']
+    if Config.DEVMODE: print(f'Processing {len(seq_io_maps_filtered)} input-output maps')
 
     technician = process.technician
     samplesheet_data['investigator_name'] = f"{technician.first_name} {technician.last_name}"
     samplesheet_data['experiment_name'] = process.udf['Experiment Name']
     samplesheet_data['date'] = process.date_run
     samplesheet_data['read1_cycles'] = process.udf['Read 1 Cycles']
-    if 'Read 2 Cycles' in process.udf : samplesheet_data['read2_cycles'] = process.udf['Read 2 Cycles']
+    if 'Read 2 Cycles' in process.udf :
+        samplesheet_data['read2_cycles'] = process.udf['Read 2 Cycles']
+    samplesheet_data['index1_cycles'] = int(process.udf.get('Index Read 1', 0))
+    if 'Index Read 2' in process.udf :
+        samplesheet_data['index2_cycles'] = int(process.udf.get('Index Read 2', 0))
+
+    if Config.DEVMODE:
+        print('Samplesheet header has following settings:')
+        print(f"Investigator {samplesheet_data['investigator_name']}")
+        print(f"Experiment Name {samplesheet_data['experiment_name']}")
+        print(f"Date {samplesheet_data['date']}")
+        print(f"Default Read Settings : {samplesheet_data['read1_cycles']};{samplesheet_data['index1_cycles'] };{samplesheet_data['index2_cycles']};{samplesheet_data['read2_cycles']};")
+
+    for seq_io_map in seq_io_maps_filtered:
+        #Every io_map contains one pool of samples
+        input_pool, lane_pool = [io['uri'] for io in seq_io_map] #Grab the input & output artifact objects by their uri
 
 
-    pool = process.input_output_maps[0][0]['uri']
-
-    pooling_process = pool.parent_process
-    for io in pooling_process.input_output_maps:
-        if io[1]['limsid'] != pool.id: continue
-        a = io[0]['uri']
-
-        index_name = a.reagent_labels[0]
-        # print(a.name)
-        reagent = lims.get_reagent_types(name=index_name)[0]
-        index_cat = reagent.category
-        sample = a.samples[0]
-        index_seqs = [index for index in reagent.sequence.split('-')]
-
-        read1_cycles = f"Y{samplesheet_data['read1_cycles']};"
-        read2_cycles = f"Y{samplesheet_data['read2_cycles']}" if samplesheet_data['read2_cycles'] else ''
-        index1_cycles = 'I8U9;' if index_cat == 'Illumina IDT 384 UMI' else f"I{len(index_seqs[0])};"
-        index2_cycles = ''
-
-        if len(index_seqs) > 1:
-            index2_len = len(index_seqs[1])
-            index2_cycles = f"I{index2_len};"
-            samplesheet_data['dual_index'] = True
-
-        if 'USEQ Read1 Cycles' in sample.udf:
-            read1_cycles = f"Y{int(sample.udf['USEQ Read1 Cycles']) + 1};"
-
-        if 'USEQ Read2 Cycles' in sample.udf:
-            read2_cycles = f"Y{int(sample.udf['USEQ Read2 Cycles']) + 1}"
-
-        override_cycles = f'{read1_cycles}{index1_cycles}{index2_cycles}{read2_cycles}'
-        override_cycles = override_cycles.rstrip(";")
-        s = {
-            'Sample_ID' : a.name,
-            'index' : index_seqs[0],
-            'index2' : index_seqs[1] if index2_cycles else None,
-            'Sample_Project' : sample.project.id,
-            'OverrideCycles' : override_cycles,
-            'BarcodeMismatchesIndex1' : 1, #set default to 1
-            'BarcodeMismatchesIndex2' : 1 if index2_cycles else None, #set default to 1
-        }
-
-
-        samplesheet_data['samples'].append(s)
-
-    samplesheet = renderTemplate('SampleSheetv2_template.csv', samplesheet_data)
-    return samplesheet
-
-def createSamplesheetNovaseqX(lims, step_uri):
-    uri_parts = step_uri.split("/")
-    samplesheet_data = {
-        'investigator_name' : None,
-        'experiment_name' : None,
-        'date' : None,
-        'lanes' : True,
-        'read1_cycles' : '',
-        'read2_cycles' : '',
-        'index1_cycles' : '',
-        'index2_cycles' : '',
-        'dual_index' : False,
-        'trim_umi' : None,
-        'samples' : [
-            # 'Sample_ID' :
-            # 'index' :
-            # 'index2' :
-            # 'Sample_Project' :
-            # 'OverrideCycles' :
-            # 'BarcodeMismatchesIndex1'
-            # 'BarcodeMismatchesIndex2'
-        ]
-    }
-    process_id = uri_parts[-1]
-
-    process = Process(lims, id=process_id)
-    io_maps = process.input_output_maps
-    io_maps_filtered = [iom for iom in io_maps if iom[1]['output-type'] == 'Analyte']
-
-    technician = process.technician
-    samplesheet_data['investigator_name'] = f"{technician.first_name} {technician.last_name}"
-    samplesheet_data['experiment_name'] = process.udf['Experiment Name']
-    samplesheet_data['date'] = process.date_run
-    samplesheet_data['read1_cycles'] = process.udf['Read 1 Cycles']
-    if 'Read 2 Cycles' in process.udf : samplesheet_data['read2_cycles'] = process.udf['Read 2 Cycles']
-    samplesheet_data['index1_cycles'] = process.udf['Index Read 1']
-    if 'Index Read 2' in process.udf : samplesheet_data['index2_cycles'] = process.udf['Index Read 2']
-
-    current_lane = 1
-    for io_map in io_maps_filtered:
-        #Every io_map contains one pool of samples (projectID)
-        input_artifact, output_artifact = io_map
-
-        sample_pool = input_artifact['uri']
-        samples = [x.name for x in sample_pool.samples]
-        pooling_process = sample_pool.parent_process
+        lane_placements = dict((v.id,k) for k,v in lane_pool.container.placements.items()) #{artifact1ID : 1:1, artifact2ID : 2:1,}
+        if len(lane_placements) > 1:
+            samplesheet_data['lanes'] = True
+        input_pool_samples = [x.name for x in input_pool.samples]
+        pooling_process = input_pool.parent_process
         project_id = None
-        temp_samples = []
-        nr_lanes = 1 #Decent default
+
         #Grab the index sequence from the input artifacts in the pooling process.
         #Note for future Sander: Pooling process can also contain samples not included in the current run, this is why we go over the samples twice
-        for io in pooling_process.input_output_maps:
-            a = io[0]['uri']
+        for pooling_io_map in pooling_process.input_output_maps:
+            #One io_map per original samples in the pooling process
+            input_sample_artifact, output_pool = [io['uri'] for io in pooling_io_map] #Grab the input & output artifact objects by their uri
 
-            sample = a.samples[0]
-            artifact_name = a.name
-            if sample.name not in samples: continue
-            # print(artifact_name)
-            index_name = a.reagent_labels[0]
+            input_sample = input_sample_artifact.samples[0] #Artifact only contains one sample
+            if input_sample.name not in input_pool_samples: continue #Skip samples that were included in the pooling step, but not in the sequencing step.
+
+            index_name = input_sample_artifact.reagent_labels[0]
             reagent = lims.get_reagent_types(name=index_name)[0]
             index_seqs = [index for index in reagent.sequence.split('-')]
             index_cat = reagent.category
-            project_id = sample.project.id
+            project_id = input_sample.project.id
 
-            if 'Number Lanes' in sample.udf:
-                nr_lanes = sample.udf.get('Number Lanes')
-                if len(io_maps_filtered) > 1 and nr_lanes == 8: #Can't have 8 lanes for a pool when run contains >1 project
-                    nr_lanes = 1
+            #Set cycle defaults for sample
+            read1_cycles = samplesheet_data['read1_cycles']
+            read2_cycles = samplesheet_data['read2_cycles'] if samplesheet_data['read2_cycles'] else 0
+            index1_cycles = samplesheet_data['index1_cycles']
+            index2_cycles = samplesheet_data['index2_cycles'] if samplesheet_data['index2_cycles'] else 0
+            read1_mask = ''
+            read2_mask = ''
+            index1_mask = ''
+            index2_mask = ''
+            override_cycles = ''
 
-            elif len(io_maps_filtered) == 1: #Only one project on one flowcell
-                nr_lanes = 8
+            #Changes cycles from defaults where needed
+            if 'USEQ Read1 Cycles' in input_sample.udf:
+                r1_customer = int(input_sample.udf['USEQ Read1 Cycles'])
+                if abs(r1_customer - read1_cycles) > 1: #1 base differences, in this case the seq operator is usually right
+                    read1_cycles = r1_customer
 
-            # print(nr_lanes)
-            read1_cycles = f"Y{samplesheet_data['read1_cycles']};"
-            read2_cycles = f"Y{samplesheet_data['read2_cycles']};" if samplesheet_data['read2_cycles'] else ''
-            index1_cycles = f"I{samplesheet_data['index1_cycles']};"
-            if index_cat == 'Illumina IDT 384 UMI':
-                index1_cycles = 'I8U9;'
+            if 'USEQ Read2 Cycles' in input_sample.udf:
+                r2_customer = int(input_sample.udf['USEQ Read2 Cycles'])
+                if abs(r2_customer - read2_cycles) > 1: #1 base differences, in this case the seq operator is usually right
+                    read2_cycles = r2_customer
 
-            if samplesheet_data['index2_cycles']:
-                if len(index_seqs) > 1:
-                    index2_cycles = f"I{samplesheet_data['index2_cycles']};"
-                else:
-                    index2_cycles = f"N{samplesheet_data['index2_cycles']};"
-            else:
-                index2_cycles = ''
-            # index2_cycles = f"I{samplesheet_data['index2_cycles']};" if samplesheet_data['index2_cycles'] else ''
-
-            if 'USEQ Read1 Cycles' in sample.udf:
-                r1_c = int(sample.udf['USEQ Read1 Cycles']) + 1
-                if r1_c < samplesheet_data['read1_cycles']:
-                    read1_cycles = f"Y{r1_c}N{ samplesheet_data['read1_cycles'] - r1_c};"
-                else:
-                    read1_cycles = f"Y{r1_c};"
-
-            if 'USEQ Read2 Cycles' in sample.udf:
-                r2_c = int(sample.udf['USEQ Read2 Cycles']) + 1
-                if r2_c < samplesheet_data['read2_cycles']:
-                    read2_cycles = f"Y{r2_c}N{ samplesheet_data['read2_cycles'] - r2_c};"
-                else:
-                    read2_cycles = f"Y{r2_c};"
-
-            if index_seqs[0]:
-                i1_c = len(index_seqs[0])
-                if index_cat == 'Illumina IDT 384 UMI':
-                    index1_cycles = 'I8U9;'
-                elif i1_c < samplesheet_data['index1_cycles']:
-                    index1_cycles = f"I{i1_c}N{samplesheet_data['index1_cycles'] - i1_c};"
-                else:
-                    index1_cycles = f"I{i1_c};"
-
-            if len(index_seqs) > 1:
+            if len(index_seqs) == 2: #Dual index
                 samplesheet_data['dual_index'] = True
-                i2_c = len(index_seqs[1])
-                if i2_c < samplesheet_data['index2_cycles']:
-                    index2_cycles = f"N{samplesheet_data['index2_cycles'] - i2_c}I{i2_c};"
-                else:
-                    index2_cycles = f"I{i2_c};"
+                index1_cycles = len(index_seqs[0])
+                index2_cycles = len(index_seqs[1])
+            else:
+                index1_cycles = len(index_seqs[0])
+                index2_cycles = 0
 
-            override_cycles = f'{read1_cycles}{index1_cycles}{index2_cycles}{read2_cycles}'
+            if 'Read Settings' in lane_pool.udf and lane_pool.udf['Read Settings']:
+                #Read Settings overrides all other preferences
+                read1_cycles,index1_cycles,index2_cycles,read2_cycles = [int(x) for x in lane_pool.udf['Read Settings'].split(";")] #r1,i1,i2,r2
+
+            #Set read/index masks
+            if read1_cycles < samplesheet_data['read1_cycles']:
+                read1_mask = f"Y{read1_cycles}N{ samplesheet_data['read1_cycles'] - read1_cycles};"
+            else:
+                read1_mask = f"Y{read1_cycles};"
+
+            if read2_cycles :
+                if read2_cycles < samplesheet_data['read2_cycles']:
+                    read2_mask = f"Y{read2_cycles}N{ samplesheet_data['read2_cycles'] - read2_cycles};"
+                else:
+                    read2_mask = f"Y{read2_cycles};"
+
+            if index_cat == 'Illumina IDT 384 UMI':
+                index1_mask = 'I8U9;'
+            elif index1_cycles < samplesheet_data['index1_cycles']:
+                index1_mask = f"I{index1_cycles}N{samplesheet_data['index1_cycles'] - index1_cycles};"
+            else:
+                index1_mask = f"I{index1_cycles};"
+
+
+            if index2_cycles or samplesheet_data['index2_cycles']:
+                if not index2_cycles:
+                    index2_mask = f"N{samplesheet_data['index2_cycles']};"
+                elif index2_cycles < samplesheet_data['index2_cycles']:
+                    index2_mask = f"N{samplesheet_data['index2_cycles'] - index2_cycles}I{index2_cycles};"
+                else:
+                    index2_mask = f"I{index2_cycles};"
+
+            override_cycles = f'{read1_mask}{index1_mask}{index2_mask}{read2_mask}'
             override_cycles = override_cycles.rstrip(";")
-            print(project_id, index_seqs,index2_cycles)
-            s = {
-                'Sample_ID' : artifact_name,
+            if Config.DEVMODE: print(f"Processing sample {input_sample.name} with index {index_seqs} for projectID {project_id} on lane {lane_placements[lane_pool.id]} with settings {override_cycles}")
+
+            sample = {
+                'lane' : lane_placements[lane_pool.id].split(":")[0],
+                'Sample_ID' : input_sample.name,
                 'index' : index_seqs[0],
                 'BarcodeMismatchesIndex1' : 1, #set default to 1
-                'index2' : index_seqs[1] if len(index_seqs) > 1 else None,
-                'BarcodeMismatchesIndex2' : 1 if len(index_seqs) > 1 else None, #set default to 1
+                'index2' : index_seqs[1] if len(index_seqs) > 1 else '',
+                'BarcodeMismatchesIndex2' : 1 if len(index_seqs) > 1 else '', #set default to 1
                 'OverrideCycles' : override_cycles,
                 'Sample_Project' : project_id
             }
-            temp_samples.append(s)
-            # print(project_id, override_cycles)
-            # for nr in range(current_lane,current_lane+nr_lanes):
-            #     print(nr)
-            #     current_lane += 1
-
-            print(project_id, index_seqs)
-        for l in range(nr_lanes):
-            samplesheet_data['samples'].append(temp_samples)
-
-        # print(samplesheet_data)
+            samplesheet_data['samples'].append(sample)
 
 
-    ######################################
     samplesheet = renderTemplate('SampleSheetv2_template.csv', samplesheet_data)
     return samplesheet
+
 
 
 def run(lims, step_uri, output_file, type):
     """Runs the createSamplesheet function"""
 
     recipe = None
-    if type == 'NovaseqX':
-        recipe = createSamplesheetNovaseqX(lims, step_uri)
-    else:
-        recipe = createSamplesheet(lims, step_uri)
-
+    recipe = createSamplesheet(lims, step_uri)
     output_file.write(recipe)
