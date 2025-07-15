@@ -52,8 +52,8 @@ def run_finished(lims, sender, receivers, artifact):
             'name' : sample.name,
             'project_name' : sample.project.name,
             'project_id' : sample.project.id,
-            'analysis' : sample.udf['Analysis'],
-            'reference' : sample.udf['Reference Genome']
+            'analysis' : sample.udf.get('Analysis','SNP Fingerprinting'),
+            'reference' : sample.udf.get('Reference Genome','Human - GRCh38')
         })
         client = sample.project.researcher
         platform = sample.udf['Platform']
@@ -63,9 +63,10 @@ def run_finished(lims, sender, receivers, artifact):
             'project_name': run_samples[0]['project_name'],
             'project_id' : run_samples[0]['project_id'],
             'analysis' : run_samples[0]['analysis'],
-            'reference' : run_samples[0]['reference'],
+            'reference(s)' : ", ".join(set([sample['reference'] for sample in run_samples])),
             'client' : client}
     )
+
     subject = "{0} queued for analysis #Please_analyse".format(run_samples[0]['project_id'])
     sendMail(subject, content, sender, receivers, attachments=None, logo=False)
 
