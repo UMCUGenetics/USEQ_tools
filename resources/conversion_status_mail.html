@@ -52,16 +52,45 @@
 {% endif %}
 
 {% if 'total_reads' in conversion_stats %}
+{% set first_sample = conversion_stats.samples['1']|first %}
 <h3>Conversion Summary</h3>
 <table class='useq_table'>
 <tr> <td><b>Output (filtered) / Output (expected)</b></td> <td>{{nr_reads}}</td> </tr>
 </table>
+<br>
+<table class='useq_table'>
+  <tr>
+    <th><b>Lane</b></th>
+    <th><b>M Reads</b></th>
+  </tr>
+  {% for lane in conversion_stats.total_reads_lane %}
+    <tr>
+      <td>{{lane}}</td>
+      <td>{{"{:,.2f}".format(conversion_stats.total_reads_lane[lane]/1000000) }}</td>
+    </tr>
+  {% endfor %}
+</table>
+<br>
+<table class='useq_table'>
+  <tr>
+    <th><b>Project</b></th>
+    <th><b>M Reads</b></th>
+  </tr>
+  {% for project in conversion_stats.total_reads_project %}
+    <tr>
+      <td>{{project}}</td>
+      <td>{{ "{:,.2f}".format(conversion_stats.total_reads_project[project]/1000000) }}</td>
+    </tr>
+  {% endfor %}
+
+</table>
+
 <h3>Samples</h3>
 <table class='useq_table'>
   <tr>
-    <th style="visibility: hidden;border: 0px" colspan="4"></th>
+    <th style="visibility: hidden;border: 0px" colspan="6"></th>
     <!-- <th colspan="2"><b>% Index</b></th> -->
-    {% if 'Read 2 Mean Quality Score (PF)' in conversion_stats.samples[0] %}
+    {% if 'Read 2 Mean Quality Score (PF)' in conversion_stats.samples['1'][first_sample] %}
       <th colspan="2"><b>Mean Quality Score (PF)</b></th>
       <th colspan="2"><b>% Q30</b></th>
     {% else %}
@@ -70,6 +99,8 @@
     {% endif %}
   </tr>
   <tr>
+    <th><b>Lane</b></th>
+    <th><b>ProjectID</b></th>
     <th><b>SampleID</b></th>
     <th><b>Index</b></th>
     <th><b>M Reads</b></th>
@@ -77,74 +108,80 @@
     <!-- <th><b>1 Mismatch</b></th> -->
 
     {% for read_nr in ['1','2'] -%}
-      {% if 'Read '+read_nr+' Mean Quality Score (PF)' in conversion_stats.samples[0] %}
+      {% if 'Read '+read_nr+' Mean Quality Score (PF)' in conversion_stats.samples['1'][first_sample] %}
         <th><b>Read {{read_nr}} </b></th>
       {% endif %}
     {% endfor %}
     {% for read_nr in ['1','2'] -%}
-      {% if 'Read '+read_nr+' % Q30' in conversion_stats.samples[0] %}
+      {% if 'Read '+read_nr+' % Q30' in conversion_stats.samples['1'][first_sample] %}
         <th><b>Read {{read_nr}}</b></th>
       {% endif %}
     {% endfor %}
   </tr>
 
+  {% for lane in conversion_stats.samples %}
 
-  {% for sample in conversion_stats.samples %}
-  {% set perc_pindex = (sample['# Perfect Index Reads'] / sample['# Reads']) * 100 if sample['# Reads'] else 0 %}
-  {% set perc_of_total = (sample['# Reads'] / conversion_stats.total_reads) * 100 if conversion_stats.total_reads else 0 %}
-  {% if perc_pindex <= 80 %}
-    {% set perc_pindex_color = color_list1[0] %}
-  {% else %}
-    {% set perc_pindex_color = color_list1[1] %}
-  {% endif %}
+    {% for sample_name in conversion_stats.samples[lane] %}
 
-  {% set perc_of_total_color = color_list1[1] %}
-  <tr>
-    <td>{{ sample['SampleID'] }}</td>
-    <td>{{ sample['Index'] }}</td>
-    <td >
-      <div class="" style="width:{{perc_of_total}}px; background-color:{{perc_of_total_color}}; position:relative;float:left;">&nbsp</div>
-      <div style="position:relative; float:right;">{{ "{:,.2f}".format(sample['# Reads']/1000000) }}</div>
+    {% set sample = conversion_stats.samples[lane][sample_name] %}
+    {% set perc_pindex = (sample['# Perfect Index Reads'] / sample['# Reads']) * 100 if sample['# Reads'] else 0 %}
+    {% set perc_of_total = (sample['# Reads'] / conversion_stats.total_reads) * 100 if conversion_stats.total_reads else 0 %}
+    {% if perc_pindex <= 80 %}
+      {% set perc_pindex_color = color_list1[0] %}
+    {% else %}
+      {% set perc_pindex_color = color_list1[1] %}
+    {% endif %}
 
-    </td>
-    <td >
+    {% set perc_of_total_color = color_list1[1] %}
+    <tr>
+      <td>{{ lane }}</td>
+      <td>{{ sample['ProjectID'] }}</td>
+      <td>{{ sample['SampleID'] }}</td>
+      <td>{{ sample['Index'] }}</td>
+      <td >
+        <div class="" style="width:{{perc_of_total}}px; background-color:{{perc_of_total_color}}; position:relative;float:left;">&nbsp</div>
+        <div style="position:relative; float:right;">{{ "{:,.2f}".format(sample['# Reads']/1000000) }}</div>
 
-      <div class="" style="width:{{perc_pindex}}px; background-color:{{perc_pindex_color}}; position:relative;float:left;">&nbsp</div>
-      <div style="position:relative; float:right;">{{ "{:,.2f}".format(perc_pindex) }}</div>
+      </td>
+      <td >
 
-    </td>
+        <div class="" style="width:{{perc_pindex}}px; background-color:{{perc_pindex_color}}; position:relative;float:left;">&nbsp</div>
+        <div style="position:relative; float:right;">{{ "{:,.2f}".format(perc_pindex) }}</div>
 
-    {% for read_nr in ['1','2'] -%}
-      {% if 'Read '+read_nr+' Mean Quality Score (PF)' in sample -%}
-        {% if sample['Read '+read_nr+' Mean Quality Score (PF)'] <30 %}
-          {% set mqs_color = color_list1[0] %}
-        {% else %}
-          {% set mqs_color = color_list1[1] %}
+      </td>
+
+      {% for read_nr in ['1','2'] -%}
+        {% if 'Read '+read_nr+' Mean Quality Score (PF)' in sample -%}
+          {% if sample['Read '+read_nr+' Mean Quality Score (PF)'] <30 %}
+            {% set mqs_color = color_list1[0] %}
+          {% else %}
+            {% set mqs_color = color_list1[1] %}
+          {% endif %}
+          <td style="">
+            <span style="position:relative; float:left;background-color:{{mqs_color}};"class="dot"></span>
+            <div style="position:relative; float:right;">{{ "{:,.2f}".format(sample['Read '+read_nr+' Mean Quality Score (PF)']) }}</div>
+          </td>
         {% endif %}
-        <td style="">
-          <span style="position:relative; float:left;background-color:{{mqs_color}};"class="dot"></span>
-          <div style="position:relative; float:right;">{{ "{:,.2f}".format(sample['Read '+read_nr+' Mean Quality Score (PF)']) }}</div>
-        </td>
-      {% endif %}
-    {% endfor %}
-    {% for read_nr in ['1','2'] -%}
-      {% if 'Read '+read_nr+' % Q30' in sample -%}
-        {% if sample['Read '+read_nr+' % Q30'] <80 %}
-          {% set q30_color = color_list1[0] %}
-        {% else %}
-          {% set q30_color = color_list1[1] %}
+      {% endfor %}
+      {% for read_nr in ['1','2'] -%}
+        {% if 'Read '+read_nr+' % Q30' in sample -%}
+          {% if sample['Read '+read_nr+' % Q30'] <80 %}
+            {% set q30_color = color_list1[0] %}
+          {% else %}
+            {% set q30_color = color_list1[1] %}
+          {% endif %}
+
+          <td>
+            <span style="position:relative; float:left;background-color:{{q30_color}};"class="dot"></span>
+            <div style="position:relative; float:right;"> {{ "{:,.2f}".format(sample['Read '+read_nr+' % Q30']) }}</div>
+          </td>
         {% endif %}
+      {% endfor %}
 
-        <td>
-          <span style="position:relative; float:left;background-color:{{q30_color}};"class="dot"></span>
-          <div style="position:relative; float:right;"> {{ "{:,.2f}".format(sample['Read '+read_nr+' % Q30']) }}</div>
-        </td>
-      {% endif %}
-    {% endfor %}
+    </tr>
 
-  </tr>
-
-  {% endfor %}
+    {% endfor %} <!--samples loop -->
+  {% endfor %} <!--lanes loop -->
 </table>
 <br>
 <h3>Top Unknown Barcodes</h3>
@@ -152,16 +189,18 @@
   <tr>
     <th><b>Lane</b></th>
     <th><b>index</b></th>
-    {% if 'index2' in conversion_stats['top_unknown'][0] %}<th><b>index2</b></th>{% endif %}
+    {% if 'index2' in conversion_stats['top_unknown']['1'][0] %}<th><b>index2</b></th>{% endif %}
     <th><b># Reads</b></th>
   </tr>
-  {% for unk in conversion_stats['top_unknown'] %}
-  <tr>
-    <td>{{ unk['Lane'] }}</td>
-    <td>{{ unk['index'] }}</td>
-    {% if 'index2' in unk %}<td>{{ unk['index2'] }}</td>{% endif %}
-    <td>{{ unk['# Reads'] }}</td>
-  </tr>
+  {% for lane in conversion_stats['top_unknown'] %}
+    {% for unk in conversion_stats['top_unknown'][lane] %}
+    <tr>
+      <td>{{ lane }}</td>
+      <td>{{ unk['index'] }}</td>
+      {% if 'index2' in unk %}<td>{{ unk['index2'] }}</td>{% endif %}
+      <td>{{ unk['# Reads'] }}</td>
+    </tr>
+    {% endfor %}
   {% endfor %}
 </table>
 <br>
