@@ -651,9 +651,6 @@ def manageRuns(lims, skip_demux_check):
 
             if run_dir.name.count('_') != 3 or not run_dir.is_dir(): continue #Not a valid run directory
 
-            run_info = xml.dom.minidom.parse(f'{run_dir}/RunInfo.xml')
-            first_tile = run_info.getElementsByTagName('Tile')[0].firstChild.nodeValue
-            first_tile = first_tile.split("_")[-1]
             #Important Files
             sample_sheet = Path(f'{run_dir}/SampleSheet.csv')
             rta_complete = Path(f'{run_dir}/RTAComplete.txt')
@@ -667,6 +664,10 @@ def manageRuns(lims, skip_demux_check):
             if rta_complete.is_file() and not (running_file.is_file() or failed_file.is_file() or done_file.is_file()): #Run is done and not being processed/has failed/is done
                 #Lock directory
                 running_file.touch()
+
+                run_info = xml.dom.minidom.parse(f'{run_dir}/RunInfo.xml')
+                first_tile = run_info.getElementsByTagName('Tile')[0].firstChild.nodeValue
+                first_tile = first_tile.split("_")[-1]
 
                 #Logging set up
                 logger = logging.getLogger('Run_Manager')
