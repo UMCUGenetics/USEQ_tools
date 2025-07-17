@@ -112,16 +112,23 @@ def routeArtifacts(lims, step_uri, input):
             next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POST SEQUENCING']['stage_nrs']['USEQ - Post Sequencing']
 
         elif current_step in Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POST SEQUENCING']['names']:
+            # first_sample.udf['Platform'] == '60 SNP NimaGen panel':
+            platform = first_sample.udf['Platform']
             sample_analyses = None
             if 'Analysis' in first_sample.udf:
                 sample_analyses = first_sample.udf['Analysis'].split(",")
 
-            if not sample_analyses:
+            if platform == '60 SNP NimaGen panel':
+                next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POST SEQUENCING']['stage_nrs']['USEQ - Analysis']
+                run_finished(lims,Config.MAIL_SENDER, Config.TRELLO_ANALYSIS_BOARD, artifact )
+
+            elif not sample_analyses:
                 # next_step = STEP_URIS['USEQ - Encrypt & Send']
                 next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POST SEQUENCING']['stage_nrs']['USEQ - Ready for billing']
             elif len(sample_analyses) == 1 and 'Raw data (FastQ)' in sample_analyses:
                 # next_step = STEP_URIS['USEQ - Encrypt & Send']
                 next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POST SEQUENCING']['stage_nrs']['USEQ - Ready for billing']
+
             else:
                 # next_step = STEP_URIS['USEQ - Analysis']
                 next_stage = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['POST SEQUENCING']['stage_nrs']['USEQ - Analysis']
@@ -135,7 +142,6 @@ def routeArtifacts(lims, step_uri, input):
     for step, artifact_list in to_route.items():
         workflow_nr, stage = step.split(":")
         uri = f"{Config.LIMS_URI}/api/v2/configuration/workflows/{workflow_nr}/stages/{stage}"
-        # https://usf-lims.umcutrecht.nl/api/v2/configuration/workflows/851/stages/3915
         lims.route_artifacts(artifact_list,stage_uri=uri)
 
 def run(lims, step_uri, input):

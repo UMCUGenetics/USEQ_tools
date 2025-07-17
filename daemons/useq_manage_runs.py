@@ -38,92 +38,141 @@ def cleanup(run_dir, logger):
         if file.name.endswith(".fastq.gz") or file.name.endswith(".fq.gz"):
             file.unlink()
 
+def revAndCleanSample(header, sample):
+
+    sample[ header.index('index') ] = sample[header.index('index')].replace("N","")
+    sample_rev = sample.copy()
+
+    if 'index2' in header:
+        revseq = revcomp(sample_rev[header.index('index2')])
+        sample_rev[header.index('index2')] = revseq
+    else:
+        revseq = revcomp(sample_rev[header.index('index')])
+        sample_rev[header.index('index')] = revseq
+
+    return [sample, sample_rev]
+
+def demuxCheckSamplesheet(sample_sheet,first_tile ,logger):
+    sample_sheet = Path(sample_sheet)
+
+    run_dir ="/"+"/".join(sample_sheet.parts[1:sample_sheet.parts.index('Conversion')])
+    demux_out_dir = f"{run_dir}/Conversion/Demux-check/{sample_sheet.stem}"
+
+    logger.info(f'Running demultiplexing check on {sample_sheet.name}')
+    command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {demux_out_dir} --sample-sheet {sample_sheet} --bcl-sampleproject-subdirectories true --force --tiles {first_tile}'
+
+    if not runSystemCommand(command, logger):
+        logger.error(f'Failed to run demultiplexing check on {sample_sheet.name}')
+        raise
+    #
+    logger.info(f'Checking demultiplexing stats for {demux_out_dir}/Reports')
+    stats = parseConversionStats(f'{demux_out_dir}/Reports')
+
+    if stats['undetermined_reads'] / stats['total_reads'] < 0.40:
+        logger.info(f'Demultiplexing stats for {sample_sheet.name} passed')
+        return True
+    else:
+        return False
 
 def demuxCheck(run_dir,logger):
 
-
-
-    sample_sheet = Path(f'{run_dir}/SampleSheet.csv')
-    sample_sheet_parsed = parseSampleSheet( sample_sheet )
-
-    sample_sheet_rev =  Path(f'{run_dir}/Conversion/Demux-check/SampleSheet-rev.csv')
-    samples = sample_sheet_parsed['samples']
-
-    rev_samples = []
-    header = sample_sheet_parsed['header']
+    sample_sheet_file = Path(f'{run_dir}/SampleSheet.csv')
+    sample_sheet_backup = Path(f'{run_dir}/SampleSheet.csv-original')
+    if not sample_sheet_backup.is_file():
+        shutil.copyfile(sample_sheet_file, sample_sheet_backup)
+    sample_sheet = parseSampleSheet( sample_sheet_file )
 
     run_info = xml.dom.minidom.parse(f'{run_dir}/RunInfo.xml')
     first_tile = run_info.getElementsByTagName('Tile')[0].firstChild.nodeValue
     first_tile = first_tile.split("_")[-1]
 
+    if 'Lane' in sample_sheet['header']:
+        logger.info('Found lanes in samplesheet, running demux check per lane')
+        lane_samplesheets = {
 
-    if len(samples) > 1:
-        # With 1 sample customers probably want the BCL files, demux will clear this up. For more samples cleanup samplesheet before demux
-        logger.info('Found more than 1 sample in samplesheet, attempting cleanup')
-        for sample in samples:
-            dual_index = False
-            if 'N' in sample[header.index('index')] and re.search("[ACGT]", sample[header.index('index')] ):#Cleanup UMI NN's from first index
-                sample[header.index('index')] = sample[header.index('index')].replace("N","")
-            if 'index2' in header: dual_index = True
+        }
+        for sample in sample_sheet['samples']:
+            lane = sample[ sample_sheet['header'].index('Lane') ]
+            if lane not in lane_samplesheets:
+                logger.info(f'Creating demux test samplesheet SampleSheet-{lane}.csv')
+                logger.info(f'Creating demux test samplesheet SampleSheet-{lane}-rev.csv')
+                lane_samplesheets[lane] = {
+                    'samplesheet' : open(Path(f'{run_dir}/Conversion/Demux-check/SampleSheet-{lane}.csv'), 'w'),
+                    'samplesheet_rev' : open(Path(f'{run_dir}/Conversion/Demux-check/SampleSheet-{lane}-rev.csv'), 'w'),
+                    'correct_samplesheet' : ''
+                }
+                lane_samplesheets[lane]['samplesheet'].write(sample_sheet['top'])
+                lane_samplesheets[lane]['samplesheet'].write(f'{",".join( sample_sheet["header"] )}\n')
+                lane_samplesheets[lane]['samplesheet_rev'].write(sample_sheet['top'])
+                lane_samplesheets[lane]['samplesheet_rev'].write(f'{",".join( sample_sheet["header"] )}\n')
 
-            sample_rev = sample.copy()
-            if dual_index:
-                revseq = revcomp(sample_rev[header.index('index2')])
-                sample_rev[header.index('index2')] = revseq
+            sample_and_revsample = revAndCleanSample(sample_sheet['header'],sample)
+            lane_samplesheets[lane]['samplesheet'].write(f'{",".join(sample_and_revsample[0])}\n')
+            lane_samplesheets[lane]['samplesheet_rev'].write(f'{",".join(sample_and_revsample[1])}\n')
+
+        with open(sample_sheet_file, 'w') as ss: #overwrite samplesheetfile
+            ss.write(sample_sheet['top'])
+            ss.write(f'{",".join(sample_sheet["header"])}\n')
+            for lane in lane_samplesheets:
+                #Close all filehandles first
+                lane_samplesheets[lane]['samplesheet'].close()
+                lane_samplesheets[lane]['samplesheet_rev'].close()
+
+                if demuxCheckSamplesheet(lane_samplesheets[lane]['samplesheet'].name, first_tile, logger):
+                    lane_samplesheets[lane]['correct_samplesheet'] = lane_samplesheets[lane]['samplesheet'].name
+                elif demuxCheckSamplesheet(lane_samplesheets[lane]['samplesheet_rev'].name, first_tile, logger):
+                    lane_samplesheets[lane]['correct_samplesheet'] = lane_samplesheets[lane]['samplesheet_rev'].name
+                else:
+                    logger.error(f'Could not create a correct samplesheet for lane {lane}')
+                    return False
+
+                lane_samplesheet = parseSampleSheet(lane_samplesheets[lane]['correct_samplesheet'])
+                for sample in lane_samplesheet['samples']:
+                    ss.write(f'{",".join(sample)}\n')
+
+        return True
+    elif len(sample_sheet['samples']) > 1:
+        logger.info('Found more than 1 sample in samplesheet, running demux check')
+        logger.info(f'Creating demux test samplesheet SampleSheet.csv')
+        logger.info(f'Creating demux test samplesheet SampleSheet-rev.csv')
+        samplesheets = {
+            'samplesheet' : open(Path(f'{run_dir}/Conversion/Demux-check/SampleSheet.csv'), 'w'),
+            'samplesheet_rev' : open(Path(f'{run_dir}/Conversion/Demux-check/SampleSheet-rev.csv'), 'w'),
+            'correct_samplesheet' : ''
+        }
+        samplesheets['samplesheet'].write(sample_sheet['top'])
+        samplesheets['samplesheet'].write(f'{",".join( sample_sheet["header"] )}\n')
+        samplesheets['samplesheet_rev'].write(sample_sheet['top'])
+        samplesheets['samplesheet_rev'].write(f'{",".join( sample_sheet["header"] )}\n')
+
+
+        for sample in sample_sheet['samples']:
+            sample_and_revsample = revAndCleanSample(sample_sheet['header'],sample)
+            samplesheets['samplesheet'].write(f'{",".join(sample_and_revsample[0])}\n')
+            samplesheets['samplesheet_rev'].write(f'{",".join(sample_and_revsample[1])}\n')
+
+        samplesheets['samplesheet'].close()
+        samplesheets['samplesheet_rev'].close()
+
+        with open(sample_sheet_file, 'w') as ss: #overwrite samplesheetfile
+            ss.write(sample_sheet['top'])
+            ss.write(f'{",".join(sample_sheet["header"])}\n')
+
+            if demuxCheckSamplesheet(samplesheets['samplesheet'].name, first_tile, logger):
+                samplesheets['correct_samplesheet'] = samplesheets['samplesheet'].name
+            elif demuxCheckSamplesheet(samplesheets['samplesheet_rev'].name, first_tile, logger):
+                samplesheets['correct_samplesheet'] = samplesheets['samplesheet_rev'].name
             else:
-                revseq = revcomp(sample_rev[header.index('index')])
-                sample_rev[header.index('index')] = revseq
-            rev_samples.append(sample_rev)
-        logger.info('Creating cleaned up samplesheet')
-        writeSampleSheet(sample_sheet, header, samples, sample_sheet_parsed['top'])
-        logger.info('Creating reverse complemented samplesheet')
-        writeSampleSheet(sample_sheet_rev, header, rev_samples, sample_sheet_parsed['top'])
-    elif len(samples) == 1:
-        logger.info('Found only 1 sample in samplesheet, attempting cleanup')
-        sample = samples[0]
-        if 'N' in sample[header.index('index')] and re.search("[ACGT]", sample[header.index('index')] ):#Cleanup UMI NN's from first index
-            sample[header.index('index')] = sample[header.index('index')].replace("N","")
-        sample[header.index('index')] = sample[header.index('index')].replace("N","A")
-        if 'index2' in header:
-            sample[header.index('index2')] = sample[header.index('index2')].replace("N","A")
-        logger.info('Creating cleaned up samplesheet')
-        writeSampleSheet(sample_sheet, header, samples, sample_sheet_parsed['top'])
-        logger.info('Creating reverse complemented samplesheet')
-        writeSampleSheet(sample_sheet_rev, header, samples, sample_sheet_parsed['top'])
+                logger.error(f'Could not create a correct samplesheet')
+                return False
 
-    #Samplesheet is OK first try
-    logger.info('Running demultiplexing check on original samplesheet')
-
-    command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/1 --sample-sheet {sample_sheet} --bcl-sampleproject-subdirectories true --force --tiles {first_tile}'
-    if not runSystemCommand(command, logger):
-        logger.error('Failed to run 1st demultiplexing check')
-        raise
-
-    logger.info('Checking demultiplexing stats for original samplesheet')
-    stats = parseConversionStats(f'{run_dir}/Conversion/Demux-check/1/Reports')
-    if stats['undetermined_reads'] / stats['total_reads'] < 0.40:
-        logger.info('Demultiplexing stats for original samplesheet passed')
+            for sample in parseSampleSheet(samplesheets['correct_samplesheet'])['samples']:
+                ss.write(f'{",".join(sample)}\n')
+        return True
+    else:
+        logger.info('Found only 1 sample in samplesheet, skipping demux check')
         return True
 
-    #Try revcomp samplesheet
-    logger.info('Running demultiplexing check on reverse complemented samplesheet')
-    command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/Demux-check/2 --sample-sheet {sample_sheet_rev} --bcl-sampleproject-subdirectories true --force --tiles {first_tile}'
-    if not runSystemCommand(command, logger):
-        logger.error('Failed to run 2nd demultiplexing check')
-        raise
-
-    logger.info('Checking demultiplexing stats for reverse complemented samplesheet')
-    stats = parseConversionStats(f'{run_dir}/Conversion/Demux-check/2/Reports')
-
-    if stats['undetermined_reads'] / stats['total_reads'] < 0.40:
-        logger.info('Demultiplexing stats for reverse complemented samplesheet passed')
-        logger.info('Replacing original samplesheet with reverse complemented version')
-
-        sample_sheet_rev.rename(sample_sheet)
-
-        return True
-
-    return False
 
 def filterStats(lims, pid, pid_staging, report_dir):
     samples = lims.get_samples(projectlimsid=pid)
@@ -221,68 +270,93 @@ def parseConversionStats(dir):
     top_unknown = f'{dir}/Top_Unknown_Barcodes.csv'
     stats = {
         'total_reads' : 0,
+        'total_reads_lane' : {},
+        'total_reads_project' : {},
         'undetermined_reads' : 0,
-        'samples' : [],
-        'top_unknown' : []
+        'samples' : {},
+        'top_unknown' : {}
     }
     samples_tmp = {}
     with open(demux_stats, 'r') as d:
         csv_reader = csv.DictReader(d)
         for row in csv_reader:
-            if row['SampleID'] == 'Undetermined':
-                stats['undetermined_reads'] += float(row['# Reads'])
-                stats['total_reads'] += float(row['# Reads'])
-            else:
-                stats['total_reads'] += float(row['# Reads'])
+            sample_id = row['SampleID']
+            lane = row['Lane']
+            project_id = row['Sample_Project']
+            if lane not in samples_tmp:
+                samples_tmp[ lane ] = {}
 
-            if row['SampleID'] not in samples_tmp:
-                samples_tmp[ row['SampleID'] ] = {
+            if sample_id not in samples_tmp[ lane ]:
+                samples_tmp[ lane ][ sample_id ] = {
+                    'ProjectID' : project_id,
                     'Index' : None,
-                    'Lanes' : [],
                     '# Reads' : 0,
                     '# Perfect Index Reads' : 0,
                     '# One Mismatch Index Reads' : 0,
                 }
-            samples_tmp[ row['SampleID'] ]['Index'] = row['Index']
-            samples_tmp[ row['SampleID'] ]['Lanes'].append(int(row['Lane']))
-            samples_tmp[ row['SampleID'] ]['# Reads'] += int(row['# Reads'])
-            samples_tmp[ row['SampleID'] ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
-            samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
+            if sample_id == 'Undetermined':
+                stats['undetermined_reads'] += float(row['# Reads'])
+            stats['total_reads'] += float(row['# Reads'])
+
+            if lane not in stats['total_reads_lane']:
+                stats['total_reads_lane'][lane] = 0
+            stats['total_reads_lane'][lane] += float(row['# Reads'])
+
+            if project_id not in stats['total_reads_project']:
+                stats['total_reads_project'][project_id] = 0
+            stats['total_reads_project'][project_id] += float(row['# Reads'])
+
+            samples_tmp[ lane ][ sample_id ]['Index'] = row['Index']
+            samples_tmp[ lane ][ sample_id ]['# Reads'] += int(row['# Reads'])
+            samples_tmp[ lane ][ sample_id ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
+            samples_tmp[ lane ][ sample_id ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
+
     if qual_metrics.is_file():
         with open(qual_metrics,'r') as q:
             csv_reader = csv.DictReader(q)
             for row in csv_reader:
-
+                sample_id = row['SampleID']
+                lane = row['Lane']
                 mqs = f'Read {row["ReadNumber"]} Mean Quality Score (PF)'
                 q30 = f'Read {row["ReadNumber"]} % Q30'
-                if mqs not in samples_tmp[ row['SampleID'] ]:
-                    samples_tmp[ row['SampleID'] ][mqs] = 0
-                if q30 not in samples_tmp[ row['SampleID'] ]:
-                    samples_tmp[ row['SampleID'] ][q30] = 0
+                if mqs not in samples_tmp[ lane ][ sample_id ]:
+                    samples_tmp[ lane ][ sample_id ][mqs] = 0
+                if q30 not in samples_tmp[ lane ][ sample_id ]:
+                    samples_tmp[ lane ][ sample_id ][q30] = 0
 
-                samples_tmp[ row['SampleID'] ][mqs] += float(row['Mean Quality Score (PF)'])
-                samples_tmp[ row['SampleID'] ][q30] += float(row['% Q30'])
+                samples_tmp[ lane ][ sample_id ][mqs] += float(row['Mean Quality Score (PF)'])
+                samples_tmp[ lane ][ sample_id ][q30] += float(row['% Q30'])
 
+    for lane in samples_tmp:
+        for sample_id in samples_tmp[ lane ]:
+            if lane not in stats['samples']:
+                stats['samples'][ lane ] = {}
+            if sample_id not in stats['samples'][ lane ]:
+                stats['samples'][ lane ][ sample_id ] = {}
 
-    for sampleID in samples_tmp:
-
-        sample = {}
-        for read_number in ['1','2','I1','I2']:
-            if f'Read {read_number} Mean Quality Score (PF)' in samples_tmp[sampleID]:
-                sample[f'Read {read_number} Mean Quality Score (PF)'] = samples_tmp[sampleID][f'Read {read_number} Mean Quality Score (PF)'] / len(samples_tmp[ sampleID ]['Lanes'])
-            if f'Read {read_number} % Q30' in samples_tmp[sampleID]:
-                sample[f'Read {read_number} % Q30'] = (samples_tmp[sampleID][f'Read {read_number} % Q30'] / len(samples_tmp[ sampleID ]['Lanes']))*100
-        sample['SampleID'] = sampleID
-        sample['Index'] = samples_tmp[sampleID]['Index']
-        sample['# Reads'] = samples_tmp[sampleID]['# Reads']
-        sample['# Perfect Index Reads'] = samples_tmp[sampleID]['# Perfect Index Reads']
-        sample['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads']
-        stats['samples'].append(sample)
+            # sample = {}
+            for read_number in ['1','2','I1','I2']:
+                if f'Read {read_number} Mean Quality Score (PF)' in samples_tmp[ lane ][sample_id]:
+                    stats['samples'][ lane ][ sample_id ][f'Read {read_number} Mean Quality Score (PF)'] = samples_tmp[ lane ][sample_id][f'Read {read_number} Mean Quality Score (PF)']
+                if f'Read {read_number} % Q30' in samples_tmp[ lane ][sample_id]:
+                    stats['samples'][ lane ][ sample_id ][f'Read {read_number} % Q30'] = samples_tmp[ lane ][sample_id][f'Read {read_number} % Q30'] * 100
+            stats['samples'][ lane ][ sample_id ]['SampleID'] = sample_id
+            stats['samples'][ lane ][ sample_id ]['ProjectID'] = samples_tmp[ lane ][sample_id]['ProjectID']
+            stats['samples'][ lane ][ sample_id ]['Index'] = samples_tmp[ lane ][sample_id]['Index']
+            stats['samples'][ lane ][ sample_id ]['# Reads'] = samples_tmp[ lane ][sample_id]['# Reads']
+            stats['samples'][ lane ][ sample_id ]['# Perfect Index Reads'] = samples_tmp[ lane ][sample_id]['# Perfect Index Reads']
+            stats['samples'][ lane ][ sample_id ]['# One Mismatch Index Reads'] = samples_tmp[ lane ][sample_id]['# One Mismatch Index Reads']
+            # stats['samples'].append(sample)
 
     with open(top_unknown, 'r') as t:
         csv_reader = csv.DictReader(t)
-        for row in islice(csv_reader,0,20):
-            stats['top_unknown'].append(row)
+        # for row in islice(csv_reader,0,20):
+        for row in csv_reader:
+            lane = row['Lane']
+            if lane not in stats['top_unknown']:
+                stats['top_unknown'][lane] = []
+            if len(stats['top_unknown'][lane]) < 5:
+                stats['top_unknown'][ lane ].append(row)
     return stats
 
 def parseSummaryStats( summary ):
@@ -314,7 +388,7 @@ def revcomp(seq):
 def runSystemCommand(command, logger, shell=False):
     #split command into pieces for subprocess.run
     command_pieces = shlex.split(command)
-    print(command_pieces)
+    # print(command_pieces)
     logger.info(f'Running command : {command}')
 
     try:
@@ -566,13 +640,20 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
     return True
 
 def manageRuns(lims, skip_demux_check):
-    for machine in Config.MACHINE_ALIASES:
+    machine_aliases = Config.MACHINE_ALIASES
+    if Config.DEVMODE: machine_aliases = ['novaseqx_01'] #only used for dev runs
+
+    for machine in machine_aliases:
+
         machine_dir= Path(f"{Config.CONV_MAIN_DIR}/{machine}")
         md_path = Path(machine_dir)
         for run_dir in md_path.glob("*"):
 
             if run_dir.name.count('_') != 3 or not run_dir.is_dir(): continue #Not a valid run directory
 
+            run_info = xml.dom.minidom.parse(f'{run_dir}/RunInfo.xml')
+            first_tile = run_info.getElementsByTagName('Tile')[0].firstChild.nodeValue
+            first_tile = first_tile.split("_")[-1]
             #Important Files
             sample_sheet = Path(f'{run_dir}/SampleSheet.csv')
             rta_complete = Path(f'{run_dir}/RTAComplete.txt')
@@ -712,7 +793,8 @@ def manageRuns(lims, skip_demux_check):
                     if not status['Conversion']:
                         logger.info('Starting demultiplexing')
 
-                        command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {sample_sheet} '
+                        command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {sample_sheet}'
+                        if Config.DEVMODE: command += f" --tiles {first_tile} "
                         if not runSystemCommand(command, logger):
                             logger.error(f'Failed to run demultiplexing\n')
                             running_file.unlink()
@@ -755,14 +837,7 @@ def manageRuns(lims, skip_demux_check):
 ##
 
                         addFlowcellToFastq(run_dir, flowcell, logger)
-                        # try:
-                        #     md5sumFastq(run_dir,logger)
-                        # except Exception as e:
-                        #     logger.error(f'Failed to create FastQ md5sums\n{traceback.format_exc() } ')
-                        #     running_file.unlink()
-                        #     failed_file.touch()
-                        #     statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                        #     continue
+
 
 
                         try:
@@ -779,7 +854,8 @@ def manageRuns(lims, skip_demux_check):
                     if status['Conversion']: #Conversion succesful,
                         if not status['Transfer-nc']:
                             try:
-                                status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'fastq',projectIDs, logger)
+                                if not Config.DEVMODE:
+                                    status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'fastq',projectIDs, logger)
                                 updateStatus(status_file, status, 'Transfer-nc', status['Transfer-nc'])
                             except Exception as e:
                                 logger.error(f'Failed to run transfer to Nextcloud\n{traceback.format_exc() }')
@@ -790,7 +866,8 @@ def manageRuns(lims, skip_demux_check):
 
                         if not status['Transfer-hpc']:
                             try:
-                                status['Transfer-hpc'] = uploadToHPC(lims, run_dir, projectIDs,logger)
+                                if not Config.DEVMODE:
+                                    status['Transfer-hpc'] = uploadToHPC(lims, run_dir, projectIDs,logger)
                                 updateStatus(status_file, status, 'Transfer-hpc', status['Transfer-hpc'])
                             except Exception as e:
                                 logger.error(f'Failed to run transfer to HPC\n{traceback.format_exc() }')
@@ -811,7 +888,8 @@ def manageRuns(lims, skip_demux_check):
 
                     if not status['Transfer-nc']:
                         try:
-                            status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'bcl',projectIDs,logger)
+                            if not Config.DEVMODE:
+                                status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'bcl',projectIDs,logger)
                             updateStatus(status_file, status, 'Transfer-nc',status['Transfer-nc'])
                         except Exception as e:
                             logger.error(f'Failed to run transfer to Nextcloud\n{traceback.format_exc() }')
@@ -822,7 +900,8 @@ def manageRuns(lims, skip_demux_check):
 
                     if not status['Transfer-hpc']:
                         try:
-                            status['Transfer-hpc'] = uploadToHPC(lims, run_dir, projectIDs,logger)
+                            if not Config.DEVMODE:
+                                status['Transfer-hpc'] = uploadToHPC(lims, run_dir, projectIDs,logger)
                             updateStatus(status_file, status, 'Transfer-hpc',status['Transfer-hpc'])
                         except Exception as e:
                             logger.error(f'Failed to run transfer to HPC\n{traceback.format_exc() }')
@@ -833,7 +912,8 @@ def manageRuns(lims, skip_demux_check):
 
                 if not status['Archive']:
                     try:
-                        status['Archive'] = uploadToArchive(run_dir, logger)
+                        if not Config.DEVMODE:
+                            status['Archive'] = uploadToArchive(run_dir, logger)
                         updateStatus(status_file, status, 'Archive',status['Archive'])
                     except Exception as e:
                         logger.error(f'Failed to run transfer to archive storage\n{traceback.format_exc() }')
@@ -843,7 +923,7 @@ def manageRuns(lims, skip_demux_check):
                         continue
 
 
-                if status['Transfer-nc'] and status['Transfer-hpc'] and status['Archive']:
+                if status['Transfer-nc'] and status['Transfer-hpc'] and status['Archive'] or Config.DEVMODE:
                     cleanup(run_dir, logger)
                     statusMail(lims,'Finished', run_dir,projectIDs)
                     running_file.unlink()
@@ -1018,7 +1098,7 @@ def statusMail(lims, message, run_dir, projectIDs):
         project_names[pid] = project_name
 
     status_txt = [f'{x}:{project_names[x]}' for x in project_names]
-
+    # print(conversion_stats)
     template_data = {
         'status' : status,
         'log' : log,
@@ -1042,11 +1122,11 @@ def statusMail(lims, message, run_dir, projectIDs):
 
 def writeSampleSheet(samplesheet, header, samples, top):
 
-    with open(samplesheet, 'w') as new_sheet:
-        new_sheet.write(top)
-        new_sheet.write(f'{",".join(header)}\n')
-        for sample in samples:
-            new_sheet.write(f'{",".join(sample)}\n')
+    # with open(samplesheet, 'w') as new_sheet:
+    new_sheet.write(top)
+    new_sheet.write(f'{",".join(header)}\n')
+    for sample in samples:
+        new_sheet.write(f'{",".join(sample)}\n')
 
 def zipConversionReport(run_dir,logger):
     """Zip conversion reports."""
