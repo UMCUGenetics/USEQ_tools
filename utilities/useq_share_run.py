@@ -144,13 +144,15 @@ def parseConversionStats(lims, dir, pid):
                     '# Reads' : 0,
                     '# Perfect Index Reads' : 0,
                     '# One Mismatch Index Reads' : 0,
+                    'Lane' : []
                 }
+
             samples_tmp[ row['SampleID'] ]['Index'] = row['Index']
-            samples_tmp[ row['SampleID'] ]['Lane'] = int(row['Lane'])
+            samples_tmp[ row['SampleID'] ]['Lane'].append(int(row['Lane']))
             samples_tmp[ row['SampleID'] ]['# Reads'] += int(row['# Reads'])
             samples_tmp[ row['SampleID'] ]['# Perfect Index Reads']  += int(row['# Perfect Index Reads'])
             samples_tmp[ row['SampleID'] ]['# One Mismatch Index Reads']  += int(row['# One Mismatch Index Reads'])
-
+            # print(samples_tmp[ row['SampleID'] ])
 
     qual_metrics_rows = 0
     rows = 0
@@ -182,23 +184,23 @@ def parseConversionStats(lims, dir, pid):
     stats['total_mean_qual'] = stats['total_mean_qual'] / qual_metrics_rows
     stats['avg_quality_r1'] = round(stats['avg_quality_r1'] / rows, 2)
     stats['avg_quality_r2'] =  round(stats['avg_quality_r2'] / rows,2)
-
+    # print(samples_tmp)
     for sampleID in samples_tmp:
 
         if sampleID not in sample_names:continue
         sample = {}
         for read_number in ['1','2','I1','I2']:
             if f'Read {read_number} Mean Quality Score (PF)' in samples_tmp[sampleID]:
-                sample[f'Read {read_number} Mean Quality Score (PF)'] = samples_tmp[sampleID][f'Read {read_number} Mean Quality Score (PF)'] / samples_tmp[ row['SampleID'] ]['Lane']
+                sample[f'Read {read_number} Mean Quality Score (PF)'] = samples_tmp[sampleID][f'Read {read_number} Mean Quality Score (PF)'] / len(samples_tmp[ sampleID ]['Lane'])
             if f'Read {read_number} % Q30' in samples_tmp[sampleID]:
-                sample[f'Read {read_number} % Q30'] = (samples_tmp[sampleID][f'Read {read_number} % Q30'] / samples_tmp[ row['SampleID'] ]['Lane'])*100
+                sample[f'Read {read_number} % Q30'] = (samples_tmp[sampleID][f'Read {read_number} % Q30'] / len(samples_tmp[ sampleID ]['Lane']))*100
         sample['SampleID'] = sampleID
         sample['Index'] = samples_tmp[sampleID]['Index']
         sample['# Reads'] = samples_tmp[sampleID]['# Reads']
         sample['# Perfect Index Reads'] = samples_tmp[sampleID]['# Perfect Index Reads']
         sample['# One Mismatch Index Reads'] = samples_tmp[sampleID]['# One Mismatch Index Reads']
         stats['samples'].append(sample)
-    # print(stats)
+
     return stats
 
 def shareManual(researcher,dir):
@@ -481,6 +483,7 @@ def shareDataById(lims, project_id, fid, all_dirs_ont):
 
     #Fetch project from Portal DB
     session,Run, IlluminaSequencingStats,NanoporeSequencingStats = createDBSession()
+
     portal_run = session.query(Run).filter_by(run_id=project_id).first()
     if not portal_run:
         sys.exit(f'Error : Project ID {project_id} not found in Portal DB!')
@@ -735,7 +738,7 @@ def shareDataById(lims, project_id, fid, all_dirs_ont):
 
 
                 session,Run, IlluminaSequencingStats,NanoporeSequencingStats = createDBSession()
-                prev_results = session.query(IlluminaSequencingStats).filter_by(flowcell_id=flowcell_id).first()
+                prev_results = session.query(IlluminaSequencingStats).filter_by(flowcell_id=flowcell_id, run_id=portal_run.id).first()
                 if prev_results:
                     sys.exit(f'Warning : Stats for {flowcell_id} where already uploaded to portal db. Skipping.')
 
@@ -743,7 +746,7 @@ def shareDataById(lims, project_id, fid, all_dirs_ont):
                     tmp_dir = Path(f"{run_dir}/{flowcell_id}")
                     if not tmp_dir.is_dir():
                         tmp_dir.mkdir()
-                    conversion_stats_json_file = Path(f"{tmp_dir}/Conversion_Stats.json")
+                    conversion_stats_json_file = Path(f"{tmp_dir}/Conversion_Stats_{project_id}.json")
                     with open(conversion_stats_json_file, 'w') as c:
                         c.write( json.dumps( conversion_stats ) )
 
