@@ -171,7 +171,7 @@ def demuxCheck(run_dir,logger):
         return True
     else:
         logger.info('Found only 1 sample in samplesheet, skipping demux check')
-        return True
+        return False
 
 
 def filterStats(lims, pid, pid_staging, report_dir):
