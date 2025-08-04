@@ -175,7 +175,7 @@ def demuxCheck(run_dir,logger):
     else:
         logger.info('Found only 1 sample in samplesheet, skipping demux check')
         return False
-    sys.exit()
+
 
 def filterStats(lims, pid, pid_staging, report_dir):
     samples = lims.get_samples(projectlimsid=pid)
