@@ -54,7 +54,9 @@ def revAndCleanSample(header, sample):
 
 def demuxCheckSamplesheet(sample_sheet,first_tile ,logger):
     sample_sheet = Path(sample_sheet)
-
+    if not sample_sheet.is_file():
+        logger.info(f"{sample_sheet} does not exist, this lane is probably not in the original samplesheet. Moving on with other lanes.")
+        return True
     run_dir ="/"+"/".join(sample_sheet.parts[1:sample_sheet.parts.index('Conversion')])
     demux_out_dir = f"{run_dir}/Conversion/Demux-check/{sample_sheet.stem}"
 
@@ -68,7 +70,7 @@ def demuxCheckSamplesheet(sample_sheet,first_tile ,logger):
     logger.info(f'Checking demultiplexing stats for {demux_out_dir}/Reports')
     stats = parseConversionStats(f'{demux_out_dir}/Reports')
 
-    if stats['undetermined_reads'] / stats['total_reads'] < 0.40:
+    if stats['undetermined_reads'] / stats['total_reads'] < 0.50:
         logger.info(f'Demultiplexing stats for {sample_sheet.name} passed')
         return True
     else:
@@ -88,9 +90,8 @@ def demuxCheck(run_dir,logger):
 
     if 'Lane' in sample_sheet['header']:
         logger.info('Found lanes in samplesheet, running demux check per lane')
-        lane_samplesheets = {
+        lane_samplesheets = {}
 
-        }
         for sample in sample_sheet['samples']:
             lane = sample[ sample_sheet['header'].index('Lane') ]
             if lane not in lane_samplesheets:
@@ -109,7 +110,7 @@ def demuxCheck(run_dir,logger):
             sample_and_revsample = revAndCleanSample(sample_sheet['header'],sample)
             lane_samplesheets[lane]['samplesheet'].write(f'{",".join(sample_and_revsample[0])}\n')
             lane_samplesheets[lane]['samplesheet_rev'].write(f'{",".join(sample_and_revsample[1])}\n')
-
+        # print(lane_samplesheets)
         with open(sample_sheet_file, 'w') as ss: #overwrite samplesheetfile
             ss.write(sample_sheet['top'])
             ss.write(f'{",".join(sample_sheet["header"])}\n')
@@ -120,15 +121,17 @@ def demuxCheck(run_dir,logger):
 
                 if demuxCheckSamplesheet(lane_samplesheets[lane]['samplesheet'].name, first_tile, logger):
                     lane_samplesheets[lane]['correct_samplesheet'] = lane_samplesheets[lane]['samplesheet'].name
+                    lane_samplesheet = parseSampleSheet(lane_samplesheets[lane]['correct_samplesheet'])
+                    for sample in lane_samplesheet['samples']:
+                        ss.write(f'{",".join(sample)}\n')
                 elif demuxCheckSamplesheet(lane_samplesheets[lane]['samplesheet_rev'].name, first_tile, logger):
                     lane_samplesheets[lane]['correct_samplesheet'] = lane_samplesheets[lane]['samplesheet_rev'].name
+                    lane_samplesheet = parseSampleSheet(lane_samplesheets[lane]['correct_samplesheet'])
+                    for sample in lane_samplesheet['samples']:
+                        ss.write(f'{",".join(sample)}\n')
                 else:
                     logger.error(f'Could not create a correct samplesheet for lane {lane}')
-                    return False
-
-                lane_samplesheet = parseSampleSheet(lane_samplesheets[lane]['correct_samplesheet'])
-                for sample in lane_samplesheet['samples']:
-                    ss.write(f'{",".join(sample)}\n')
+                    # return False
 
         return True
     elif len(sample_sheet['samples']) > 1:
