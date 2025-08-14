@@ -7,11 +7,33 @@
 </table>
 <h3>Status</h3>
 <table class='useq_table'>
-  <tr> <td><b>Demultiplexing Check</b></td>  <td>{{status['Demux-check']}}</td> </tr>
-  <tr> <td><b>Conversion</b></td>  <td>{{status['Conversion']}}</td> </tr>
-  <tr> <td><b>Transfer to NextCloud</b></td>  <td>{{status['Transfer-nc']}}</td> </tr>
-  <tr> <td><b>Transfer to HPC</b></td>  <td>{{status['Transfer-hpc']}}</td> </tr>
-  <tr> <td><b>Transfer to Archive</b></td>  <td>{{status['Archive']}}</td> </tr>
+  <tr>
+    <th>Run Stats</th>
+    <th>Run Archive</th>
+  </tr>
+  <tr>
+    <td>{{status['run']['Stats']}}</td>
+    <td>{{status['run']['Archive']}}</td>
+  </tr>
+</table>
+<br>
+<table class='useq_table'>
+  <tr>
+    <th>Project</th>
+    <th>BCL-Only</th>
+    <th>Demultiplexing</th>
+    <th>Transfer Nextcloud</th>
+    <th>Transfer HPC</th>
+  </tr>
+  {% for pid, pid_status in status['projects'].items() %}
+    <tr>
+      <td>{{pid}}</td>
+      <td>{{pid_status['BCL-Only']}}</td>
+      <td>{{pid_status['Demultiplexing']}}</td>
+      <td>{{pid_status['Transfer-nc']}}</td>
+      <td>{{pid_status['Transfer-hpc']}}</td>
+    </tr>
+  {% endfor %}
 </table>
 <br>
 {% if summary_stats %}
@@ -27,7 +49,7 @@
     <th><b>%>=Q30</b></th>
     <th><b>% Occupied</b></th>
   </tr>
-  {% for row in summary_stats %}
+  {% for row in summary_stats['summary'] %}
   <tr>
     {% if 'Level' in row -%} <td>{{ row['Level'] }}</td> {% endif %}
     {% if 'Yield' in row -%} <td>{{ row['Yield'] }}</td> {% endif %}
@@ -49,11 +71,71 @@
   </tr>
   {% endfor %}
 </table>
+<br>
+<table class='useq_table'>
+  <tr>
+    <th style="visibility: hidden;border: 0px" colspan="4"></th>
+    <th colspan="2"><b>Yield (Gbp)</b></th>
+    <th colspan="2"><b>% Q30</b></th>
+  </tr>
+  <tr>
+    <!-- # print("Lane,Read,%>=Q30,Yield,Aligned,% Occupied") -->
+    <th><b>Lane</b></th>
+    <th><b>Project(s)</b></th>
+    <th><b>% Aligned PhiX</b></th>
+    <th><b>% Occupied</b></th>
+    <th><b>Read 1</b></th>
+    <th><b>Read 2</b></th>
+    <th><b>Read 1</b></th>
+    <th><b>Read 2</b></th>
+  </tr>
+  {% for lane, lane_data in summary_stats['all'].items() %}
+    {% set lane = lane|int %}
+    {% set read1 = lane_data.keys()|first %}
+    {% set read2 = '' %}
+    {% set phix = lane_data[read1]['Aligned']|float %}
+    {% set occ = lane_data[read1]['% Occupied']|float %}
+    {% set yield_r1 =  lane_data[read1]['Yield']|float %}
+    {% set yield_r2 = '' %}
+    {% set q30_r1 =  lane_data[read1]['%>=Q30']|float %}
+    {% set q30_r2 = '' %}
+    {% set expected_yield_r1 = expected_yields['r1'] / summary_stats['all'].keys()|length %}
+    {% set expected_yield_r2 = '' %}
+    {% if lane_data.keys()|length > 1 %}
+      {% set read2 = lane_data.keys()|last %}
+      {% set phix = (lane_data[read1]['Aligned']|float + lane_data[read2]['Aligned']|float)/2 %}
+      {% set occ = (lane_data[read1]['% Occupied']|float + lane_data[read2]['% Occupied']|float)/2 %}
+      {% set yield_r2 =  lane_data[read2]['Yield']|float %}
+      {% set q30_r2 =  lane_data[read2]['%>=Q30']|float %}
+      {% set expected_yield_r2 = expected_yields['r2'] / summary_stats['all'].keys()|length %}
+    {% endif %}
+    <tr>
+      <td>{{lane}}</td>
+      <td>{{run_data.lanes[lane]['projects']|join(", ")}}</td>
+      <td>{{"{:,.2f}".format(phix)}}</td>
+      <td>{{"{:,.2f}".format(occ)}}</td>
+      <td>{{"{:,.2f}".format(yield_r1)}} <small>(Expected : {{expected_yield_r1}})</small></td>
+      {% if yield_r2 %}
+      <td>{{"{:,.2f}".format(yield_r2)}} <small>(Expected : {{expected_yield_r2}})</small></td>
+      {% else %}
+      <td></td>
+      {% endif %}
+      <td>{{"{:,.2f}".format(q30_r1)}}</td>
+      {% if q30_r2 %}
+      <td>{{"{:,.2f}".format(q30_r2)}}</td>
+      {% else %}
+      <td></td>
+      {% endif %}
+
+    </tr>
+  {% endfor %}
+</table>
 {% endif %}
 
-{% if 'total_reads' in conversion_stats %}
-{% set first_sample = conversion_stats.samples['1']|first %}
-<h3>Conversion Summary</h3>
+{% if 'total_reads' in conversion_stats and conversion_stats.total_reads %}
+{% set first_lane = conversion_stats.samples|first%}
+{% set first_sample = conversion_stats.samples[first_lane]|first %}
+<h3>Demultiplexing Summary</h3>
 <table class='useq_table'>
 <tr> <td><b>Output (filtered) / Output (expected)</b></td> <td>{{nr_reads}}</td> </tr>
 </table>
@@ -61,36 +143,40 @@
 <table class='useq_table'>
   <tr>
     <th><b>Lane</b></th>
+    <th><b>ProjectID</b></th>
     <th><b>M Reads</b></th>
   </tr>
-  {% for lane in conversion_stats.total_reads_lane %}
+  {% for lane, lane_data in run_data.lanes.items() %}
+    {% for pid in lane_data.projects %}
+      <tr>
+        <td>{{ lane }}</td>
+        <td>{{ pid }}</td>
+        {% if lane in conversion_stats.total_reads_lane_project and pid in conversion_stats.total_reads_lane_project[lane] %}
+        <td>{{"{:,.2f}".format(conversion_stats.total_reads_lane_project[lane][pid]/1000000) }}</td>
+        {% endif %}
+      </tr>
+    {% endfor %}
     <tr>
-      <td>{{lane}}</td>
-      <td>{{"{:,.2f}".format(conversion_stats.total_reads_lane[lane]/1000000) }}</td>
+      <td><b>{{ lane }}</b></td>
+      <td><b>Total</b></td>
+      {% if lane in conversion_stats.total_reads_lane %}
+      <td><b>{{"{:,.2f}".format(conversion_stats.total_reads_lane[lane]/1000000) }}</b></td>
+      {% endif %}
+    </tr>
+    <tr>
+        <!-- <td colspan="4"></td> -->
+        <td style="visibility: hidden;border: 0px" colspan="4"></td>
     </tr>
   {% endfor %}
 </table>
 <br>
-<table class='useq_table'>
-  <tr>
-    <th><b>Project</b></th>
-    <th><b>M Reads</b></th>
-  </tr>
-  {% for project in conversion_stats.total_reads_project %}
-    <tr>
-      <td>{{project}}</td>
-      <td>{{ "{:,.2f}".format(conversion_stats.total_reads_project[project]/1000000) }}</td>
-    </tr>
-  {% endfor %}
-
-</table>
 
 <h3>Samples</h3>
 <table class='useq_table'>
   <tr>
     <th style="visibility: hidden;border: 0px" colspan="6"></th>
     <!-- <th colspan="2"><b>% Index</b></th> -->
-    {% if 'Read 2 Mean Quality Score (PF)' in conversion_stats.samples['1'][first_sample] %}
+    {% if 'Read 2 Mean Quality Score (PF)' in conversion_stats.samples[first_lane][first_sample] %}
       <th colspan="2"><b>Mean Quality Score (PF)</b></th>
       <th colspan="2"><b>% Q30</b></th>
     {% else %}
@@ -108,12 +194,12 @@
     <!-- <th><b>1 Mismatch</b></th> -->
 
     {% for read_nr in ['1','2'] -%}
-      {% if 'Read '+read_nr+' Mean Quality Score (PF)' in conversion_stats.samples['1'][first_sample] %}
+      {% if 'Read '+read_nr+' Mean Quality Score (PF)' in conversion_stats.samples[first_lane][first_sample] %}
         <th><b>Read {{read_nr}} </b></th>
       {% endif %}
     {% endfor %}
     {% for read_nr in ['1','2'] -%}
-      {% if 'Read '+read_nr+' % Q30' in conversion_stats.samples['1'][first_sample] %}
+      {% if 'Read '+read_nr+' % Q30' in conversion_stats.samples[first_lane][first_sample] %}
         <th><b>Read {{read_nr}}</b></th>
       {% endif %}
     {% endfor %}
@@ -189,7 +275,7 @@
   <tr>
     <th><b>Lane</b></th>
     <th><b>index</b></th>
-    {% if 'index2' in conversion_stats['top_unknown']['1'][0] %}<th><b>index2</b></th>{% endif %}
+    <th><b>index2</b></th>
     <th><b># Reads</b></th>
   </tr>
   {% for lane in conversion_stats['top_unknown'] %}

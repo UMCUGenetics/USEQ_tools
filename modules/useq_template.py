@@ -21,7 +21,8 @@ def renderTemplate(template_filename, data):
                     for i in range(len(v)):
                         stringsToUnicode(v[i])
                 elif isinstance(v, set):
-                    data[k] = ",".join(v)
+                    for i in v:
+                        stringsToUnicode(i)
                 elif isinstance(v, str):
                     data[k] = v
 
