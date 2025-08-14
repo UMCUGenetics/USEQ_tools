@@ -113,7 +113,8 @@ def getExpectedReads( run_parameters):
         application_name = ''
 
     try:
-        application_name = run_parameters.getElementsByTagName('RecipeName')[0].firstChild.nodeValue
+        if not application_name:
+            application_name = run_parameters.getElementsByTagName('RecipeName')[0].firstChild.nodeValue
     except:
         application_name = ''
 

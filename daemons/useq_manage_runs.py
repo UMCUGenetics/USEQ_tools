@@ -20,12 +20,11 @@ from modules.useq_template import TEMPLATE_PATH,TEMPLATE_ENVIRONMENT,renderTempl
 from modules.useq_mail import sendMail
 from config import Config
 
-def addFlowcellToFastq(run_dir, flowcell_id, logger):
+def addFlowcellToFastq(project_directory, flowcell_id, logger):
     """Add flowcell id to fastq.gz filename."""
     logger.info('Adding flowcell to fastqs')
 
-    base_calls_dir = Path(f'{run_dir}/Conversion/FastQ')
-    for fastq in base_calls_dir.rglob("*.fastq.gz"):
+    for fastq in project_directory.rglob("*.fastq.gz"):
         filename_parts = fastq.name.split('_')
         if filename_parts[1] != flowcell_id:
             filename_parts.insert(1, flowcell_id)
@@ -41,9 +40,11 @@ def cleanup(run_dir, logger):
 def revAndCleanSample(header, sample):
 
     sample[ header.index('index') ] = sample[header.index('index')].replace("N","")
+
     sample_rev = sample.copy()
 
     if 'index2' in header:
+
         revseq = revcomp(sample_rev[header.index('index2')])
         sample_rev[header.index('index2')] = revseq
     else:
@@ -52,13 +53,10 @@ def revAndCleanSample(header, sample):
 
     return [sample, sample_rev]
 
-def demuxCheckSamplesheet(sample_sheet,first_tile ,logger):
-    sample_sheet = Path(sample_sheet)
-    if not sample_sheet.is_file():
-        logger.info(f"{sample_sheet} does not exist, this lane is probably not in the original samplesheet. Moving on with other lanes.")
-        return True
+def demuxCheckSamplesheet(sample_sheet,pid, project_data, run_data,first_tile ,logger):
+
     run_dir ="/"+"/".join(sample_sheet.parts[1:sample_sheet.parts.index('Conversion')])
-    demux_out_dir = f"{run_dir}/Conversion/Demux-check/{sample_sheet.stem}"
+    demux_out_dir = f"{sample_sheet.parent}/{sample_sheet.stem}"
 
     logger.info(f'Running demultiplexing check on {sample_sheet.name}')
     command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {demux_out_dir} --sample-sheet {sample_sheet} --bcl-sampleproject-subdirectories true --force --tiles {first_tile}'
@@ -70,112 +68,96 @@ def demuxCheckSamplesheet(sample_sheet,first_tile ,logger):
     logger.info(f'Checking demultiplexing stats for {demux_out_dir}/Reports')
     stats = parseConversionStats(f'{demux_out_dir}/Reports')
 
-    if stats['undetermined_reads'] / stats['total_reads'] < 0.50:
-        logger.info(f'Demultiplexing stats for {sample_sheet.name} passed')
+    if stats['undetermined_reads'] / stats['total_reads'] < 0.40:
+        logger.info(f'Demultiplexing check stats for {sample_sheet.name} PASSED')
         return True
     else:
-        return False
 
-def demuxCheck(run_dir,logger):
+        # print(stats['total_reads_lane'])
+        for lane in project_data['on_lanes']:
+            total_reads = stats['total_reads']
+            total_reads_lane = stats['total_reads_lane'][lane]
+            nr_samples_lane = len(run_data['lanes'][lane]['samples'])
+            nr_samples_project = len(project_data['samples'])
+            avg_reads_per_sample = total_reads_lane / nr_samples_lane
+            expected_project_reads = avg_reads_per_sample * nr_samples_project
+            avg_reads_project_lane = stats['total_reads_project'][pid] / len( project_data['on_lanes'] )
+            perc_diff = abs(expected_project_reads -avg_reads_project_lane ) / ((expected_project_reads + avg_reads_project_lane)/2)
+            print(f"Lane {lane}")
+            print(f"Nr samples lane                             {nr_samples_lane}")
+            print(f"Total reads lane                            {total_reads_lane}")
+            print(f"Avg reads per sample                        {avg_reads_per_sample}")
+            print(f"Expected reads for project for lane {lane}  {expected_project_reads}")
+            print(f"Avg reads for project for lane {lane}  {avg_reads_project_lane}")
+            print(f"Diff between expected and avg reads {lane}  {perc_diff}")
 
-    sample_sheet_file = Path(f'{run_dir}/SampleSheet.csv')
-    sample_sheet_backup = Path(f'{run_dir}/SampleSheet.csv-original')
-    if not sample_sheet_backup.is_file():
-        shutil.copyfile(sample_sheet_file, sample_sheet_backup)
-    sample_sheet = parseSampleSheet( sample_sheet_file )
-
-    run_info = xml.dom.minidom.parse(f'{run_dir}/RunInfo.xml')
-    first_tile = run_info.getElementsByTagName('Tile')[0].firstChild.nodeValue
-    first_tile = first_tile.split("_")[-1]
-
-    if 'Lane' in sample_sheet['header']:
-        logger.info('Found lanes in samplesheet, running demux check per lane')
-        lane_samplesheets = {}
-
-        for sample in sample_sheet['samples']:
-            lane = sample[ sample_sheet['header'].index('Lane') ]
-            if lane not in lane_samplesheets:
-                logger.info(f'Creating demux test samplesheet SampleSheet-{lane}.csv')
-                logger.info(f'Creating demux test samplesheet SampleSheet-{lane}-rev.csv')
-                lane_samplesheets[lane] = {
-                    'samplesheet' : open(Path(f'{run_dir}/Conversion/Demux-check/SampleSheet-{lane}.csv'), 'w'),
-                    'samplesheet_rev' : open(Path(f'{run_dir}/Conversion/Demux-check/SampleSheet-{lane}-rev.csv'), 'w'),
-                    'correct_samplesheet' : ''
-                }
-                lane_samplesheets[lane]['samplesheet'].write(sample_sheet['top'])
-                lane_samplesheets[lane]['samplesheet'].write(f'{",".join( sample_sheet["header"] )}\n')
-                lane_samplesheets[lane]['samplesheet_rev'].write(sample_sheet['top'])
-                lane_samplesheets[lane]['samplesheet_rev'].write(f'{",".join( sample_sheet["header"] )}\n')
-
-            sample_and_revsample = revAndCleanSample(sample_sheet['header'],sample)
-            lane_samplesheets[lane]['samplesheet'].write(f'{",".join(sample_and_revsample[0])}\n')
-            lane_samplesheets[lane]['samplesheet_rev'].write(f'{",".join(sample_and_revsample[1])}\n')
-        # print(lane_samplesheets)
-        with open(sample_sheet_file, 'w') as ss: #overwrite samplesheetfile
-            ss.write(sample_sheet['top'])
-            ss.write(f'{",".join(sample_sheet["header"])}\n')
-            for lane in lane_samplesheets:
-                #Close all filehandles first
-                lane_samplesheets[lane]['samplesheet'].close()
-                lane_samplesheets[lane]['samplesheet_rev'].close()
-
-                if demuxCheckSamplesheet(lane_samplesheets[lane]['samplesheet'].name, first_tile, logger):
-                    lane_samplesheets[lane]['correct_samplesheet'] = lane_samplesheets[lane]['samplesheet'].name
-                    lane_samplesheet = parseSampleSheet(lane_samplesheets[lane]['correct_samplesheet'])
-                    for sample in lane_samplesheet['samples']:
-                        ss.write(f'{",".join(sample)}\n')
-                elif demuxCheckSamplesheet(lane_samplesheets[lane]['samplesheet_rev'].name, first_tile, logger):
-                    lane_samplesheets[lane]['correct_samplesheet'] = lane_samplesheets[lane]['samplesheet_rev'].name
-                    lane_samplesheet = parseSampleSheet(lane_samplesheets[lane]['correct_samplesheet'])
-                    for sample in lane_samplesheet['samples']:
-                        ss.write(f'{",".join(sample)}\n')
-                else:
-                    logger.error(f'Could not create a correct samplesheet for lane {lane}')
-                    # return False
-
-        return True
-    elif len(sample_sheet['samples']) > 1:
-        logger.info('Found more than 1 sample in samplesheet, running demux check')
-        logger.info(f'Creating demux test samplesheet SampleSheet.csv')
-        logger.info(f'Creating demux test samplesheet SampleSheet-rev.csv')
-        samplesheets = {
-            'samplesheet' : open(Path(f'{run_dir}/Conversion/Demux-check/SampleSheet.csv'), 'w'),
-            'samplesheet_rev' : open(Path(f'{run_dir}/Conversion/Demux-check/SampleSheet-rev.csv'), 'w'),
-            'correct_samplesheet' : ''
-        }
-        samplesheets['samplesheet'].write(sample_sheet['top'])
-        samplesheets['samplesheet'].write(f'{",".join( sample_sheet["header"] )}\n')
-        samplesheets['samplesheet_rev'].write(sample_sheet['top'])
-        samplesheets['samplesheet_rev'].write(f'{",".join( sample_sheet["header"] )}\n')
-
-
-        for sample in sample_sheet['samples']:
-            sample_and_revsample = revAndCleanSample(sample_sheet['header'],sample)
-            samplesheets['samplesheet'].write(f'{",".join(sample_and_revsample[0])}\n')
-            samplesheets['samplesheet_rev'].write(f'{",".join(sample_and_revsample[1])}\n')
-
-        samplesheets['samplesheet'].close()
-        samplesheets['samplesheet_rev'].close()
-
-        with open(sample_sheet_file, 'w') as ss: #overwrite samplesheetfile
-            ss.write(sample_sheet['top'])
-            ss.write(f'{",".join(sample_sheet["header"])}\n')
-
-            if demuxCheckSamplesheet(samplesheets['samplesheet'].name, first_tile, logger):
-                samplesheets['correct_samplesheet'] = samplesheets['samplesheet'].name
-            elif demuxCheckSamplesheet(samplesheets['samplesheet_rev'].name, first_tile, logger):
-                samplesheets['correct_samplesheet'] = samplesheets['samplesheet_rev'].name
-            else:
-                logger.error(f'Could not create a correct samplesheet')
+            if perc_diff > 0.5:
+                logger.info(f'Demultiplexing check stats for {sample_sheet.name} on lane {lane} and projectID {pid} FAILED')
                 return False
+            # if expected_project_reads > avg_reads_project_lane or
 
-            for sample in parseSampleSheet(samplesheets['correct_samplesheet'])['samples']:
-                ss.write(f'{",".join(sample)}\n')
+        # sys.exit()
+        logger.info(f'Demultiplexing check stats for {sample_sheet.name} PASSED')
         return True
-    else:
-        logger.info('Found only 1 sample in samplesheet, skipping demux check')
-        return False
 
+def demultiplexPID(run_dir, pid, project_data, run_data, master_sheet, first_tile ,logger):
+
+    samples = project_data['samples']
+    if len(samples) > 1: #More than 1 sample, check if demultiplexing will succeed
+        project_directory = Path(f"{run_dir}/Conversion/{pid}/")
+        project_directory.mkdir(parents=True, exist_ok=True)
+        demux_directory = Path(f"{project_directory}/Demux-check")
+        demux_directory.mkdir(parents=True, exist_ok=True)
+        flowcell = run_dir.name.split("_")[-1]
+
+        logger.info(f'Found more than 1 samples, moving on with demux test.')
+
+        sample_sheet = Path(f'{demux_directory}/SampleSheet-{pid}.csv')
+        sample_sheet_rev = Path(f'{demux_directory}/SampleSheet-{pid}-rev.csv')
+        correct_samplesheet = None
+        with open(sample_sheet, 'w') as ss, open(sample_sheet_rev, 'w') as ssr:
+            logger.info(f'Creating samplesheet {sample_sheet}')
+            logger.info(f'Creating rev samplesheet {sample_sheet_rev}')
+
+            ss.write(master_sheet['top'])
+            ss.write(f'{",".join( master_sheet["header"] )}\n')
+            ssr.write(master_sheet['top'])
+            ssr.write(f'{",".join( master_sheet["header"] )}\n')
+
+            for sample in samples:
+                sample_and_revsample = revAndCleanSample(master_sheet['header'],sample)
+                ss.write(f'{",".join(sample_and_revsample[0])}\n')
+                ssr.write(f'{",".join(sample_and_revsample[1])}\n')
+
+
+        if demuxCheckSamplesheet(sample_sheet,pid,project_data, run_data ,first_tile, logger):
+            correct_samplesheet = sample_sheet
+        elif demuxCheckSamplesheet(sample_sheet_rev,pid,project_data, run_data , first_tile, logger):
+            correct_samplesheet = sample_sheet_rev
+        else:
+            logger.error(f'Could not create a correct samplesheet for projectID {pid}, skipping demux.')
+            return False
+
+        # logger.info(f'Demux test for samplesheet {correct_samplesheet.name} PASSED')
+        shutil.move(correct_samplesheet, f'{project_directory}/{correct_samplesheet.name}')
+        correct_samplesheet = Path(f'{project_directory}/{correct_samplesheet.name}')
+
+        logger.info('Starting demultiplexing')
+        # command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {correct_samplesheet}'
+        command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {project_directory} --force --sample-sheet {correct_samplesheet}'
+        if Config.DEVMODE: command += f" --tiles {first_tile} "
+        if not runSystemCommand(command, logger):
+            logger.error(f'Failed to run demultiplexing for projectID {pid}.')
+            raise
+
+        addFlowcellToFastq(project_directory, flowcell, logger)
+
+        return True
+
+
+    else:
+        logger.info(f'Found 1 sample, skipping demux.')
+        return False
 
 def filterStats(lims, pid, pid_staging, report_dir):
     samples = lims.get_samples(projectlimsid=pid)
@@ -200,12 +182,13 @@ def filterStats(lims, pid, pid_staging, report_dir):
 
 def generateRunStats(run_dir, logger):
     """Create run stats files using interop tool."""
+    conversion_dir = Path(f'{run_dir}/Conversion/')
     stats_dir = Path(f'{run_dir}/Conversion/Reports')
     fastqc_dir = Path(f'{run_dir}/Conversion/Reports/fastqc')
     multiqc_dir = Path(f'{run_dir}/Conversion/Reports/multiqc')
 
     if not fastqc_dir.is_dir():
-        fastqc_dir.mkdir()
+        fastqc_dir.mkdir(parents=True, exist_ok=True)
     os.chdir(stats_dir)
 
     try:
@@ -233,17 +216,19 @@ def generateRunStats(run_dir, logger):
         p1 = subprocess.Popen([f'{Config.CONV_INTEROP}/bin/plot_qscore_histogram',run_dir], stdout=subprocess.PIPE)
         p2 = subprocess.run(['gnuplot'], stdin=p1.stdout, check=True, stderr=subprocess.PIPE)
 
-        logger.info('Running FastQC')
-        fastqc_command = f'{Config.CONV_FASTQC}/fastqc -t 24 -q {run_dir}/Conversion/FastQ/**/*_R*fastq.gz -o {fastqc_dir}'
-        if not runSystemCommand(fastqc_command, logger, shell=True):
-            logger.error(f'Failed to run FastQC.')
-            raise
+        if not Config.DEVMODE:
+            logger.info('Running FastQC')
+            fastqc_command = f'{Config.CONV_FASTQC}/fastqc -t 24 -q {run_dir}/Conversion/**/*_R*fastq.gz -o {fastqc_dir}'
+            if not runSystemCommand(fastqc_command, logger, shell=True):
+                logger.error(f'Failed to run FastQC.')
+                raise
 
-        logger.info('Running MultiQC')
-        multiqc_command = f'multiqc {fastqc_dir} -o {multiqc_dir} -n {run_dir.name}_multiqc_report.html'
-        if not runSystemCommand(multiqc_command, logger, shell=True):
-            logger.error(f'Failed to run MultiQC.')
-            raise
+            logger.info('Running MultiQC')
+            multiqc_command = f'multiqc {fastqc_dir} -o {multiqc_dir} -n {run_dir.name}_multiqc_report.html'
+            if not runSystemCommand(multiqc_command, logger, shell=True):
+                logger.error(f'Failed to run MultiQC.')
+                raise
+
 
     except subprocess.CalledProcessError as e:
         logger.error(
@@ -251,6 +236,54 @@ def generateRunStats(run_dir, logger):
             f'Returned {e.returncode}\n{e}\n'
             f'{e.stderr}\n'
         )
+
+    with open(f'{stats_dir}/Demultiplex_Stats.csv', 'w') as all_demux_stats:
+        first_line = None
+        for demultiplex_stats in conversion_dir.glob('*/Reports/Demultiplex_Stats.csv'):
+            project_id = demultiplex_stats.parts[-3]
+            with open(demultiplex_stats, 'r') as ds:
+                if not first_line:
+                    first_line = ds.readline().split(",")
+                    first_line.insert(2,'Sample_Project')
+                    all_demux_stats.write(",".join(first_line))
+                else:
+                    ds.readline()
+                for line in ds.readlines():
+                    line_parts = line.split(",")
+                    line_parts.insert(2,project_id)
+                    all_demux_stats.write(",".join(line_parts))
+
+                # all_demux_stats.write(ds.read())
+
+    with open(f'{stats_dir}/Quality_Metrics.csv', 'w') as all_qm_stats:
+        first_line = None
+        for qm_stats in conversion_dir.glob('*/Reports/Quality_Metrics.csv'):
+            project_id = qm_stats.parts[-3]
+            with open(qm_stats, 'r') as qs:
+                if not first_line:
+                    first_line = qs.readline().split(",")
+                    first_line.insert(2,'Sample_Project')
+                    all_qm_stats.write(",".join(first_line))
+                else:
+                    x = qs.readline()
+                for line in qs.readlines():
+                    line_parts = line.split(",")
+                    line_parts.insert(2,project_id)
+                    all_qm_stats.write(",".join(line_parts))
+
+    with open(f'{stats_dir}/Top_Unknown_Barcodes.csv', 'w') as all_top_unknown:
+        first_line = None
+        for tu_stats in conversion_dir.glob('*/Reports/Top_Unknown_Barcodes.csv'):
+            with open(tu_stats, 'r') as tu:
+                if not first_line:
+                    first_line = tu.readline()
+                    all_top_unknown.write(first_line)
+                else:
+                    x = tu.readline()
+
+                all_top_unknown.write(tu.read())
+
+    return True
 
 def getExpectedYield(run_info_xml, expected_reads):
     run_info = xml.dom.minidom.parse(run_info_xml)
@@ -275,6 +308,7 @@ def parseConversionStats(dir):
         'total_reads' : 0,
         'total_reads_lane' : {},
         'total_reads_project' : {},
+        'total_reads_lane_project' : {},
         'undetermined_reads' : 0,
         'samples' : {},
         'top_unknown' : {}
@@ -284,7 +318,7 @@ def parseConversionStats(dir):
         csv_reader = csv.DictReader(d)
         for row in csv_reader:
             sample_id = row['SampleID']
-            lane = row['Lane']
+            lane = int(row['Lane'])
             project_id = row['Sample_Project']
             if lane not in samples_tmp:
                 samples_tmp[ lane ] = {}
@@ -297,17 +331,25 @@ def parseConversionStats(dir):
                     '# Perfect Index Reads' : 0,
                     '# One Mismatch Index Reads' : 0,
                 }
+            if project_id not in stats['total_reads_project']:
+                stats['total_reads_project'][project_id] = 0
+
+            if lane not in stats['total_reads_lane_project']:
+                stats['total_reads_lane_project'][lane] = {}
+            if project_id not in stats['total_reads_lane_project'][lane]:
+                stats['total_reads_lane_project'][lane][project_id] = 0
+
             if sample_id == 'Undetermined':
                 stats['undetermined_reads'] += float(row['# Reads'])
+            else:
+                stats['total_reads_project'][project_id] += float(row['# Reads'])
+                stats['total_reads_lane_project'][lane][project_id]+= float(row['# Reads'])
+
             stats['total_reads'] += float(row['# Reads'])
 
             if lane not in stats['total_reads_lane']:
                 stats['total_reads_lane'][lane] = 0
             stats['total_reads_lane'][lane] += float(row['# Reads'])
-
-            if project_id not in stats['total_reads_project']:
-                stats['total_reads_project'][project_id] = 0
-            stats['total_reads_project'][project_id] += float(row['# Reads'])
 
             samples_tmp[ lane ][ sample_id ]['Index'] = row['Index']
             samples_tmp[ lane ][ sample_id ]['# Reads'] += int(row['# Reads'])
@@ -319,7 +361,7 @@ def parseConversionStats(dir):
             csv_reader = csv.DictReader(q)
             for row in csv_reader:
                 sample_id = row['SampleID']
-                lane = row['Lane']
+                lane = int(row['Lane'])
                 mqs = f'Read {row["ReadNumber"]} Mean Quality Score (PF)'
                 q30 = f'Read {row["ReadNumber"]} % Q30'
                 if mqs not in samples_tmp[ lane ][ sample_id ]:
@@ -355,7 +397,7 @@ def parseConversionStats(dir):
         csv_reader = csv.DictReader(t)
         # for row in islice(csv_reader,0,20):
         for row in csv_reader:
-            lane = row['Lane']
+            lane = int(row['Lane'])
             if lane not in stats['top_unknown']:
                 stats['top_unknown'][lane] = []
             if len(stats['top_unknown'][lane]) < 5:
@@ -363,7 +405,11 @@ def parseConversionStats(dir):
     return stats
 
 def parseSummaryStats( summary ):
-    stats = []
+    stats = {
+        'summary' : [],
+        'all' : {}
+    }
+    tmp = {}
     with open(summary, 'r') as sumcsv:
         lines = sumcsv.readlines()
         line_nr = 0
@@ -372,15 +418,41 @@ def parseSummaryStats( summary ):
             if not line: line_nr+=1;continue
             if line.startswith('Level'):
                 header = [x.rstrip() for x in line.split(",")]
-                for sub_line in lines[line_nr+1:]:
-                    # print (line)
+                sub_lines = lines[line_nr+1:]
+                for sub_line in sub_lines:
+                    line_nr +=1
                     cols = [x.rstrip() for x in sub_line.split(",")]
-                    stats.append(dict(zip(header,cols)))
+                    stats['summary'].append(dict(zip(header,cols)))
                     if sub_line.startswith('Total'): break
-                break
+            elif line.startswith('Read'):
+                read = line.rstrip()
+                line_nr += 1
+                header_line = lines[line_nr].rstrip()
+                header = [x.rstrip() for x in header_line.split(",")]
+                sub_lines = lines[line_nr+1:]
+                # print("READ", read)
+                # print("HEADER",header_line)
+                if read not in tmp:
+                    tmp[read] = {}
+                for sub_line in sub_lines:
+                    line_nr+=1
+                    if sub_line.startswith('Read') or sub_line.startswith('Extracted'): break
+                    cols = [x.rstrip().split(" ")[0] for x in sub_line.split(",")]
+                    if cols[1] == "-": #lane summary line
+                        col_dict = dict(zip(header,cols))
+                        # print("DATA",col_dict['Lane'], col_dict)
+                        tmp[read][ col_dict['Lane'] ] = col_dict
             else:
                 line_nr += 1
 
+    for read in tmp:
+        if '(I)' in read:continue
+        for lane in tmp[read]:
+            if lane not in stats['all']:
+                stats['all'][lane] = {}
+            if read not in stats['all'][lane]:
+                stats['all'][lane][read] = []
+            stats['all'][lane][read] = tmp[read][lane]
     return stats
 
 
@@ -416,11 +488,11 @@ def runSystemCommand(command, logger, shell=False):
 
 
 
-def updateStatus(file, status, step, bool):
+def updateStatus(file, status):
 
-    status[step] = bool
+    # status[step] = bool
     with open(file, 'w') as f:
-        f.write(json.dumps(status))
+        f.write(json.dumps(status, indent=4))
 
 def uploadToArchive(run_dir, logger):
     machine = None
@@ -428,12 +500,16 @@ def uploadToArchive(run_dir, logger):
         machine = run_dir.parents[1].name
     else:
         machine = run_dir.parents[0].name
-    command = None
+    command = "rsync -rahm "
+    if Config.DEVMODE:
+        command += "--dry-run "
+
     logger.info('Uploading run folder to archive storage')
+
     if machine == 'WES-WGS':
-        command = f"rsync -rahm --exclude '*jpg' {run_dir} {Config.USEQ_USER}@{Config.HPC_TRANSFER_SERVER}:{Config.HPC_ARCHIVE_DIR}/{machine}"
+        command += f"--exclude '*jpg' {run_dir} {Config.USEQ_USER}@{Config.HPC_TRANSFER_SERVER}:{Config.HPC_ARCHIVE_DIR}/{machine}"
     else:
-        command = f"rsync -rahm --exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {Config.USEQ_USER}@{Config.HPC_TRANSFER_SERVER}:{Config.HPC_ARCHIVE_DIR}/{machine}"
+        command += f"--exclude '*jpg' --exclude '*fastq.gz' --exclude '*fq.gz' {run_dir} {Config.USEQ_USER}@{Config.HPC_TRANSFER_SERVER}:{Config.HPC_ARCHIVE_DIR}/{machine}"
 
     if not runSystemCommand(command, logger):
         logger.error(f'Failed upload run folder to archive storage')
@@ -441,7 +517,7 @@ def uploadToArchive(run_dir, logger):
 
     return True
 
-def uploadToHPC(lims, run_dir, projectIDs, logger):
+def uploadToHPC(lims, run_dir, pid, logger):
     machine = None
     if 'MyRun' in run_dir.parents[0].name:
         machine = run_dir.parents[1].name
@@ -449,18 +525,20 @@ def uploadToHPC(lims, run_dir, projectIDs, logger):
         machine = run_dir.parents[0].name
     to_sync = ''
     command = '/usr/bin/rsync -rah --update --stats --verbose --prune-empty-dirs '
-    for pid in projectIDs:
-        project = Project(lims, id=pid)
-        project_name = project.name
+    if Config.DEVMODE:
+        command += '--dry-run '
 
-        samples = lims.get_samples(projectlimsid=project.id)
-        analysis_steps = samples[0].udf.get('Analysis','').split(',')
-        if len(analysis_steps) > 1 or project.udf.get('Application','') == 'SNP Fingerprinting':
-            command += f'--include "Conversion/FastQ/{pid}/*.fastq.gz" '
-        else:
-            command += f'--exclude "Conversion/FastQ/{pid}/*.fastq.gz" '
+    project = Project(lims, id=pid)
+    project_name = project.name
 
-    command += " --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/Conversion/Reports/**' --include '*/FastQ/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/**' --include '*.[pP][eE][dD]'"
+    samples = lims.get_samples(projectlimsid=project.id)
+    analysis_steps = samples[0].udf.get('Analysis','').split(',')
+    if len(analysis_steps) > 1 or project.udf.get('Application','') == 'SNP Fingerprinting':
+        command += f'--include "Conversion/{pid}/*.fastq.gz" '
+    else:
+        command += f'--exclude "Conversion/{pid}/*.fastq.gz" '
+
+    command += f" --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/Conversion/{pid}/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/**' --include '*.[pP][eE][dD]'"
     command += " --exclude '*'"
     command += f" {run_dir}"
     command += f" {Config.USEQ_USER}@{Config.HPC_TRANSFER_SERVER}:/{Config.HPC_RAW_ROOT}/{machine}"
@@ -473,7 +551,7 @@ def uploadToHPC(lims, run_dir, projectIDs, logger):
 
     return True
 
-def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
+def uploadToNextcloud(lims, run_dir, pid,logger,mode='fastq', skip_undetermined=False, lanes=None ):
     machine = None
     if 'MyRun' in run_dir.parents[0].name:
         machine = run_dir.parents[1].name
@@ -481,76 +559,74 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
         machine = run_dir.parents[0].name
     flowcell = run_dir.name.split("_")[-1]
     #Create .tar files for upload to nextcloud
-    if mode == 'fastq' or mode == 'wgs':
-        for pid in projectIDs:
-            pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
-            pid_staging.mkdir(parents=True, exist_ok=True)
-
-            pid_samples  = set()
-            pid_dir = Path(f'{run_dir}/Conversion/FastQ/{pid}')
-            for fastq in pid_dir.glob('*.fastq.gz'):
-                name = fastq.name.split('_')[0]
-                pid_samples.add(name)
-
-
-            for sample in pid_samples:
-                logger.info(f'Zipping samples for {pid}')
-                sample_zip = Path(f'{pid_staging}/{sample}.tar')
-                sample_zip_done = Path(f'{pid_staging}/{sample}.tar.done')
-                if not sample_zip_done.is_file():
-                    os.chdir(pid_dir)
-                    command = f'tar -cvf {sample_zip} {sample}_*fastq.gz'
-                    if not runSystemCommand(command, logger, shell=True):
-                        logger.error(f'Failed to create {sample_zip}')
-                        raise
-                    else:
-                        sample_zip_done.touch()
-
-            if len(projectIDs) == 1 and mode != 'wgs':
-
-                logging.info(f'Zipping undetermined reads')
-                und_zip = Path(f'{pid_staging}/undetermined.tar')
-                und_zip_done = Path(f'{pid_staging}/Undetermined.tar.done')
-                if not und_zip_done.is_file():
-                    os.chdir(f'{run_dir}/Conversion/FastQ/')
-                    command = f'tar -cvf {und_zip} Undetermined_*fastq.gz'
-                    if not runSystemCommand(command, logger, shell=True):
-                        logger.error(f'Failed to create {und_zip}')
-                        raise
-                    else:
-                        und_zip_done.touch()
-
-            logger.info(f'Filtering stats for {pid}')
-            report_dir = Path(f'{run_dir}/Conversion/Reports')
-            filterStats(lims, pid, pid_staging, report_dir)
-
-    else:
-        pid = list(projectIDs)[0]
+    # if mode == 'fastq' or mode == 'wgs':
+    if mode == 'fastq':
         pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
         pid_staging.mkdir(parents=True, exist_ok=True)
 
-        # tmp_dir = Path(f'{run_dir}/{pid}')
-        # tmp_dir.mkdir(parents=True, exist_ok=True)
-        #
-        #
-        # logger.info(f'Creating nextcloud dir for {pid}')
-        # command = f"scp -r {tmp_dir} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
-        # if not runSystemCommand(command, logger):
-        #     logger.error(f'Failed to create nextcloud dir for {pid}')
-        #     tmp_dir.rmdir()
-        #     raise
-        #
-        # tmp_dir.rmdir()
+        pid_samples  = set()
+        pid_dir = Path(f'{run_dir}/Conversion/{pid}')
+        for fastq in pid_dir.glob('*.fastq.gz'):
+            name = fastq.name.split('_')[0]
+            pid_samples.add(name)
+
+
+        for sample in pid_samples:
+            logger.info(f'Zipping samples for {pid}')
+            sample_zip = Path(f'{pid_staging}/{sample}.tar')
+            sample_zip_done = Path(f'{pid_staging}/{sample}.tar.done')
+            if not sample_zip_done.is_file():
+                os.chdir(pid_dir)
+                command = f'tar -cvf {sample_zip} {sample}_*fastq.gz'
+                if not runSystemCommand(command, logger, shell=True):
+                    logger.error(f'Failed to create {sample_zip}')
+                    raise
+                else:
+                    sample_zip_done.touch()
+
+        # if mode != 'wgs':
+        if skip_undetermined:
+            logging.info(f'Zipping undetermined reads')
+            und_zip = Path(f'{pid_staging}/undetermined.tar')
+            und_zip_done = Path(f'{pid_staging}/Undetermined.tar.done')
+            if not und_zip_done.is_file():
+                os.chdir(pid_dir)
+                command = f'tar -cvf {und_zip} Undetermined_*fastq.gz'
+                if not runSystemCommand(command, logger, shell=True):
+                    logger.error(f'Failed to create {und_zip}')
+                    raise
+                else:
+                    und_zip_done.touch()
+
+        logger.info(f'Filtering stats for {pid}')
+        report_dir = Path(f'{run_dir}/Conversion/{pid}/Reports')
+        filterStats(lims, pid, pid_staging, report_dir)
+
+    else: #Upload BCL only
+        pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
+        pid_staging.mkdir(parents=True, exist_ok=True)
+
 
         zipped_run = Path(f'{pid_staging}/{pid}.tar')
         zip_done = Path(f'{pid_staging}/{pid}.tar.done')
 
-
-
         if not zip_done.is_file():
             logger.info(f'Zipping {run_dir.name} to {zipped_run}')
             os.chdir(run_dir.parents[0])
-            command = f'tar -cvf {zipped_run} --exclude "Conversion/" --exclude "*fastq.gz*" --exclude "*run_zip.*" {run_dir.name}'
+            # command += " --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/Conversion/Reports/**' --include '*/FastQ/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/**' --include '*.[pP][eE][dD]'"
+            tar_exclude = '--exclude "Data/" --exclude "*Conversion*" --exclude "*fastq.gz*" --exclude "*run_zip.*" --exclude "SampleSheet*" --exclude "status.json" --exclude "mgr.log" --exclude ".mgr_*" '
+
+            tar_include = f'{run_dir.name}/Data/Intensities/s.locs '
+            if lanes:
+                for lane in lanes:
+                    if Config.DEVMODE:
+                        tar_include += f'{run_dir.name}/Data/Intensities/BaseCalls/L00{lane}/C1.1/ '
+                    else:
+                        tar_include += f'{run_dir.name}/Data/Intensities/BaseCalls/L00{lane}/ '
+            else:
+                tar_include += f'{run_dir.name}/Data/Intensities/BaseCalls/'
+            command = f'tar -cvf {zipped_run} {tar_exclude} {tar_include} {run_dir.name}'
+
             if not runSystemCommand(command, logger, shell=True):
                 logger.error(f'Failed to zip {run_dir.name} to {zipped_run}')
                 raise
@@ -559,75 +635,19 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
 
 
     #Upload .tar/stats & md5sums to nextcloud
-    for pid in projectIDs:
-
-        upload_id = f"{pid}_{flowcell}"
-
-        pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
-
-        transfer_done = Path(f'{Config.CONV_STAGING_DIR}/{upload_id}.done')
+    upload_id = f"{pid}_{flowcell}"
+    pid_staging = Path(f'{Config.CONV_STAGING_DIR}/{pid}')
+    transfer_done = Path(f'{Config.CONV_STAGING_DIR}/{upload_id}.done')
 
 
-        if nextcloud_util.checkExists(upload_id) and nextcloud_util.checkExists(f'{upload_id}.done'):
-            #Previous upload succeeded but needs to be replaced (e.g. conversion incorrect)
-            logger.info(f'Deleting previous version of {upload_id} on Nextcloud')
-            nextcloud_util.delete(upload_id)
-            nextcloud_util.delete(f'{upload_id}.done')
-        elif nextcloud_util.checkExists(upload_id):
-            #Previous upload failed and needs to be replaced. First make sure a .done file get's uploaded, wait 1 minute for the user rights to change & delete it
-            logger.info(f'Deleting previous version of {upload_id} on Nextcloud')
-            transfer_done.touch()
-
-            command = f"scp -r {transfer_done} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
-            logger.info(f'Transferring {transfer_done} to nextcloud')
-            if not runSystemCommand(command, logger):
-                logger.error(f'Failed to upload {transfer_done} to nextcloud')
-                raise
-            transfer_done.unlink()
-            time.sleep(60)
-            nextcloud_util.delete(upload_id)
-            nextcloud_util.delete(f'{upload_id}.done')
-
-        tmp_dir = Path(f'{run_dir}/{upload_id}')
-        tmp_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f'Creating nextcloud dir for {upload_id}')
-        command = f"scp -r {tmp_dir} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
-        if not runSystemCommand(command, logger):
-            logger.error(f'Failed to create nextcloud dir for {upload_id}')
-            tmp_dir.rmdir()
-            raise
-
-        tmp_dir.rmdir()
-
-
-        logger.info(f'Creating md5sums for {upload_id}')
-        os.chdir(pid_staging)
-        command = f'md5sum *.tar > {pid_staging}/md5sums.txt'
-        if not runSystemCommand(command, logger, shell=True):
-            logger.error(f'Failed to create md5sums for files in {pid_staging}')
-            raise
-
-
-        logger.info(f'Transferring {pid_staging}/*.tar to nextcloud')
-        command = f"scp -r {pid_staging}/*.tar {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{upload_id}"
-        if not runSystemCommand(command, logger, shell=True):
-            logger.error(f'Failed to upload {pid_staging}/*.tar to nextcloud')
-            raise
-
-        if mode == 'fastq':
-            logger.info(f'Transferring {pid_staging}/*.csv to nextcloud')
-            command = f"scp -r {pid_staging}/*.csv {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{upload_id}"
-            if not runSystemCommand(command, logger, shell=True):
-                logger.error(f'Failed to upload {pid_staging}/*.csv to nextcloud')
-                raise
-
-        logger.info(f'Transferring {pid_staging}/*.txt to nextcloud')
-        command = f"scp -r {pid_staging}/*.txt {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{upload_id} "
-        if not runSystemCommand(command, logger, shell=True):
-            logger.error(f'Failed to upload {pid_staging}/*.txt to nextcloud')
-            raise
-
-
+    if nextcloud_util.checkExists(upload_id) and nextcloud_util.checkExists(f'{upload_id}.done'):
+        #Previous upload succeeded but needs to be replaced (e.g. conversion incorrect)
+        logger.info(f'Deleting previous version of {upload_id} on Nextcloud')
+        nextcloud_util.delete(upload_id)
+        nextcloud_util.delete(f'{upload_id}.done')
+    elif nextcloud_util.checkExists(upload_id):
+        #Previous upload failed and needs to be replaced. First make sure a .done file get's uploaded, wait 1 minute for the user rights to change & delete it
+        logger.info(f'Deleting previous version of {upload_id} on Nextcloud')
         transfer_done.touch()
 
         command = f"scp -r {transfer_done} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
@@ -635,10 +655,62 @@ def uploadToNextcloud(lims, run_dir, mode,projectIDs,logger):
         if not runSystemCommand(command, logger):
             logger.error(f'Failed to upload {transfer_done} to nextcloud')
             raise
-        else:
-            logger.info(f'Cleaning up {pid_staging}')
-            for file in pid_staging.iterdir():
-                file.unlink()
+        transfer_done.unlink()
+        time.sleep(60)
+        nextcloud_util.delete(upload_id)
+        nextcloud_util.delete(f'{upload_id}.done')
+
+    tmp_dir = Path(f'{run_dir}/{upload_id}')
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f'Creating nextcloud dir for {upload_id}')
+    command = f"scp -r {tmp_dir} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
+    if not runSystemCommand(command, logger):
+        logger.error(f'Failed to create nextcloud dir for {upload_id}')
+        tmp_dir.rmdir()
+        raise
+
+    tmp_dir.rmdir()
+
+
+    logger.info(f'Creating md5sums for {upload_id}')
+    os.chdir(pid_staging)
+    command = f'md5sum *.tar > {pid_staging}/md5sums.txt'
+    if not runSystemCommand(command, logger, shell=True):
+        logger.error(f'Failed to create md5sums for files in {pid_staging}')
+        raise
+
+
+    logger.info(f'Transferring {pid_staging}/*.tar to nextcloud')
+    command = f"scp -r {pid_staging}/*.tar {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{upload_id}"
+    if not runSystemCommand(command, logger, shell=True):
+        logger.error(f'Failed to upload {pid_staging}/*.tar to nextcloud')
+        raise
+
+    if mode == 'fastq':
+        logger.info(f'Transferring {pid_staging}/*.csv to nextcloud')
+        command = f"scp -r {pid_staging}/*.csv {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{upload_id}"
+        if not runSystemCommand(command, logger, shell=True):
+            logger.error(f'Failed to upload {pid_staging}/*.csv to nextcloud')
+            raise
+
+    logger.info(f'Transferring {pid_staging}/*.txt to nextcloud')
+    command = f"scp -r {pid_staging}/*.txt {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/{upload_id} "
+    if not runSystemCommand(command, logger, shell=True):
+        logger.error(f'Failed to upload {pid_staging}/*.txt to nextcloud')
+        raise
+
+
+    transfer_done.touch()
+
+    command = f"scp -r {transfer_done} {Config.NEXTCLOUD_HOST}:{Config.NEXTCLOUD_DATA_ROOT}/{Config.NEXTCLOUD_RAW_DIR}/"
+    logger.info(f'Transferring {transfer_done} to nextcloud')
+    if not runSystemCommand(command, logger):
+        logger.error(f'Failed to upload {transfer_done} to nextcloud')
+        raise
+    else:
+        logger.info(f'Cleaning up {pid_staging}')
+        for file in pid_staging.iterdir():
+            file.unlink()
 
     return True
 
@@ -672,6 +744,10 @@ def manageRuns(lims, skip_demux_check):
                 first_tile = run_info.getElementsByTagName('Tile')[0].firstChild.nodeValue
                 first_tile = first_tile.split("_")[-1]
 
+                default_lanes = int(run_info.getElementsByTagName('FlowcellLayout')[0].getAttribute('LaneCount'))
+                default_lanes = set(range(1, default_lanes+1))
+
+# <FlowcellLayout LaneCount="1" SurfaceCount="2" SwathCount="6" TileCount="11">
                 #Logging set up
                 logger = logging.getLogger('Run_Manager')
                 logger.setLevel(logging.DEBUG)
@@ -694,24 +770,16 @@ def manageRuns(lims, skip_demux_check):
                 logger.addHandler(ch)
 
                 status = {
-                    'Demux-check' : False,
-                    'Conversion' : False,
-                    'Transfer-nc' : False,
-                    'Transfer-hpc' : False,
-                    'Archive' : False,
+                    'run' : {
+                        'Stats' : False,
+                        'Archive' : False,
+                    },
+                    'projects' : {
+                        # 'Demultiplexing' : False,
+                        # 'Transfer-nc' : False,
+                        # 'Transfer-hpc' : False,
+                    },
                 }
-                try:
-                    #Set up important directories
-                    logger.info('Creating conversion directories')
-                    Path(f'{run_dir}/Conversion/Reports').mkdir(parents=True, exist_ok=True)
-                    Path(f'{run_dir}/Conversion/FastQ').mkdir(parents=True, exist_ok=True)
-                    Path(f'{run_dir}/Conversion/Demux-check').mkdir(parents=True, exist_ok=True)
-                except :
-                    logger.error(f'Failed to create conversion directories:\n{traceback.format_exc() }')
-                    running_file.unlink()
-                    failed_file.touch()
-                    statusMail(lims,'Failed (see logs)', run_dir, [])
-                    continue
 
                 #Check/Set run processing status
                 if status_file.is_file():
@@ -720,7 +788,8 @@ def manageRuns(lims, skip_demux_check):
                         status_text = s.read()
                         status = json.loads( status_text )
                         logger.info(f'Current status : {status_text}')
-                updateStatus(status_file, status, 'Demux-check', False) #Make sure status file exists
+
+                # updateStatus(status_file, status, 'Demux-check', False) #Make sure status file exists
 
                 flowcell = run_dir.name.split("_")[-1]
 
@@ -766,292 +835,145 @@ def manageRuns(lims, skip_demux_check):
                     logger.error(f'Failed to find SampleSheet.csv')
                     running_file.unlink()
                     failed_file.touch()
-                    statusMail(lims,'Failed (see logs)', run_dir, [])
-                    continue
+                    statusMail(lims,'Failed (see logs)', run_dir, {}, {})
 
 
-                #Group the samples per projectID (needed for combined runs)
+
+                #Gather sample/project & lane info from samplesheet & runinfo
                 logger.info('Extracting sample / project information from samplesheet')
-                projectIDs = set()
-                sheet = parseSampleSheet(sample_sheet)
-                for sample in sheet['samples']:
-                    projectIDs.add( sample[ sheet['header'].index('Sample_Project') ] )
+
+                run_data = {
+                    'lanes' : {}
+                }
+                project_data = {
+                }
+                for lane in default_lanes:
+                    run_data['lanes'][lane] = {
+                        'projects' : set(),
+                        'samples' : [],
+                    }
+                master_sheet = parseSampleSheet(sample_sheet)
+                for sample in master_sheet['samples']:
+                    pid = sample[ master_sheet['header'].index('Sample_Project') ]
+                    if pid not in project_data:
+                        project_data[pid] = {
+                            'samples' : [],
+                            'on_lanes' : set()
+                        }
+                    project_data[pid]['samples'].append(sample)
+
+                    if 'Lane' in master_sheet['header']:
+                        lane = int(sample[ master_sheet['header'].index('Lane') ])
+                        project_data[pid]['on_lanes'].add(lane)
+
+                        if lane not in run_data['lanes']:
+                            run_data['lanes'][lane] = {
+                                'projects' : set(),
+                                'samples' : []
+                            }
+                        run_data['lanes'][lane]['projects'].add(pid)
+                        run_data['lanes'][lane]['samples'].append(pid)
+
+                for lane in run_data['lanes']: #Check if each lane has at least 1 projectID, if not add all
+                    if not run_data['lanes'][lane]['projects'] and not 'Lane' in master_sheet['header']:
+                #         run_data['lanes'][lane]['projects']
+                        for pid in project_data:
+                            run_data['lanes'][lane]['projects'].add(pid)
+                            run_data['lanes'][lane]['samples'].extend( project_data[pid]['samples'] )
+                            project_data[pid]['on_lanes'].add(lane)
 
 
-                #If demultiplexing check was not succesfull/not done
-                if status['Demux-check'] == False and not skip_demux_check:
-                    logger.info('Starting demultiplexing check')
-                    try:
-                        status['Demux-check']  = demuxCheck( run_dir, logger )
-                        updateStatus(status_file, status, 'Demux-check', status['Demux-check'])
-                    except :
-                        logger.error(f'Failed to run demultiplexing check\n{traceback.format_exc() } ')
-                        running_file.unlink()
-                        failed_file.touch()
-                        statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                        continue
-
-
-                if status['Demux-check'] or skip_demux_check: #Demultiplexing will probably succeed, so carry on
-
-                    if not status['Conversion']:
-                        logger.info('Starting demultiplexing')
-
-                        command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {sample_sheet}'
-                        if Config.DEVMODE: command += f" --tiles {first_tile} "
-                        if not runSystemCommand(command, logger):
-                            logger.error(f'Failed to run demultiplexing\n')
-                            running_file.unlink()
-                            failed_file.touch()
-                            statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                            continue
-
-
-
-                        logger.info('Moving Conversion/FastQ/Reports to Conversion/Reports')
-                        try:
-                            stats_files = os.listdir(f'{run_dir}/Conversion/FastQ/Reports/')
-                            for f in stats_files:
-                                shutil.move(os.path.join(f'{run_dir}/Conversion/FastQ/Reports/', f), f'{run_dir}/Conversion/Reports')
-                        except :
-                            logger.error(f'Failed to move Conversion/FastQ/Reports to Conversion/Reports\n{traceback.format_exc() }')
-                            running_file.unlink()
-                            failed_file.touch()
-                            statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                            continue
-
-
-
-                        command = f'rm -r {run_dir}/Conversion/FastQ/Reports'
-                        if not runSystemCommand(command, logger):
-                            logger.error(f'Failed to remove Conversion/FastQ/Reports \n ')
-                            running_file.unlink()
-                            failed_file.touch()
-                            statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                            continue
+                #Start processing per projectID unless Demultiplexing for this projectID is already finished
+                for pid in project_data:
+                    transfer_mode = None
+                    if pid not in status['projects']:
+                        status['projects'][pid] = {
+                            'BCL-Only' : False,
+                            'Demultiplexing' : False,
+                            'Transfer-nc' : False,
+                            'Transfer-hpc' : False,
+                        }
+                        updateStatus(status_file, status)
+                    if not status['projects'][pid]['Demultiplexing'] and not status['projects'][pid]['BCL-Only']:
+                        logger.info(f'Starting demultiplexing attempt for projectID {pid}')
 
                         try:
-                            generateRunStats(run_dir, logger)
-                        except Exception as e:
-                            logger.error(f'Failed to create conversion statistics. If this is ok please set Conversion to True in {status_file} and remove {failed_file}\n{traceback.format_exc() }')
+                            status['projects'][pid]['Demultiplexing'] = demultiplexPID(run_dir, pid, project_data[pid],run_data ,master_sheet,first_tile,logger)
+                            if not status['projects'][pid]['Demultiplexing'] : status['projects'][pid]['BCL-Only'] = True
+                            updateStatus(status_file, status)
+                        except:
                             running_file.unlink()
                             failed_file.touch()
-                            statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                            continue
-##
-
-                        addFlowcellToFastq(run_dir, flowcell, logger)
-
-
-
-                        try:
-                            zip_file = zipConversionReport(run_dir, logger)
-                        except Exception as e:
-                            logger.error(f'Failed to zip the conversion report\n{traceback.format_exc() } ')
-                            running_file.unlink()
-                            failed_file.touch()
-                            statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
+                            statusMail(lims,'Failed (see logs)', run_dir, project_data, run_data)
                             continue
 
-                        updateStatus(status_file, status, 'Conversion', True)
+                    if status['projects'][pid]['Demultiplexing']:
+                        transfer_mode = 'fastq'
+                    elif status['projects'][pid]['BCL-Only']:
+                        transfer_mode = 'bcl'
 
-                    if status['Conversion']: #Conversion succesful,
-                        if not status['Transfer-nc']:
-                            try:
-                                if not Config.DEVMODE:
-                                    status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'fastq',projectIDs, logger)
-                                updateStatus(status_file, status, 'Transfer-nc', status['Transfer-nc'])
-                            except Exception as e:
-                                logger.error(f'Failed to run transfer to Nextcloud\n{traceback.format_exc() }')
-                                running_file.unlink()
-                                failed_file.touch()
-                                statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                                continue
-
-                        if not status['Transfer-hpc']:
-                            try:
-                                if not Config.DEVMODE:
-                                    status['Transfer-hpc'] = uploadToHPC(lims, run_dir, projectIDs,logger)
-                                updateStatus(status_file, status, 'Transfer-hpc', status['Transfer-hpc'])
-                            except Exception as e:
-                                logger.error(f'Failed to run transfer to HPC\n{traceback.format_exc() }')
-                                running_file.unlink()
-                                failed_file.touch()
-                                statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                                continue
-                else: #Skip straight to transfer
-                    logger.info(f'Demultiplexing check failed, skipping demultiplexing and uploading BCL files to nextcloud instead')
-                    try:
-                        generateRunStats(run_dir, logger)
-                    except Exception as e:
-                        logger.error(f'Failed to create run statistics. The sequencing run probably failed.\n{traceback.format_exc() }')
-                        running_file.unlink()
-                        failed_file.touch()
-                        statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                        continue
-
-                    if not status['Transfer-nc']:
+                    if not status['projects'][pid]['Transfer-nc']:
                         try:
-                            if not Config.DEVMODE:
-                                status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'bcl',projectIDs,logger)
-                            updateStatus(status_file, status, 'Transfer-nc',status['Transfer-nc'])
+                            status['projects'][pid]['Transfer-nc'] = uploadToNextcloud(lims,run_dir,pid, logger, mode=transfer_mode,skip_undetermined=False,lanes=project_data[pid]['on_lanes'])
+                            updateStatus(status_file, status)
                         except Exception as e:
                             logger.error(f'Failed to run transfer to Nextcloud\n{traceback.format_exc() }')
                             running_file.unlink()
                             failed_file.touch()
-                            statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
+                            statusMail(lims,'Failed (see logs)', run_dir, project_data, run_data)
                             continue
 
-                    if not status['Transfer-hpc']:
+                    if not status['projects'][pid]['Transfer-hpc']:
                         try:
-                            if not Config.DEVMODE:
-                                status['Transfer-hpc'] = uploadToHPC(lims, run_dir, projectIDs,logger)
-                            updateStatus(status_file, status, 'Transfer-hpc',status['Transfer-hpc'])
+                            status['projects'][pid]['Transfer-hpc'] = uploadToHPC(lims, run_dir, pid,logger)
+                            updateStatus(status_file, status)
                         except Exception as e:
                             logger.error(f'Failed to run transfer to HPC\n{traceback.format_exc() }')
                             running_file.unlink()
                             failed_file.touch()
-                            statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
+                            statusMail(lims,'Failed (see logs)', run_dir, project_data, run_data)
                             continue
 
-                if not status['Archive']:
+
+                if not status['run']['Stats']:
                     try:
-                        if not Config.DEVMODE:
-                            status['Archive'] = uploadToArchive(run_dir, logger)
-                        updateStatus(status_file, status, 'Archive',status['Archive'])
+                        status['run']['Stats'] = generateRunStats(run_dir, logger)
+
+                        updateStatus(status_file, status)
+                    except Exception as e:
+                        logger.error(f'Failed to create conversion statistics. If this is ok please set ["run"]["Stats"] to True in {status_file} and remove {failed_file}\n{traceback.format_exc() }')
+                        running_file.unlink()
+                        failed_file.touch()
+                        statusMail(lims,'Failed (see logs)', run_dir, project_data, run_data)
+                        continue
+                if not status['run']['Archive']:
+                    try:
+                        status['run']['Archive'] = uploadToArchive(run_dir, logger)
+                        updateStatus(status_file, status)
                     except Exception as e:
                         logger.error(f'Failed to run transfer to archive storage\n{traceback.format_exc() }')
                         running_file.unlink()
                         failed_file.touch()
-                        statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
+                        statusMail(lims,'Failed (see logs)', run_dir, project_data, run_data)
                         continue
 
+                if status['run']['Stats'] and status['run']['Archive']:
+                    project_transfers_succesful = True
+                    for pid in project_data:
+                        if not status['projects'][pid]['Transfer-nc']:
+                            project_transfers_succesful = False
+                            break
+                        if not status['projects'][pid]['Transfer-hpc']:
+                            project_transfers_succesful = False
+                            break
 
-                if status['Transfer-nc'] and status['Transfer-hpc'] and status['Archive'] or Config.DEVMODE:
-                    cleanup(run_dir, logger)
-                    statusMail(lims,'Finished', run_dir,projectIDs)
-                    running_file.unlink()
-                    done_file.touch()
-            elif dx_transfer_done.is_file() and not (running_file.is_file() or failed_file.is_file() or done_file.is_file()): #Route for WGS / WES runs
-                #Lock directory
-                running_file.touch()
-
-                #Logging set up
-                logger = logging.getLogger('Run_Manager')
-                logger.setLevel(logging.DEBUG)
-
-                #Set up file log handler
-                fh = logging.FileHandler( log_file )
-                fh.setLevel(logging.INFO)
-
-                #Set up console log handler
-                ch = logging.StreamHandler()
-                ch.setLevel(logging.DEBUG)
-
-                #Create and add formatter
-                formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-                ch.setFormatter(formatter)
-                fh.setFormatter(formatter)
-
-                #Add handlers to log
-                logger.addHandler(fh)
-                logger.addHandler(ch)
-
-
-                status = {
-                    'Demux-check' : True,
-                    'Conversion' : True,
-                    'Transfer-nc' : False,
-                    'Transfer-hpc' : False,
-                    'Archive' : False,
-                }
-                try:
-                    #Set up important directories
-                    logger.info('Creating conversion directories')
-                    Path(f'{run_dir}/Conversion/Reports').mkdir(parents=True, exist_ok=True)
-                    Path(f'{run_dir}/Conversion/FastQ').mkdir(parents=True, exist_ok=True)
-                except :
-                    logger.error(f'Failed to create conversion directories:\n{traceback.format_exc() }')
-                    running_file.unlink()
-                    failed_file.touch()
-                    statusMail(lims,'Failed (see logs)', run_dir, [])
-                    continue
-                flowcell = run_dir.name.split("_")[-1]
-                data_dir = Path(f'{run_dir}/Data/Intensities/BaseCalls/')
-                #Check if samplesheet is now present, if not give error
-                if not sample_sheet.is_file():
-                    logger.error(f'Failed to find SampleSheet.csv')
-                    running_file.unlink()
-                    failed_file.touch()
-                    statusMail(lims,'Failed (see logs)', run_dir, [])
-                    continue
-
-                #Group the samples per projectID (needed for combined runs)
-                logger.info('Extracting sample / project information from samplesheet')
-                projectIDs = set()
-                sheet = parseSampleSheet(sample_sheet)
-                for sample in sheet['samples']:
-                    projectIDs.add( sample[ sheet['header'].index('Sample_Project') ] )
-
-                #Move data from Dx dir structure to useq
-                logger.info('Moving FastQ from Dx dirs to USEQ dirs')
-                for pid in projectIDs:
-                    pid_dir = Path(f'{data_dir}/{pid}')
-                    if pid_dir.is_dir():
-                        shutil.move(f'{pid_dir}', f'{run_dir}/Conversion/FastQ/')
-                        logger.info(f'Moving {pid_dir} to {run_dir}/Conversion/FastQ/ ')
-
-                #Generate Run stats
-                try:
-                    generateRunStats(run_dir, logger)
-                except Exception as e:
-                    logger.error(f'Failed to create run statistics. The sequencing run probably failed.\n{traceback.format_exc() }')
-                    running_file.unlink()
-                    failed_file.touch()
-                    statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                    continue
-
-                if not status['Transfer-nc']:
-                    try:
-                        status['Transfer-nc'] = uploadToNextcloud(lims,run_dir, 'wgs',projectIDs,logger)
-                        updateStatus(status_file, status, 'Transfer-nc',status['Transfer-nc'])
-                    except Exception as e:
-                        logger.error(f'Failed to run transfer to Nextcloud\n{traceback.format_exc() }')
+                    if project_transfers_succesful:
+                        # cleanup(run_dir, logger)
+                        statusMail(lims,'Finished', run_dir,project_data, run_data)
                         running_file.unlink()
-                        failed_file.touch()
-                        statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                        continue
-                if not status['Transfer-hpc']:
-                    try:
-                        status['Transfer-hpc'] = uploadToHPC(lims, run_dir, projectIDs,logger)
-                        updateStatus(status_file, status, 'Transfer-hpc',status['Transfer-hpc'])
-                    except Exception as e:
-                        logger.error(f'Failed to run transfer to HPC\n{traceback.format_exc() }')
-                        running_file.unlink()
-                        failed_file.touch()
-                        statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                        continue
-                if not status['Archive']:
-                    try:
-                        status['Archive'] = uploadToArchive(run_dir, logger)
-                        updateStatus(status_file, status, 'Archive',status['Archive'])
-                    except Exception as e:
-                        logger.error(f'Failed to run transfer to archive storage\n{traceback.format_exc() }')
-                        running_file.unlink()
-                        failed_file.touch()
-                        statusMail(lims,'Failed (see logs)', run_dir, projectIDs)
-                        continue
+                        done_file.touch()
 
-                if status['Transfer-nc'] and status['Transfer-hpc'] and status['Archive']:
-                    statusMail(lims,'Finished', run_dir, projectIDs)
-                    running_file.unlink()
-                    done_file.touch()
-
-
-
-
-
-def statusMail(lims, message, run_dir, projectIDs):
+def statusMail(lims, message, run_dir, project_data, run_data):
     status_file = Path(f'{run_dir}/status.json')
     log_file = Path(f'{run_dir}/mgr.log')
     summary_stats_file = Path(f'{run_dir}/Conversion/Reports/{run_dir.name}_summary.csv')
@@ -1076,7 +998,7 @@ def statusMail(lims, message, run_dir, projectIDs):
 
     expected_reads = getExpectedReads(f'{run_dir}/RunParameters.xml')
     expected_yields = getExpectedYield(f'{run_dir}/RunInfo.xml', expected_reads)
-
+    # print(projectIDs)
     conversion_stats = {}
     summary_stats = {}
     if demux_stats.is_file():
@@ -1096,7 +1018,7 @@ def statusMail(lims, message, run_dir, projectIDs):
     }
 
     project_names = {}
-    for pid in projectIDs:
+    for pid in project_data:
         project = Project(lims, id=pid)
         project_name = project.name
         project_names[pid] = project_name
@@ -1111,10 +1033,12 @@ def statusMail(lims, message, run_dir, projectIDs):
         'nr_reads' : f'{conversion_stats["total_reads"]:,.0f} / {expected_reads:,}' if 'total_reads' in conversion_stats else 0,
         'expected_yields' : expected_yields,
         'conversion_stats': conversion_stats,
-        'summary_stats' : summary_stats
+        'summary_stats' : summary_stats,
+        'run_data' : run_data,
     }
 
-
+        # 'project_data' : project_data,
+        #
 
 
     mail_content = renderTemplate('conversion_status_mail.html', template_data)
@@ -1124,13 +1048,6 @@ def statusMail(lims, message, run_dir, projectIDs):
         mail_subject = f'[USEQ] Status ({run_dir}): {message}'
     sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,Config.MAIL_ADMINS, attachments=attachments)
 
-def writeSampleSheet(samplesheet, header, samples, top):
-
-    # with open(samplesheet, 'w') as new_sheet:
-    new_sheet.write(top)
-    new_sheet.write(f'{",".join(header)}\n')
-    for sample in samples:
-        new_sheet.write(f'{",".join(sample)}\n')
 
 def zipConversionReport(run_dir,logger):
     """Zip conversion reports."""
