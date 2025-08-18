@@ -179,8 +179,7 @@ def filterStats(lims, pid, pid_staging, report_dir):
                 if line.startswith('Lane') or parts[1] in sample_names:
                     filtered.write(line)
 
-
-def generateRunStats(run_dir, logger):
+def generateRunStats(lims,run_dir, logger):
     """Create run stats files using interop tool."""
     conversion_dir = Path(f'{run_dir}/Conversion/')
     stats_dir = Path(f'{run_dir}/Conversion/Reports')
@@ -283,6 +282,7 @@ def generateRunStats(run_dir, logger):
 
                 all_top_unknown.write(tu.read())
 
+    uploadToHPC(lims, run_dir, None, logger)
     return True
 
 def getExpectedYield(run_info_xml, expected_reads):
@@ -297,8 +297,6 @@ def getExpectedYield(run_info_xml, expected_reads):
             else:
                 yields['r2'] = (float( read.getAttribute('NumCycles')) * expected_reads) / 1000000000
     return yields
-
-
 
 def parseConversionStats(dir):
     demux_stats = f'{dir}/Demultiplex_Stats.csv'
@@ -486,8 +484,6 @@ def runSystemCommand(command, logger, shell=False):
     else:
         return True
 
-
-
 def updateStatus(file, status):
 
     # status[step] = bool
@@ -528,17 +524,21 @@ def uploadToHPC(lims, run_dir, pid, logger):
     if Config.DEVMODE:
         command += '--dry-run '
 
-    project = Project(lims, id=pid)
-    project_name = project.name
+    if pid:
+        project = Project(lims, id=pid)
+        project_name = project.name
 
-    samples = lims.get_samples(projectlimsid=project.id)
-    analysis_steps = samples[0].udf.get('Analysis','').split(',')
-    if len(analysis_steps) > 1 or project.udf.get('Application','') == 'SNP Fingerprinting':
-        command += f'--include "Conversion/{pid}/*.fastq.gz" '
+        samples = lims.get_samples(projectlimsid=project.id)
+        analysis_steps = samples[0].udf.get('Analysis','').split(',')
+        if len(analysis_steps) > 1 or project.udf.get('Application','') == 'SNP Fingerprinting':
+            command += f'--include "Conversion/{pid}/*.fastq.gz" '
+        else:
+            command += f'--exclude "Conversion/{pid}/*.fastq.gz" '
+
+        command += f" --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/Conversion/{pid}/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/**' --include '*.[pP][eE][dD]'"
     else:
-        command += f'--exclude "Conversion/{pid}/*.fastq.gz" '
+        command += f" --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/Conversion/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/**' --include '*.[pP][eE][dD]'"
 
-    command += f" --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/Conversion/{pid}/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/**' --include '*.[pP][eE][dD]'"
     command += " --exclude '*'"
     command += f" {run_dir}"
     command += f" {Config.USEQ_USER}@{Config.HPC_TRANSFER_SERVER}:/{Config.HPC_RAW_ROOT}/{machine}"
@@ -937,7 +937,7 @@ def manageRuns(lims, skip_demux_check):
 
                 if not status['run']['Stats']:
                     try:
-                        status['run']['Stats'] = generateRunStats(run_dir, logger)
+                        status['run']['Stats'] = generateRunStats(lims, run_dir, logger)
 
                         updateStatus(status_file, status)
                     except Exception as e:
@@ -1047,7 +1047,6 @@ def statusMail(lims, message, run_dir, project_data, run_data):
     else:
         mail_subject = f'[USEQ] Status ({run_dir}): {message}'
     sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,Config.MAIL_ADMINS, attachments=attachments)
-
 
 def zipConversionReport(run_dir,logger):
     """Zip conversion reports."""
