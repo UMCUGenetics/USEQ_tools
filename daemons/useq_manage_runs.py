@@ -625,7 +625,7 @@ def uploadToNextcloud(lims, run_dir, pid,logger,mode='fastq', skip_undetermined=
                         tar_include += f'{run_dir.name}/Data/Intensities/BaseCalls/L00{lane}/ '
             else:
                 tar_include += f'{run_dir.name}/Data/Intensities/BaseCalls/'
-            command = f'tar -cvf {zipped_run} {tar_exclude} {tar_include} {run_dir.name}'
+            command = f'tar -cvf {zipped_run} {tar_exclude} {tar_include} {run_dir.name}/RunInfo.xml {run_dir.name}/RunParameters.xml'
 
             if not runSystemCommand(command, logger, shell=True):
                 logger.error(f'Failed to zip {run_dir.name} to {zipped_run}')
