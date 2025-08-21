@@ -551,7 +551,7 @@ def uploadToHPC(lims, run_dir, pid, logger):
 
     return True
 
-def uploadToNextcloud(lims, run_dir, pid,logger,mode='fastq', skip_undetermined=False, lanes=None ):
+def uploadToNextcloud(lims, run_dir, pid,logger,mode='fastq', skip_undetermined=True, lanes=None ):
     machine = None
     if 'MyRun' in run_dir.parents[0].name:
         machine = run_dir.parents[1].name
@@ -568,7 +568,8 @@ def uploadToNextcloud(lims, run_dir, pid,logger,mode='fastq', skip_undetermined=
         pid_dir = Path(f'{run_dir}/Conversion/{pid}')
         for fastq in pid_dir.glob('*.fastq.gz'):
             name = fastq.name.split('_')[0]
-            pid_samples.add(name)
+            if name != 'Undetermined':
+                pid_samples.add(name)
 
 
         for sample in pid_samples:
@@ -585,7 +586,7 @@ def uploadToNextcloud(lims, run_dir, pid,logger,mode='fastq', skip_undetermined=
                     sample_zip_done.touch()
 
         # if mode != 'wgs':
-        if skip_undetermined:
+        if not skip_undetermined:
             logging.info(f'Zipping undetermined reads')
             und_zip = Path(f'{pid_staging}/undetermined.tar')
             und_zip_done = Path(f'{pid_staging}/Undetermined.tar.done')
@@ -913,8 +914,16 @@ def manageRuns(lims, skip_demux_check):
                         transfer_mode = 'bcl'
 
                     if not status['projects'][pid]['Transfer-nc']:
+                        # project_data[pid]['on_lanes']
+                        skip_undetermined = False
+                        for lane in project_data[pid]['on_lanes']:
+                            if len (run_data['lanes'][lane]['projects']) > 1:
+                                skip_undetermined = True
+
+                        if skip_undetermined:
+                            logger.info(f'Skipping upload of undetermined reads for {pid}')
                         try:
-                            status['projects'][pid]['Transfer-nc'] = uploadToNextcloud(lims,run_dir,pid, logger, mode=transfer_mode,skip_undetermined=False,lanes=project_data[pid]['on_lanes'])
+                            status['projects'][pid]['Transfer-nc'] = uploadToNextcloud(lims,run_dir,pid, logger, mode=transfer_mode,skip_undetermined=skip_undetermined,lanes=project_data[pid]['on_lanes'])
                             updateStatus(status_file, status)
                         except Exception as e:
                             logger.error(f'Failed to run transfer to Nextcloud\n{traceback.format_exc() }')
