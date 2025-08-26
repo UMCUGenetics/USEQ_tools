@@ -977,7 +977,7 @@ def manageRuns(lims, skip_demux_check):
                             break
 
                     if project_transfers_succesful:
-                        # cleanup(run_dir, logger)
+                        cleanup(run_dir, logger)
                         statusMail(lims,'Finished', run_dir,project_data, run_data)
                         running_file.unlink()
                         done_file.touch()
