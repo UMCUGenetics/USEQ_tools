@@ -108,8 +108,8 @@ def parseSummaryStats(dir):
 
 def parseConversionStats(lims, dir, pid):
 
-    demux_stats = Path(f'{dir}/Conversion/Reports/Demultiplex_Stats.csv')
-    qual_metrics = Path(f'{dir}/Conversion/Reports/Quality_Metrics.csv')
+    demux_stats = Path(f'{dir}/Conversion/{pid}/Reports/Demultiplex_Stats.csv')
+    qual_metrics = Path(f'{dir}/Conversion/{pid}/Reports/Quality_Metrics.csv')
     if not demux_stats.is_file():
         print(f'Warning : Could not find {demux_stats} file.')
         return None
@@ -325,13 +325,14 @@ def getNanoporeRunDetails( lims, project_id, fid ):
     latest_date = sorted(runs.keys())[-1]
     return runs[latest_date]
 
-def getIlluminaRunDetails( lims, project_name, fid ):
+def getIlluminaRunDetails( lims, project, fid ):
     """Get the most recent raw run info based on project name and allowed RUN_PROCESSES"""
 
     # illumina_seq_steps = Config.WORKFLOW_STEPS['SEQUENCING']['steps']['ILLUMINA SEQUENCING']['names'] + ['NextSeq Run (NextSeq) 1.0','MiSeq Run (MiSeq) 4.0','HiSeq Run (HiSeq) 5.0']
     runs = {}
+
     project_processes = lims.get_processes(
-        projectname=project_name,
+        projectname=project.name,
 
     )
 
@@ -346,13 +347,36 @@ def getIlluminaRunDetails( lims, project_name, fid ):
             else:
                 flowcell_id = process.udf['Flow Cell ID']
 
+            denature_step = process.parent_processes()[0]
+            phix_control = 0
+            loading_conc = 0
+
+            if '% PhiX Control' in denature_step.udf: #NextSeq2000 & iSeq runs
+                phix_control = denature_step.udf['% PhiX Control']
+                for io_map in process.input_output_maps:
+                    input_artifact,output_artifact = io_map
+                    input_artifact = input_artifact['uri']
+                    pool_pid = input_artifact.samples[0].project.id
+                    if pool_pid == project.id:
+                        loading_conc = input_artifact.udf.get('Loading Conc. (pM)',0)
+                        break
+            else:
+                for io_map in process.input_output_maps:
+                    input_artifact,output_artifact = io_map
+                    input_artifact = input_artifact['uri']
+                    pool_pid = input_artifact.samples[0].project.id
+                    if pool_pid == project.id:
+                        loading_conc = input_artifact.udf.get('Loading Conc. (pM)',0)
+                        phix_control = input_artifact.udf.get('% PhiX Control', 0)
+                        break
+
+
             runs[ process.date_run ] = {
                 'flowcell_id' : flowcell_id,
                 'date_started' : process.date_run,
-                'phix_loaded' : process.parent_processes()[0].udf.get('% PhiX Control', 0),
-                'load_conc' : process.input_output_maps[0][0]['uri'].udf.get("Loading Conc. (pM)", 0 )
+                'phix_loaded' : phix_control,
+                'load_conc' : loading_conc
             }
-            #
         elif fid:
             flowcell_id = fid
 
@@ -535,7 +559,7 @@ def shareDataById(lims, project_id, fid, all_dirs_ont):
             upload_dir_done.touch()
             upload_dir.mkdir()
             file_list = []
-            available_files = open(f'{run_dir}/available_files.txt', 'w', newline='\n')
+            available_files = open(f'{run_dir}/available_files_{project_id}.txt', 'w', newline='\n')
             if barcode_dirs and not all_dirs_ont:
                 for bd in barcode_dirs:
                     zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{bd.name}.tar.gz"
@@ -602,10 +626,10 @@ def shareDataById(lims, project_id, fid, all_dirs_ont):
                 mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
                 if Config.DEVMODE:
-                    sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,'s.w.boymans@umcutrecht.nl', attachments={'available_files':f'{run_dir}/available_files.txt'})
+                    sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,'s.w.boymans@umcutrecht.nl', attachments={'available_files':f'{run_dir}/available_files_{project_id}.txt'})
                     print (pw)
                 else:
-                    sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,researcher.email, attachments={'available_files':f'{run_dir}/available_files.txt'})
+                    sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,researcher.email, attachments={'available_files':f'{run_dir}/available_files_{project_id}.txt'})
                     os.system(f"ssh usfuser@{Config.SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
 
 
@@ -657,7 +681,8 @@ def shareDataById(lims, project_id, fid, all_dirs_ont):
                 print(f'Uploaded only flowcell ID for {project_id} to portal db. No stats pdf could be found.')
     else:
 
-        run_dir, flowcell_id, run_meta = getIlluminaRunDetails(lims, project_name, fid)
+        run_dir, flowcell_id, run_meta = getIlluminaRunDetails(lims, project, fid)
+
         analysis_steps = samples[0].udf.get('Analysis','').split(',')
         if not run_dir:
             sys.exit(f'Error : No Illumina run directory could be found!')
@@ -678,14 +703,14 @@ def shareDataById(lims, project_id, fid, all_dirs_ont):
         if not file_list:
             sys.exit(f"{name}\tError : No files found in nextcloud dir  {nextcloud_runid}!")
 
-        available_files = open(f'{run_dir}/available_files.txt', 'w', newline='\n')
+        available_files = open(f'{run_dir}/available_files_{project_id}.txt', 'w', newline='\n')
         for file in file_list:
             available_files.write(f"{file}\n")
         available_files.close()
         conversion_stats = parseConversionStats(lims, run_dir ,project_id )
         summary_stats = parseSummaryStats(run_dir)
 
-
+        # sys.exit()
         if not conversion_stats:
             print(f'Warning : No conversion stats could be found for {run_dir}!')
 
@@ -726,10 +751,10 @@ def shareDataById(lims, project_id, fid, all_dirs_ont):
                 mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
                 #
                 if Config.DEVMODE:
-                    sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,'s.w.boymans@umcutrecht.nl',attachments={'available_files':f'{run_dir}/available_files.txt'})
+                    sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,'s.w.boymans@umcutrecht.nl',attachments={'available_files':f'{run_dir}/available_files_{project_id}.txt'})
                     print (pw)
                 else:
-                    sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,researcher.email,attachments={'available_files':f'{run_dir}/available_files.txt'})
+                    sendMail(mail_subject,mail_content, Config.MAIL_SENDER ,researcher.email,attachments={'available_files':f'{run_dir}/available_files_{project_id}.txt'})
                     os.system(f"ssh usfuser@{Config.SMS_SERVER} \"sendsms.py -m 'Dear_{researcher.username},_A_link_for_runID_{project_id}_was_send_to_{researcher.email}._{pw}_is_needed_to_unlock_the_link._Regards,_USEQ' -n {researcher.phone}\"")
 
 
