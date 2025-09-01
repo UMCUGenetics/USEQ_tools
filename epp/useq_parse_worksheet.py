@@ -122,6 +122,9 @@ def parse(lims, step_uri, aid, output_file, mode):
                 # print(container)
                 container.name = sample_info['container name']
                 containers_to_update.append(container)
+                if first_sample.udf['Platform'] == '60 SNP NimaGen panel' and sample_info['container name'] not in artifact.name:
+                    artifact.name = f"{sample_info['container name']}-{artifact_sample.name}"
+
             if 'RIN' in sample_info and not 'RIN' in artifact.udf:
                 artifact.udf['RIN'] = float(sample_info['RIN'])
             if 'barcode' in sample_info :
