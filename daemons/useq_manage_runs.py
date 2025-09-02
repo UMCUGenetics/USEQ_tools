@@ -39,11 +39,17 @@ def cleanup(run_dir, logger):
 
 def revAndCleanSample(header, sample):
 
-    sample[ header.index('index') ] = sample[header.index('index')].replace("N","")
+    if sample[ header.index('index') ].count('N') == len(sample[ header.index('index') ]):
+        sample[ header.index('index') ] = sample[header.index('index')].replace("N","A")
+    else:
+        sample[ header.index('index') ] = sample[header.index('index')].replace("N","")
 
     sample_rev = sample.copy()
 
     if 'index2' in header:
+        if sample[ header.index('index2') ].count('N') == len(sample[ header.index('index2') ]):
+            sample[ header.index('index2') ] = sample[header.index('index2')].replace("N","A")
+            sample_rev[ header.index('index2') ] = sample_rev[header.index('index2')].replace("N","A")
 
         revseq = revcomp(sample_rev[header.index('index2')])
         sample_rev[header.index('index2')] = revseq
@@ -73,25 +79,30 @@ def demuxCheckSamplesheet(sample_sheet,pid, project_data, run_data,first_tile ,l
         return True
     else:
 
-        # print(stats['total_reads_lane'])
+
         for lane in project_data['on_lanes']:
             total_reads = stats['total_reads']
             total_reads_lane = stats['total_reads_lane'][lane]
             nr_samples_lane = len(run_data['lanes'][lane]['samples'])
-            nr_samples_project = len(project_data['samples'])
+            nr_samples_project = len(project_data['sample_ids'])
             avg_reads_per_sample = total_reads_lane / nr_samples_lane
             expected_project_reads = avg_reads_per_sample * nr_samples_project
             avg_reads_project_lane = stats['total_reads_project'][pid] / len( project_data['on_lanes'] )
             perc_diff = abs(expected_project_reads -avg_reads_project_lane ) / ((expected_project_reads + avg_reads_project_lane)/2)
+            print(f"PID {pid}")
+            print(f"PID on lanes {project_data['on_lanes']}")
             print(f"Lane {lane}")
             print(f"Nr samples lane                             {nr_samples_lane}")
+            print(f"Nr samples project                             {nr_samples_project}")
             print(f"Total reads lane                            {total_reads_lane}")
+            print(f"Total reads project                            {stats['total_reads_project'][pid]}")
+
             print(f"Avg reads per sample                        {avg_reads_per_sample}")
             print(f"Expected reads for project for lane {lane}  {expected_project_reads}")
             print(f"Avg reads for project for lane {lane}  {avg_reads_project_lane}")
             print(f"Diff between expected and avg reads {lane}  {perc_diff}")
 
-            if perc_diff > 0.5:
+            if perc_diff > 1.5:
                 logger.info(f'Demultiplexing check stats for {sample_sheet.name} on lane {lane} and projectID {pid} FAILED')
                 return False
             # if expected_project_reads > avg_reads_project_lane or
@@ -103,61 +114,61 @@ def demuxCheckSamplesheet(sample_sheet,pid, project_data, run_data,first_tile ,l
 def demultiplexPID(run_dir, pid, project_data, run_data, master_sheet, first_tile ,logger):
 
     samples = project_data['samples']
-    if len(samples) > 1: #More than 1 sample, check if demultiplexing will succeed
-        project_directory = Path(f"{run_dir}/Conversion/{pid}/")
-        project_directory.mkdir(parents=True, exist_ok=True)
-        demux_directory = Path(f"{project_directory}/Demux-check")
-        demux_directory.mkdir(parents=True, exist_ok=True)
-        flowcell = run_dir.name.split("_")[-1]
+    # if len(samples) > 1: #More than 1 sample, check if demultiplexing will succeed
+    project_directory = Path(f"{run_dir}/Conversion/{pid}/")
+    project_directory.mkdir(parents=True, exist_ok=True)
+    demux_directory = Path(f"{project_directory}/Demux-check")
+    demux_directory.mkdir(parents=True, exist_ok=True)
+    flowcell = run_dir.name.split("_")[-1]
 
-        logger.info(f'Found more than 1 samples, moving on with demux test.')
+    logger.info(f'Moving on with demux test.')
 
-        sample_sheet = Path(f'{demux_directory}/SampleSheet-{pid}.csv')
-        sample_sheet_rev = Path(f'{demux_directory}/SampleSheet-{pid}-rev.csv')
-        correct_samplesheet = None
-        with open(sample_sheet, 'w') as ss, open(sample_sheet_rev, 'w') as ssr:
-            logger.info(f'Creating samplesheet {sample_sheet}')
-            logger.info(f'Creating rev samplesheet {sample_sheet_rev}')
+    sample_sheet = Path(f'{demux_directory}/SampleSheet-{pid}.csv')
+    sample_sheet_rev = Path(f'{demux_directory}/SampleSheet-{pid}-rev.csv')
+    correct_samplesheet = None
+    with open(sample_sheet, 'w') as ss, open(sample_sheet_rev, 'w') as ssr:
+        logger.info(f'Creating samplesheet {sample_sheet}')
+        logger.info(f'Creating rev samplesheet {sample_sheet_rev}')
 
-            ss.write(master_sheet['top'])
-            ss.write(f'{",".join( master_sheet["header"] )}\n')
-            ssr.write(master_sheet['top'])
-            ssr.write(f'{",".join( master_sheet["header"] )}\n')
+        ss.write(master_sheet['top'])
+        ss.write(f'{",".join( master_sheet["header"] )}\n')
+        ssr.write(master_sheet['top'])
+        ssr.write(f'{",".join( master_sheet["header"] )}\n')
 
-            for sample in samples:
-                sample_and_revsample = revAndCleanSample(master_sheet['header'],sample)
-                ss.write(f'{",".join(sample_and_revsample[0])}\n')
-                ssr.write(f'{",".join(sample_and_revsample[1])}\n')
-
-
-        if demuxCheckSamplesheet(sample_sheet,pid,project_data, run_data ,first_tile, logger):
-            correct_samplesheet = sample_sheet
-        elif demuxCheckSamplesheet(sample_sheet_rev,pid,project_data, run_data , first_tile, logger):
-            correct_samplesheet = sample_sheet_rev
-        else:
-            logger.error(f'Could not create a correct samplesheet for projectID {pid}, skipping demux.')
-            return False
-
-        # logger.info(f'Demux test for samplesheet {correct_samplesheet.name} PASSED')
-        shutil.move(correct_samplesheet, f'{project_directory}/{correct_samplesheet.name}')
-        correct_samplesheet = Path(f'{project_directory}/{correct_samplesheet.name}')
-
-        logger.info('Starting demultiplexing')
-        # command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {correct_samplesheet}'
-        command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {project_directory} --force --sample-sheet {correct_samplesheet}'
-        if Config.DEVMODE: command += f" --tiles {first_tile} "
-        if not runSystemCommand(command, logger):
-            logger.error(f'Failed to run demultiplexing for projectID {pid}.')
-            raise
-
-        addFlowcellToFastq(project_directory, flowcell, logger)
-
-        return True
+        for sample in samples:
+            sample_and_revsample = revAndCleanSample(master_sheet['header'],sample)
+            ss.write(f'{",".join(sample_and_revsample[0])}\n')
+            ssr.write(f'{",".join(sample_and_revsample[1])}\n')
 
 
+    if demuxCheckSamplesheet(sample_sheet,pid,project_data, run_data ,first_tile, logger):
+        correct_samplesheet = sample_sheet
+    elif demuxCheckSamplesheet(sample_sheet_rev,pid,project_data, run_data , first_tile, logger):
+        correct_samplesheet = sample_sheet_rev
     else:
-        logger.info(f'Found 1 sample, skipping demux.')
+        logger.error(f'Could not create a correct samplesheet for projectID {pid}, skipping demux.')
         return False
+
+    # logger.info(f'Demux test for samplesheet {correct_samplesheet.name} PASSED')
+    shutil.move(correct_samplesheet, f'{project_directory}/{correct_samplesheet.name}')
+    correct_samplesheet = Path(f'{project_directory}/{correct_samplesheet.name}')
+
+    logger.info('Starting demultiplexing')
+    # command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {run_dir}/Conversion/FastQ --bcl-sampleproject-subdirectories true --force --sample-sheet {correct_samplesheet}'
+    command = f'{Config.CONV_BCLCONVERT}/bcl-convert --bcl-input-directory {run_dir} --output-directory {project_directory} --force --sample-sheet {correct_samplesheet}'
+    if Config.DEVMODE: command += f" --tiles {first_tile} "
+    if not runSystemCommand(command, logger):
+        logger.error(f'Failed to run demultiplexing for projectID {pid}.')
+        raise
+
+    addFlowcellToFastq(project_directory, flowcell, logger)
+
+    return True
+
+
+    # else:
+    #     logger.info(f'Found 1 sample, skipping demux.')
+    #     return False
 
 def filterStats(lims, pid, pid_staging, report_dir):
     samples = lims.get_samples(projectlimsid=pid)
@@ -428,8 +439,7 @@ def parseSummaryStats( summary ):
                 header_line = lines[line_nr].rstrip()
                 header = [x.rstrip() for x in header_line.split(",")]
                 sub_lines = lines[line_nr+1:]
-                # print("READ", read)
-                # print("HEADER",header_line)
+
                 if read not in tmp:
                     tmp[read] = {}
                 for sub_line in sub_lines:
@@ -438,7 +448,7 @@ def parseSummaryStats( summary ):
                     cols = [x.rstrip().split(" ")[0] for x in sub_line.split(",")]
                     if cols[1] == "-": #lane summary line
                         col_dict = dict(zip(header,cols))
-                        # print("DATA",col_dict['Lane'], col_dict)
+
                         tmp[read][ col_dict['Lane'] ] = col_dict
             else:
                 line_nr += 1
@@ -461,7 +471,7 @@ def revcomp(seq):
 def runSystemCommand(command, logger, shell=False):
     #split command into pieces for subprocess.run
     command_pieces = shlex.split(command)
-    # print(command_pieces)
+
     logger.info(f'Running command : {command}')
 
     try:
@@ -858,10 +868,12 @@ def manageRuns(lims, skip_demux_check):
                     pid = sample[ master_sheet['header'].index('Sample_Project') ]
                     if pid not in project_data:
                         project_data[pid] = {
+                            'sample_ids' : set(),
                             'samples' : [],
                             'on_lanes' : set()
                         }
                     project_data[pid]['samples'].append(sample)
+                    project_data[pid]['sample_ids'].add( sample[ master_sheet['header'].index('Sample_ID') ] )
 
                     if 'Lane' in master_sheet['header']:
                         lane = int(sample[ master_sheet['header'].index('Lane') ])
@@ -1007,7 +1019,7 @@ def statusMail(lims, message, run_dir, project_data, run_data):
 
     expected_reads = getExpectedReads(f'{run_dir}/RunParameters.xml')
     expected_yields = getExpectedYield(f'{run_dir}/RunInfo.xml', expected_reads)
-    # print(projectIDs)
+
     conversion_stats = {}
     summary_stats = {}
     if demux_stats.is_file():
@@ -1033,7 +1045,7 @@ def statusMail(lims, message, run_dir, project_data, run_data):
         project_names[pid] = project_name
 
     status_txt = [f'{x}:{project_names[x]}' for x in project_names]
-    # print(conversion_stats)
+
     template_data = {
         'status' : status,
         'log' : log,
