@@ -44,6 +44,7 @@ def getSeqFinance(lims, step_uri):
 		run_process_id = None
 		pool_parent_process = pool.parent_process #BCL to FastQ
 
+
 		#Try to determine the date this run was sequenced
 		if pool_parent_process:
 			for io_map in pool_parent_process.input_output_maps:
@@ -67,6 +68,7 @@ def getSeqFinance(lims, step_uri):
 
 
 		for project_id in pool_samples[pool.id]:
+
 			application = None
 			platform = None
 			run_meta = {
@@ -130,7 +132,7 @@ def getSeqFinance(lims, step_uri):
 				runs[pool.id][project_id]['requested_runtype'].add(sample.udf['Sequencing Runtype'])
 				run_meta['Sequencing Runtype'] = sample.udf['Sequencing Runtype']
 
-				if sample.udf['Sequencing Runtype'] == '10B : 300 Cycles (Default : 2x150bp)':
+				if sample.udf['Platform'] == 'NovaSeq X':
 					if 'Number Lanes' in sample.udf:
 						runs[pool.id][project_id]['run_lanes'] = sample.udf['Number Lanes']
 						run_meta['Number Lanes'] = sample.udf['Number Lanes']
@@ -144,7 +146,7 @@ def getSeqFinance(lims, step_uri):
 					reads = round((nr_cells * reads_cell)/1e6)
 					sample_meta['Reads'] = reads
 
-					sample_meta['Add-ons'] = sample.udf.get('Add-ons')
+					sample_meta['Add-ons'] = sample.udf.get('Add-ons', [])
 
 				if not platform:
 					platform = sample.udf['Platform']
@@ -179,12 +181,14 @@ def getSeqFinance(lims, step_uri):
 					sample_meta['Sequenced'] = True
 					run_meta['samples'].append(sample_meta)
 					run_meta['date'] = sample.date_received
+					runs[pool.id][project_id]['run_date'] = run_meta['date']
+
 				else:
 					sample_artifacts = lims.get_artifacts(samplelimsid=sample.id)
 					for sample_artifact in sample_artifacts:
 
 						if not sample_artifact.parent_process or not sample_artifact.parent_process.date_run: continue
-						# print(project_id, sample_artifact.parent_process.type.name)
+
 						process_name = sample_artifact.parent_process.type.name
 
 						if process_name in Config.ISOLATION_PROCESSES :
@@ -229,13 +233,12 @@ def getSeqFinance(lims, step_uri):
 							runs[pool.id][project_id]['lims_library_prep'].add(lims_library_prep)
 							runs[pool.id][project_id]['libprep_date'].add(sample_artifact.parent_process.date_run)
 
-						elif process_name in Config.RUN_PROCESSES:
-
+						elif process_name in Config.RUN_PROCESSES or process_name in Config.LOAD_PROCESSES:
+							
 							protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 							runs[pool.id][project_id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 
 							if not runs[pool.id][project_id]['run_date']:
-
 								runs[pool.id][project_id]['run_date'] = run_date
 								runs[pool.id][project_id]['times_sequenced'] = 1
 								run_meta['date'] = runs[pool.id][project_id]['run_date']
@@ -322,10 +325,15 @@ def getSeqFinance(lims, step_uri):
 				runs[pool.id][project_id]['errors'].add("Warning : Run was sequenced before more than once!")
 				#In case of reruns always bill at the costs of the oldest run
 				run_meta['date'] = min( pid_sequenced[project_id] )
+
 			if not run_meta['date']:
 				run_meta['date'] = min( pid_sequenced[project_id] )
+				sample_meta['Sequenced'] = True
+				runs[pool_id][project_id]['run_date'] = run_meta['date']
 
-			data = json.dumps(run_meta)
+
+			data = json.dumps(run_meta, indent=4)
+
 			response = requests.post(url, headers=headers, data=data)
 			costs = response.json()
 
@@ -343,8 +351,17 @@ def getSeqFinance(lims, step_uri):
 				runs[pool.id][project_id]['total_step_costs'] = "{:.2f}".format(float( costs['Total']['step_cost'] ))
 				runs[pool.id][project_id]['total_personell_costs'] = "{:.2f}".format(float( costs['Total']['personell_cost'] ))
 
+	runs_dedup = {}
+	unique_ids = []
+	for pool_id in runs:
+		for project_id in runs[pool_id]:
 
-	return renderTemplate('seq_finance_overview_template.csv', {'pools':runs})
+			unique_id = f"{project_id}-{runs[pool_id][project_id]['run_date']}"
+			if unique_id not in unique_ids:
+				unique_ids.append(unique_id)
+				runs_dedup[pool_id] = {}
+				runs_dedup[pool_id][project_id] =  runs[pool_id][project_id]
+	return renderTemplate('seq_finance_overview_template.csv', {'pools':runs_dedup})
 
 def getSnpFinance(lims, step_uri):
 
