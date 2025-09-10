@@ -53,7 +53,9 @@ def createSamplesheet(lims, step_uri):
         lane_placements = dict((v.id,k) for k,v in lane_pool.container.placements.items()) #{artifact1ID : 1:1, artifact2ID : 2:1,}
         if len(lane_placements) > 1:
             samplesheet_data['lanes'] = True
-        input_pool_samples = [x.name for x in input_pool.samples]
+        # input_pool_samples = [x.name for x in input_pool.samples]
+        # print(input_pool_samples)
+
         pooling_process = input_pool.parent_process
         project_id = None
 
@@ -62,10 +64,10 @@ def createSamplesheet(lims, step_uri):
         for pooling_io_map in pooling_process.input_output_maps:
             #One io_map per original samples in the pooling process
             input_sample_artifact, output_pool = [io['uri'] for io in pooling_io_map] #Grab the input & output artifact objects by their uri
-            print(input_sample_artifact.name)
+            # print(input_sample_artifact.name)
             input_sample = input_sample_artifact.samples[0] #Artifact only contains one sample
-            if input_sample.name not in input_pool_samples: continue #Skip samples that were included in the pooling step, but not in the sequencing step.
-            print(input_sample.udf['Sequencing Runtype'])
+            # if input_sample.name not in input_pool_samples: continue #Skip samples that were included in the pooling step, but not in the sequencing step.
+            # print(input_sample.udf['Sequencing Runtype'])
             index_name = input_sample_artifact.reagent_labels[0]
             reagent = lims.get_reagent_types(name=index_name)[0]
             index_seqs = [index for index in reagent.sequence.split('-')]
@@ -136,10 +138,11 @@ def createSamplesheet(lims, step_uri):
 
             override_cycles = f'{read1_mask}{index1_mask}{index2_mask}{read2_mask}'
             override_cycles = override_cycles.rstrip(";")
-            if Config.DEVMODE: print(f"Processing sample {input_sample.name} with index {index_seqs} for projectID {project_id} on lane {lane_placements[lane_pool.id]} with settings {override_cycles}")
-            sample_id = input_sample.name
-            if input_sample.udf['Sequencing Runtype'] == '60 SNP NimaGen panel':
-                sample_id = input_sample_artifact.name
+            # if Config.DEVMODE: print(f"Processing sample {input_sample.name} with index {index_seqs} for projectID {project_id} on lane {lane_placements[lane_pool.id]} with settings {override_cycles}")
+            # sample_id = input_sample.name
+            # if input_sample.udf['Sequencing Runtype'] == '60 SNP NimaGen panel':
+            sample_id = input_sample_artifact.name
+            if Config.DEVMODE: print(f"Processing sample {sample_id} with index {index_seqs} for projectID {project_id} on lane {lane_placements[lane_pool.id]} with settings {override_cycles}")
 
             sample = {
                 'lane' : lane_placements[lane_pool.id].split(":")[0],

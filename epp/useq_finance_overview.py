@@ -234,7 +234,7 @@ def getSeqFinance(lims, step_uri):
 							runs[pool.id][project_id]['libprep_date'].add(sample_artifact.parent_process.date_run)
 
 						elif process_name in Config.RUN_PROCESSES or process_name in Config.LOAD_PROCESSES:
-							
+
 							protocol_name = getStepProtocol(lims, step_id=sample_artifact.parent_process.id)
 							runs[pool.id][project_id]['lims_runtype'] = protocol_name.split("-",1)[1].lower().strip()
 
@@ -361,6 +361,9 @@ def getSeqFinance(lims, step_uri):
 				unique_ids.append(unique_id)
 				runs_dedup[pool_id] = {}
 				runs_dedup[pool_id][project_id] =  runs[pool_id][project_id]
+				for k,v in runs_dedup[pool_id][project_id].items():
+					if isinstance(v,set):
+						runs_dedup[pool_id][project_id][k] = ",".join(list(v))
 	return renderTemplate('seq_finance_overview_template.csv', {'pools':runs_dedup})
 
 def getSnpFinance(lims, step_uri):
