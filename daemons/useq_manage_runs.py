@@ -541,15 +541,17 @@ def uploadToHPC(lims, run_dir, pid, logger):
         samples = lims.get_samples(projectlimsid=project.id)
         analysis_steps = samples[0].udf.get('Analysis','').split(',')
         if len(analysis_steps) > 1 or project.udf.get('Application','') == 'SNP Fingerprinting':
+            command += '--exclude "*Undetermined_*.fastq.gz" '
             command += f'--include "Conversion/{pid}/*.fastq.gz" '
         else:
             command += f'--exclude "Conversion/{pid}/*.fastq.gz" '
 
         command += f" --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/Conversion/{pid}/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/**' --include '*.[pP][eE][dD]'"
     else:
+        command += ' --exclude "*.fastq.gz" '
         command += f" --include '*/' --include 'md5sum.txt' --include 'SampleSheet.csv' --include 'RunInfo.xml' --include '*unParameters.xml' --include 'InterOp/**' --include '*/Conversion/Reports/**' --include 'Data/Intensities/BaseCalls/Stats/**' --include '*.[pP][eE][dD]'"
 
-    command += " --exclude '*'"
+    command += " --exclude '*' "
     command += f" {run_dir}"
     command += f" {Config.USEQ_USER}@{Config.HPC_TRANSFER_SERVER}:/{Config.HPC_RAW_ROOT}/{machine}"
 
