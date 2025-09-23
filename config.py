@@ -10,6 +10,9 @@ class Config(object):
     ##DEVELOPMENT SETTINGS##
     DEVMODE=os.environ.get('DEVMODE') or False
 
+    ##USEQ TOOLS SETTINGS
+    LOG_FILE=os.environ.get('LOG_FILE') or 'useqtools.log'
+
     ##USEQ MAIN USER ACCOUNT##
     USEQ_USER=os.environ.get('USEQ_USER') or 'usfuser'
 
