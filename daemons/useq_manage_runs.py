@@ -1133,7 +1133,7 @@ def send_status_mail(lims, message: str, run_dir: Path, project_data: Dict[str, 
     sendMail(mail_subject, mail_content, Config.MAIL_SENDER, Config.MAIL_ADMINS, attachments=attachments)
 
 
-def process_run_directory(run_dir: Path, machine: str, logger: logging.Logger) -> None:
+def process_run_directory(lims, run_dir: Path, machine: str, logger: logging.Logger) -> None:
     """Process a single run directory through the complete pipeline.
 
     Args:
@@ -1513,7 +1513,7 @@ def manage_runs(lims, skip_demux_check: bool = False) -> None:
 
             try:
                 logger.info(f'Processing run directory: {run_dir.name}')
-                process_run_directory(run_dir, machine, logger)
+                process_run_directory(lims, run_dir, machine, logger)
 
             except Exception as e:
                 logger.error(f'Fatal error processing {run_dir.name}: {e}')
