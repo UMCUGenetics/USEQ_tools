@@ -450,7 +450,7 @@ class DataSharer:
             return
 
         # Share with researcher
-        print(f"{process_name}\tSharing with {researcher.email}")
+        print(f"Sharing with {researcher.email}")
         share_response = self.nextcloud_util.share(archive_path.name, researcher.email)
 
         if "ERROR" in share_response:
@@ -490,7 +490,7 @@ class DataSharer:
                     possible_samples[sample_name] = []
                 possible_samples[sample_name].append(file)
 
-        print (f"Found {len(possible_samples.keys())} possible samples in {dir}.")
+        print (f"Found {len(possible_samples.keys())} possible samples in {data_dir}.")
 
         if possible_samples:
             print (f"Trying to link samples to existing projectIDs.")
@@ -499,14 +499,21 @@ class DataSharer:
             for sample_chunk in sample_chunks:
                 lims_samples.extend(lims.get_samples(name=sample_chunk))
 
+
             lims_projects = {}
             for sample in lims_samples:
-                sample_project = sample.project
+                user = 'NA'
+                if not sample.project:
+                    continue
 
-                if not sample_project.researcher:
+                sample_project = sample.project
+                try:#There are some older project artifacts without a researcher attached
+                    user = sample_project.researcher.username
+                except:
                     continue
 
                 user = sample_project.researcher.username
+
                 id = f"{sample_project.id}:{user}"
                 if id not in lims_projects:
                     lims_projects[id] = 0
