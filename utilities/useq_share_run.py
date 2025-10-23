@@ -911,7 +911,7 @@ class DataSharer:
                     '?', '?', '?', '?'
 
             ])
-        print('test')
+        
         # Display confirmation table
         print("\nIllumina data sharing confirmation:")
         self._display_texttable(
