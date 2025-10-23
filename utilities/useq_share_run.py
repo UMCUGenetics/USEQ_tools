@@ -425,7 +425,9 @@ class DataSharer:
 
     def _display_texttable(self, rows: List[List]):
         table = Texttable(max_width=0)
+        # print(rows)
         # for row in rows:
+            # print(row)
         table.add_rows(rows)
         print(table.draw())
 
@@ -902,14 +904,14 @@ class DataSharer:
             ])
         else:
             table_rows.append([
-                [
-                    run_dir.name,
-                    f"{project_id}:{project_name}",
-                    researcher_email,
-                    '?', '?', '?', '?'
-                ]
-            ])
 
+                    run_dir.name,
+                    f"{project_id}:{project.name}",
+                    researcher.email,
+                    '?', '?', '?', '?'
+
+            ])
+        
         # Display confirmation table
         print("\nIllumina data sharing confirmation:")
         self._display_texttable(
