@@ -1,12 +1,13 @@
 [Header]
-Investigator Name,{{investigator_name}}
-Experiment Name,{{experiment_name}}
+RunName,{{experiment_name}}
 FileFormatVersion,2
 Date,{{date}}
 
 [Reads]
 Read1Cycles,{{read1_cycles}}{% if read2_cycles %}
 Read2Cycles,{{read2_cycles}}{% endif %}
+Index1Cycles,{{index1_cycles}}{% if index2_cycles %}
+Index2Cycles,{{index2_cycles}}{% endif %}
 
 [BCLConvert_Settings]
 {% if trim_umi %}TrimUMI,0{% endif %}
