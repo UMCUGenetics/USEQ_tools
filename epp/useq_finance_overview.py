@@ -315,6 +315,9 @@ def process_analysis_artifact(sample_artifact, sample, sample_meta: Dict[str, An
          'Differential expression analysis + figures (mRNA)'),
         ('CNV + SV calling', 'CNV + SV calling'),
         ('Somatic calling (tumor/normal pair)', 'Somatic calling (tumor/normal pair)')
+        # "WGS : Mapping, Germline SNV/InDel, CNV & SV",
+        # "RNA-seq : Mapping & Read count analysis (mRNA)"
+        # "Single Cell Analysis"
     ]
 
     for udf_name, step_name in analysis_options:
@@ -655,12 +658,11 @@ def get_seq_finance(lims, step_uri: str) -> str:
                                 run_date, pid_sequenced
                             )
 
-                        elif process_name in Config.ANALYSIS_PROCESSES:
+                        elif process_name in Config.ANALYSIS_PROCESSES and application != 'SNP Fingerprinting':
                             process_analysis_artifact(
                                 sample_artifact, sample, sample_meta,
                                 runs[pool.id][project_id]
                             )
-
                 run_meta['samples'].append(sample_meta)
 
                 # Set project metadata (only once)
