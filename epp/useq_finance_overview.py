@@ -484,7 +484,8 @@ def deduplicate_runs(runs: Dict[str, Dict[str, Dict[str, Any]]]) -> Dict[str, Di
 
             if unique_id not in unique_ids:
                 unique_ids.append(unique_id)
-                runs_dedup[pool_id] = {}
+                if pool_id not in runs_dedup:
+                    runs_dedup[pool_id] = {}
                 runs_dedup[pool_id][project_id] = runs[pool_id][project_id]
                 convert_sets_to_strings(runs_dedup[pool_id][project_id])
 
@@ -688,7 +689,6 @@ def get_seq_finance(lims, step_uri: str) -> str:
 
     # Deduplicate and convert sets to strings
     runs_dedup = deduplicate_runs(runs)
-
     return renderTemplate('seq_finance_overview_template.csv', {'pools': runs_dedup})
 
 
