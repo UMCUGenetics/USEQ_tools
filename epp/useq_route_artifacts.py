@@ -116,7 +116,8 @@ def routeArtifacts(lims, step_uri, input):
             sample_analyses = []
             if 'Analysis' in first_sample.udf:
                 sample_analyses = first_sample.udf['Analysis'].split(",")
-            sample_analyses.remove('Raw data (FastQ)')
+                sample_analyses.remove('Raw data (FastQ)')
+
             if current_step in ['USEQ - BCL to FastQ','USEQ - Process Raw Data']:
                 #Send project to both analysis and billing step
                 if platform in ['60 SNP NimaGen panel','Chromium X'] or sample_analyses:
@@ -133,7 +134,7 @@ def routeArtifacts(lims, step_uri, input):
     for step, artifact_list in to_route.items():
 
         workflow_nr, stage = step.split(":")
-
+        
         uri = f"{Config.LIMS_URI}/api/v2/configuration/workflows/{workflow_nr}/stages/{stage}"
         lims.route_artifacts(artifact_list,stage_uri=uri)
 
