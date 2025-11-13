@@ -245,7 +245,7 @@ class Config(object):
         'USEQ - Denature, Dilute and Load (NovaSeqX)'
     ]
     ISOLATION_PROCESSES=['USEQ - Isolation','USEQ - Isolation v2']
-    LIBPREP_PROCESSES=['USEQ - Adenylate ends & Ligate Adapters','USEQ - LibPrep Illumina','USEQ - LibPrep Nanopore','USEQ - Chromium iX Cell Suspension & QC']
+    LIBPREP_PROCESSES=['USEQ - Adenylate ends & Ligate Adapters','USEQ - LibPrep Illumina','USEQ - LibPrep Nanopore','USEQ - Chromium iX Cell Suspension & QC','USEQ - Chromium X Cell Suspension & QC']
     ANALYSIS_PROCESSES=['USEQ - Analysis']
 
     ###

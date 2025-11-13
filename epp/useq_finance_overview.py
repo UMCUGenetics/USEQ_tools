@@ -237,6 +237,8 @@ def process_libprep_artifact(lims, sample, sample_artifact,
     if sample_artifact.type == 'ResultFile':
         return
 
+
+
     runtype = sample.udf['Sequencing Runtype']
     lims_library_prep = ''
 
@@ -331,11 +333,11 @@ def process_analysis_artifact(sample_artifact, sample, sample_meta: Dict[str, An
     sample_meta['Analysis'] = sample.udf['Analysis']
     run_data['lims_analysis'].add(lims_analysis)
 
-    if run_data['requested_analysis'] != run_data['lims_analysis']:
-        run_data['errors'].add(
-            f"Warning: Analysis type {lims_analysis} in LIMS doesn't match "
-            f"analysis {requested_analysis}"
-        )
+    # if run_data['requested_analysis'] != run_data['lims_analysis']:
+    #     run_data['errors'].add(
+    #         f"Warning: Analysis type {lims_analysis} in LIMS doesn't match "
+    #         f"analysis {requested_analysis}"
+    #     )
 
     if not sample_meta['Analyzed']:
         run_data['nr_samples_analyzed'] += 1
@@ -531,6 +533,7 @@ def get_seq_finance(lims, step_uri: str) -> str:
                         run_date = parent_io_map[0]['uri'].parent_process.date_run
 
                     for process in processes:
+
                         if process.type.name in Config.RUN_PROCESSES:
                             run_date = process.date_run
                             break
@@ -556,7 +559,8 @@ def get_seq_finance(lims, step_uri: str) -> str:
                 runs[pool.id][project_id] = initialize_project_run_data(pool.id)
 
             samples = lims.get_samples(projectlimsid=project_id)
-            if len(pool.samples) != len(samples):
+            if len(pool_samples[pool.id][project_id]) != len(samples):
+                # print(project_id, len(samples),len(pool_samples[pool.id][project_id]))
                 runs[pool.id][project_id]['errors'].add(
                     'Warning: Number of samples sequenced not equal to number of samples submitted!'
                 )
@@ -651,8 +655,9 @@ def get_seq_finance(lims, step_uri: str) -> str:
                                 runs[pool.id][project_id]
                             )
 
-                        elif process_name in Config.RUN_PROCESSES or \
-                             process_name in Config.LOAD_PROCESSES:
+                        # elif process_name in Config.RUN_PROCESSES or \
+                        #      process_name in Config.LOAD_PROCESSES:
+                        elif process_name in Config.RUN_PROCESSES:
                             process_run_artifact(
                                 lims, sample_artifact, sample_meta,
                                 runs[pool.id][project_id], run_meta,
@@ -664,6 +669,13 @@ def get_seq_finance(lims, step_uri: str) -> str:
                                 sample_artifact, sample, sample_meta,
                                 runs[pool.id][project_id]
                             )
+
+                    if not pid_sequenced[project_id] and run_date:
+                        run_meta['date'] = run_date
+                        if not sample_meta['Sequenced']:
+                            runs[pool.id][project_id]['nr_samples_sequenced'] +=1
+                            sample_meta['Sequenced'] = True
+
                 run_meta['samples'].append(sample_meta)
 
                 # Set project metadata (only once)
@@ -681,6 +693,12 @@ def get_seq_finance(lims, step_uri: str) -> str:
             if not run_meta['date'] and pid_sequenced[project_id]:
                 run_meta['date'] = min(pid_sequenced[project_id])
                 runs[pool.id][project_id]['run_date'] = run_meta['date']
+            # elif not run_meta['date'] and run_date:
+            #     run_meta['date'] = run_date
+            #     runs[pool.id][project_id]['run_date'] = run_meta['date']
+                    # if not sample_meta['Sequenced']:
+                    #     run_data['nr_samples_sequenced'] += 1
+                    #     sample_meta['Sequenced'] = True
                 ###Check if sample_meta['Sequenced'] = True needs to be set####
 
             # Fetch and update costs
