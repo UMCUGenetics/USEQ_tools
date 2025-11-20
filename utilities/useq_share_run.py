@@ -28,7 +28,7 @@ from modules.useq_mail import sendMail
 from modules.useq_nextcloud import NextcloudUtil
 from modules.useq_template import renderTemplate
 from utilities.useq_sample_report import getSampleMeasurements
-
+from modules.useq_illumina_parsers import parseSampleSheet
 
 class DatabaseManager:
     """Manages database connections and operations."""
@@ -63,7 +63,34 @@ class StatsParser:
     """Handles parsing of sequencing statistics files."""
 
     @staticmethod
-    def parse_summary_stats(run_dir: Path) -> Optional[Dict]:
+    def parse_samplesheet(run_dir: Path, project_id: str) -> Optional[Dict]:
+        """Extract project_id lane info Samplesheet CSV file"""
+        samplesheet_file = run_dir / "Conversion" / project_id / "Demux-check" / f"SampleSheet-{project_id}" / "Reports" / "SampleSheet.csv" #Demux check samplesheet should always be there
+
+        pid_lanes = set()
+        if not samplesheet_file.is_file():
+            print(f"Warning: Could not find {samplesheet_file} file.")
+            return None
+
+        try:
+            samplesheet_info = parseSampleSheet(samplesheet_file)
+
+            for sample in samplesheet_info['samples']:
+
+                if not 'Lane' in samplesheet_info['header']:
+                    print(f"Warning: No lane found in {samplesheet_file} file, assuming {project_id} was sequenced on a full flowcell.")
+                    return None
+                lane = int(sample[samplesheet_info['header'].index('Lane')])
+                pid = sample[samplesheet_info['header'].index('Sample_Project')]
+                if pid == project_id:
+                    pid_lanes.add(lane)
+        except (IOError, ValueError) as e:
+            print(f"Error parsing SampleSheet: {e}")
+            return None
+
+        return list(pid_lanes)
+    @staticmethod
+    def parse_summary_stats(run_dir: Path, pid_lanes: List) -> Optional[Dict]:
         """Parse Illumina summary statistics from CSV file."""
         run_name = run_dir.name
         summary_stats_file = run_dir / "Conversion" / "Reports" / f"{run_name}_summary.csv"
@@ -72,14 +99,10 @@ class StatsParser:
             print(f'Warning: Could not find {summary_stats_file} file.')
             return None
 
-        stats = {
-            'yield_r1': 0, 'yield_r2': 0, 'reads': 0, 'cluster_density': 0,
-            'perc_q30_r1': 0, 'perc_q30_r2': 0, 'perc_occupied': 0, 'phix_aligned': 0
-        }
-
+        tmp = {}
         try:
-            with open(summary_stats_file, 'r') as csv_file:
-                lines = csv_file.readlines()
+            with open(summary_stats_file, 'r') as sumcsv:
+                lines = sumcsv.readlines()
                 line_nr = 0
 
                 while line_nr < len(lines):
@@ -88,45 +111,80 @@ class StatsParser:
                         line_nr += 1
                         continue
 
-                    if line.startswith('Read') and len(line) == 6:
-                        read_nr = 2 if stats["reads"] else 1
-                        totals = {
-                            'yield': [], 'reads': [], 'density': [],
-                            'q30': [], 'occupied': [], 'aligned': []
-                        }
+                    if line.startswith('Level'):
+                        header = [x.rstrip() for x in line.split(",")]
+                        line_nr += 1
 
-                        # Parse stat block for read number
-                        sub_counter = 0
-                        for sub_line in lines[line_nr + 2:]:
-                            cols = sub_line.split(",")
-                            sub_counter += 1
-
-                            if cols[0].rstrip().isdigit() and '-' in cols[1]:
-                                totals['yield'].append(float(cols[11].rstrip()))
-                                totals['reads'].append(float(cols[9].rstrip()))
-                                totals['density'].append(int(cols[3].split("+")[0].rstrip()))
-                                totals['q30'].append(float(cols[10].rstrip()))
-                                totals['occupied'].append(float(cols[18].split("+")[0].rstrip()))
-                                totals['aligned'].append(float(cols[13].split("+")[0].rstrip()))
-                            else:
-                                sub_counter -= 1
+                        while line_nr < len(lines):
+                            sub_line = lines[line_nr].rstrip()
+                            if not sub_line:
                                 break
 
-                        line_nr += sub_counter
+                            cols = [x.rstrip() for x in sub_line.split(",")]
+                            # stats['summary'].append(dict(zip(header, cols)))
+                            line_nr += 1
 
-                        # Calculate averages and totals
-                        stats[f"yield_r{read_nr}"] = round(sum(totals['yield']), 2)
-                        stats["reads"] = round(sum(totals['reads']), 2)
-                        stats["cluster_density"] = round(sum(totals['density']) / len(totals['density']), 2) if totals['density'] else 0
-                        stats[f"perc_q30_r{read_nr}"] = round(sum(totals['q30']) / len(totals['q30']), 2) if totals['q30'] else 0
-                        stats["perc_occupied"] = round(sum(totals['occupied']) / len(totals['occupied']), 2) if totals['occupied'] else 0
-                        stats["phix_aligned"] = round(sum(totals['aligned']) / len(totals['aligned']), 2) if totals['aligned'] else 0
+                            if sub_line.startswith('Total'):
+                                break
+
+                    elif line.startswith('Read'):
+                        read = line.rstrip()
+                        line_nr += 1
+
+                        if line_nr < len(lines):
+                            header_line = lines[line_nr].rstrip()
+                            header = [x.rstrip() for x in header_line.split(",")]
+                            line_nr += 1
+
+                            if read not in tmp:
+                                tmp[read] = {}
+
+                            while line_nr < len(lines):
+                                sub_line = lines[line_nr].rstrip()
+                                if sub_line.startswith('Read') or sub_line.startswith('Extracted'):
+                                    break
+
+                                cols = [x.rstrip().split(" ")[0] for x in sub_line.split(",")]
+                                if len(cols) > 1 and cols[1] == "-":  # lane summary line
+                                    col_dict = dict(zip(header, cols))
+                                    if int(col_dict['Lane']) in pid_lanes or not pid_lanes:
+                                        tmp[read][col_dict['Lane']] = col_dict
+
+                                line_nr += 1
                     else:
                         line_nr += 1
+
+
+            stats = {
+                'yield_r1': 0, 'yield_r2': 0, 'reads': 0, 'cluster_density': 0,
+                'perc_q30_r1': 0, 'perc_q30_r2': 0, 'perc_occupied': 0, 'phix_aligned': 0
+            }
+            # Process temporary data into final format
+            nr_lanes = 0
+            for read in tmp:
+                if '(I)' in read:  # Skip index reads
+                    continue
+                read_nr = 2 if not '1' in read else 1
+                for lane in tmp[read]:
+
+                    stats[f'yield_r{read_nr}'] += float(tmp[read][lane]['Yield'])
+                    stats[f'perc_q30_r{read_nr}'] += float(tmp[read][lane]['%>=Q30'])
+                    if read_nr == 1:
+                        nr_lanes +=1
+                        stats['reads'] += float(tmp[read][lane]['Reads PF'])
+                        stats['cluster_density'] += float(tmp[read][lane]['Density'])
+                        stats['perc_occupied'] += float(tmp[read][lane]['% Occupied'])
+                        stats['phix_aligned'] += float(tmp[read][lane]['Aligned'])
+
+                stats[f'perc_q30_r{read_nr}'] = round((stats[f'perc_q30_r{read_nr}'] / nr_lanes), 2)
+            stats['cluster_density'] = round((stats['cluster_density'] / nr_lanes), 2)
+            stats['perc_occupied'] = round((stats['perc_occupied'] / nr_lanes), 2)
+            stats['phix_aligned'] = round((stats['phix_aligned'] / nr_lanes), 2)
 
         except (IOError, ValueError) as e:
             print(f"Error parsing summary stats: {e}")
             return None
+
 
         return stats
 
@@ -883,7 +941,8 @@ class DataSharer:
 
         # Parse statistics
         conversion_stats = self.stats_parser.parse_conversion_stats(lims, run_dir, project_id)
-        summary_stats = self.stats_parser.parse_summary_stats(run_dir)
+        pid_lanes = self.stats_parser.parse_samplesheet(run_dir, project_id)
+        summary_stats = self.stats_parser.parse_summary_stats(run_dir, pid_lanes)
 
         if not summary_stats:
             print(f'Error: No summary stats could be found for {run_dir}!')
@@ -911,7 +970,7 @@ class DataSharer:
                     '?', '?', '?', '?'
 
             ])
-        
+
         # Display confirmation table
         print("\nIllumina data sharing confirmation:")
         self._display_texttable(
