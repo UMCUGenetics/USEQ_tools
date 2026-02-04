@@ -962,11 +962,11 @@ def upload_to_nextcloud(lims: Lims, run_dir: Path, pid: str, logger: logging.Log
 
     # Handle existing uploads
     global nextcloud_util
-    if nextcloud_util.checkExists(upload_id) and nextcloud_util.checkExists(f'{upload_id}.done'):
+    if nextcloud_util.check_exists(upload_id) and nextcloud_util.check_exists(f'{upload_id}.done'):
         logger.info(f'Deleting previous version of {upload_id} on Nextcloud')
         nextcloud_util.delete(upload_id)
         nextcloud_util.delete(f'{upload_id}.done')
-    elif nextcloud_util.checkExists(upload_id):
+    elif nextcloud_util.check_exists(upload_id):
         logger.info(f'Deleting incomplete previous version of {upload_id} on Nextcloud')
         transfer_done.touch()
 
@@ -1088,7 +1088,7 @@ def send_status_mail(lims: Lims, message: str, run_dir: Path, project_data: Dict
     expected_yields = {'r1': 0, 'r2': 0}
 
     if run_params_file.is_file():
-        expected_reads = getExpectedReads(str(run_params_file))
+        expected_reads = get_expected_reads(str(run_params_file))
 
     if run_info_file.is_file() and expected_reads:
         expected_yields = get_expected_yield(run_info_file, expected_reads)
@@ -1228,7 +1228,7 @@ def process_run_directory(lims: Lims, run_dir: Path, machine: str, logger: loggi
 
                 try:
                     success = demultiplex_project(run_dir, pid, project_data[pid],
-                                                run_data, parseSampleSheet(sample_sheet),
+                                                run_data, parse_sample_sheet(sample_sheet),
                                                 first_tile, logger)
                     status['projects'][pid]['Demultiplexing'] = success
                     if not success:
@@ -1427,7 +1427,7 @@ def parse_run_data(sample_sheet: Path, default_lanes: Set[int]) -> Tuple[Dict[st
         }
 
     # Parse sample sheet
-    master_sheet = parseSampleSheet(sample_sheet)
+    master_sheet = parse_sample_sheet(sample_sheet)
 
     for sample in master_sheet['samples']:
         pid = sample[master_sheet['header'].index('Sample_Project')]
@@ -1581,7 +1581,7 @@ def run(lims: Lims):
     global nextcloud_util
     try:
         nextcloud_util = NextcloudUtil()
-        nextcloud_util.setHostname(Config.NEXTCLOUD_HOST)
+        nextcloud_util.set_hostname(Config.NEXTCLOUD_HOST)
         nextcloud_util.setup(
             Config.NEXTCLOUD_USER,
             Config.NEXTCLOUD_PW,
