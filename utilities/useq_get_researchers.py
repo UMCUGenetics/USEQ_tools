@@ -1,39 +1,60 @@
+from genologics.lims import Lims
+from typing import List, Dict, Any, TextIO, Literal, Optional
+def get_researchers(lims: Lims, out_file: TextIO):
+    """
+    Retrieve and write researcher information from LIMS.
 
-def getResearchers(lims):
+    Args:
+        lims (Lims): LIMS instance
+        out_file (TextIO): A buffered text stream (either a file or stdout)
+    """
 
     researchers = lims.get_researchers()
-
+    out_file.write("LIMS ID;First Name;Last Name;Email;Username;Account Locked;Lab Name;Lab ID;Billing Street;Billing City;Billing State;Billing Country;Billing PostalCode;Billing Institution;Billing Department\n")
     for researcher in researchers:
         lab = researcher.lab
         line = []
-        line.append(u'{}'.format(researcher.id))
-        line.append(u'{}'.format(researcher.first_name))
-        line.append(u'{}'.format(researcher.last_name))
-        line.append(u'{}'.format(researcher.email))
 
+        # Add basic researcher information
+        line.append(str(researcher.id))
+        line.append(str(researcher.first_name))
+        line.append(str(researcher.last_name))
+        line.append(str(researcher.email))
+
+        # Add username with fallback
         try:
-            line.append(u'{}'.format(researcher.username))
-        except:
-            line.append(u'{}'.format('NA'))
+            line.append(str(researcher.username))
+        except AttributeError:
+            line.append('NA')
 
+        # Add account lock status with fallback
         try:
-            line.append(u'{}'.format(researcher.account_locked))
-        except:
-            line.append(u'{}'.format('NA'))
+            line.append(str(researcher.account_locked))
+        except AttributeError:
+            line.append('NA')
 
-        line.append(u'{}'.format(lab.name))
-        line.append(u'{}'.format(lab.id))
+        # Add lab information
+        line.append(str(lab.name))
+        line.append(str(lab.id))
 
-        line.append(f"{lab.billing_address.get('street', None)};{lab.billing_address.get('city',None)};{lab.billing_address.get('state',None)};{lab.billing_address.get('country',None)};{lab.billing_address.get('postalCode',None)};{lab.billing_address.get('institution',None)};{lab.billing_address.get('department',None)}")
+        # Format billing address
+        billing_parts = [
+            lab.billing_address.get('street'),
+            lab.billing_address.get('city'),
+            lab.billing_address.get('state'),
+            lab.billing_address.get('country'),
+            lab.billing_address.get('postalCode'),
+            lab.billing_address.get('institution'),
+            lab.billing_address.get('department')
+        ]
+        billing_address = ';'.join(str(part) if part is not None else 'None'
+                                   for part in billing_parts)
+        line.append(billing_address)
+
+        # Print semicolon-delimited line
+        out_file.write(';'.join(line)+"\n")
 
 
-        print (';'.join( (v) for v in line))
-
-        # line = ",".join(line)
-
-
-
-def run(lims):
-    """Gets all researcher meta data"""
-
-    getResearchers(lims)
+def run(lims, out_file):
+    """Get all researcher metadata from LIMS."""
+    get_researchers(lims, out_file)

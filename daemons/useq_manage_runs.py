@@ -1,3 +1,5 @@
+"""Module for handling the demultiplexing, transfer to nextcloud and archiving of Illumina sequencing runs."""
+
 import logging
 import subprocess
 import xml.dom.minidom
@@ -11,13 +13,14 @@ import time
 import shutil
 import re
 from genologics.entities import Project
+from genologics.lims import Lims
 from itertools import islice
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Set, Any, Union
-from modules.useq_illumina_parsers import getExpectedReads, parseSampleSheet
+from modules.useq_illumina_parsers import get_expected_reads, parse_sample_sheet
 from modules.useq_nextcloud import NextcloudUtil
-from modules.useq_template import TEMPLATE_PATH, TEMPLATE_ENVIRONMENT, renderTemplate
-from modules.useq_mail import sendMail
+from modules.useq_template import TEMPLATE_PATH, TEMPLATE_ENVIRONMENT, render_template
+from modules.useq_mail import send_mail
 from config import Config
 
 
@@ -36,13 +39,14 @@ class TransferError(RunManagerError):
     pass
 
 
-def add_flowcell_to_fastq(project_directory: Path, flowcell_id: str, logger: logging.Logger) -> None:
-    """Add flowcell id to fastq.gz filename.
+def add_flowcell_to_fastq(project_directory: Path, flowcell_id: str, logger: logging.Logger):
+    """
+    Add flowcell id to fastq.gz filename.
 
     Args:
-        project_directory: Path to project directory containing FASTQ files
-        flowcell_id: Flowcell identifier to add to filenames
-        logger: Logger instance
+        project_directory (Path): Path to project directory containing FASTQ files
+        flowcell_id (str): Flowcell identifier to add to filenames
+        logger (logging.Logger): Logger instance
     """
     logger.info('Adding flowcell to fastqs')
 
@@ -54,12 +58,13 @@ def add_flowcell_to_fastq(project_directory: Path, flowcell_id: str, logger: log
             fastq.rename(fastq.parent / new_filename)
 
 
-def cleanup_fastq_files(run_dir: Path, logger: logging.Logger) -> None:
-    """Delete FastQ files from run directory.
+def cleanup_fastq_files(run_dir: Path, logger: logging.Logger):
+    """
+    Delete FastQ files from run directory.
 
     Args:
-        run_dir: Path to run directory
-        logger: Logger instance
+        run_dir (Path): Path to run directory
+        logger (logging.Logger): Logger instance
     """
     logger.info('Deleting FastQ files')
     for file in run_dir.rglob("*.gz"):
@@ -71,10 +76,11 @@ def cleanup_fastq_files(run_dir: Path, logger: logging.Logger) -> None:
 
 
 def reverse_complement(seq: str) -> str:
-    """Calculate reverse complement of DNA sequence.
+    """
+    Calculate reverse complement of DNA sequence.
 
     Args:
-        seq: DNA sequence string
+        seq (str): DNA sequence string
 
     Returns:
         Reverse complement sequence
@@ -84,11 +90,12 @@ def reverse_complement(seq: str) -> str:
 
 
 def process_sample_indices(header: List[str], sample: List[str]) -> Tuple[List[str], List[str]]:
-    """Process and clean sample indices, creating forward and reverse complement versions.
+    """
+    Process and clean sample indices, creating forward and reverse complement versions.
 
     Args:
-        header: Sample sheet header
-        sample: Sample data row
+        header (List[str]): Sample sheet header
+        sample (List[str]): Sample data row
 
     Returns:
         Tuple of (forward_sample, reverse_sample)
@@ -119,12 +126,13 @@ def process_sample_indices(header: List[str], sample: List[str]) -> Tuple[List[s
 
 
 def run_system_command(command: str, logger: logging.Logger, shell: bool = False) -> bool:
-    """Execute system command with proper error handling.
+    """
+    Execute system command with proper error handling.
 
     Args:
-        command: Command to execute
-        logger: Logger instance
-        shell: Whether to use shell execution
+        command (str): Command to execute
+        logger (logging.Logger): Logger instance
+        shell (bool): Whether to use shell execution
 
     Returns:
         True if command succeeded, False otherwise
@@ -156,8 +164,8 @@ def update_status(status_file: Path, status: Dict[str, Any]) -> None:
     """Update status file with current processing status.
 
     Args:
-        status_file: Path to status file
-        status: Status dictionary to write
+        status_file (Path): Path to status file
+        status (Dict[str, Any]): Status dictionary to write
     """
     with open(status_file, 'w') as f:
         json.dump(status, f, indent=4)
@@ -165,14 +173,15 @@ def update_status(status_file: Path, status: Dict[str, Any]) -> None:
 
 def validate_demultiplexing_stats(stats: Dict[str, Any], pid: str, project_data: Dict[str, Any],
                                 run_data: Dict[str, Any], logger: logging.Logger) -> bool:
-    """Validate demultiplexing statistics to determine if demux was successful.
+    """
+    Validate demultiplexing statistics to determine if demux was successful.
 
     Args:
-        stats: Demultiplexing statistics
-        pid: Project ID
-        project_data: Project information
-        run_data: Run information
-        logger: Logger instance
+        stats (Dict[str, Any]): Demultiplexing statistics
+        pid (str): Project ID
+        project_data (Dict[str, Any]): Project information
+        run_data (Dict[str, Any]): Run information
+        logger (logging.Logger): Logger instance
 
     Returns:
         True if demultiplexing passed validation, False otherwise
@@ -216,18 +225,17 @@ def validate_demultiplexing_stats(stats: Dict[str, Any], pid: str, project_data:
     return True
 
 
-def check_demultiplexing_samplesheet(sample_sheet: Path, pid: str, project_data: Dict[str, Any],
-                                    run_data: Dict[str, Any], first_tile: str,
-                                    logger: logging.Logger) -> bool:
-    """Test demultiplexing with given samplesheet.
+def check_demultiplexing_samplesheet(sample_sheet: Path, pid: str, project_data: Dict[str, Any], run_data: Dict[str, Any], first_tile: str, logger: logging.Logger) -> bool:
+    """
+    Test demultiplexing with given samplesheet.
 
     Args:
-        sample_sheet: Path to sample sheet
-        pid: Project ID
-        project_data: Project information
-        run_data: Run information
-        first_tile: First tile for testing
-        logger: Logger instance
+        sample_sheet: (Path) Path to sample sheet
+        pid (str): Project ID
+        project_data (Dict[str, Any]): Project information
+        run_data (Dict[str, Any]): Run information
+        first_tile (str): First tile for testing
+        logger (logging.Logger): Logger instance
 
     Returns:
         True if demultiplexing test passed, False otherwise
@@ -251,19 +259,18 @@ def check_demultiplexing_samplesheet(sample_sheet: Path, pid: str, project_data:
     return validate_demultiplexing_stats(stats, pid, project_data, run_data, logger)
 
 
-def demultiplex_project(run_dir: Path, pid: str, project_data: Dict[str, Any],
-                       run_data: Dict[str, Any], master_sheet: Dict[str, Any],
-                       first_tile: str, logger: logging.Logger) -> bool:
-    """Demultiplex samples for a specific project.
+def demultiplex_project(run_dir: Path, pid: str, project_data: Dict[str, Any], run_data: Dict[str, Any], master_sheet: Dict[str, Any], first_tile: str, logger: logging.Logger) -> bool:
+    """
+    Demultiplex samples for a specific project.
 
     Args:
-        run_dir: Run directory path
-        pid: Project ID
-        project_data: Project information
-        run_data: Run information
-        master_sheet: Master sample sheet data
-        first_tile: First tile for testing
-        logger: Logger instance
+        run_dir (Path): Run directory path
+        pid (str): Project ID
+        project_data (Dict[str, Any]): Project information
+        run_data (Dict[str, Any]): Run information
+        master_sheet (Dict[str, Any]): Master sample sheet data
+        first_tile (str): First tile for testing
+        logger (logging.Logger): Logger instance
 
     Returns:
         True if demultiplexing succeeded, False otherwise
@@ -331,14 +338,15 @@ def demultiplex_project(run_dir: Path, pid: str, project_data: Dict[str, Any],
     return True
 
 
-def filter_stats_by_samples(lims, pid: str, pid_staging: Path, report_dir: Path) -> None:
-    """Filter adapter and demultiplexing stats to include only project samples.
+def filter_stats_by_samples(lims: Lims, pid: str, pid_staging: Path, report_dir: Path):
+    """
+    Filter adapter and demultiplexing stats to include only project samples.
 
     Args:
-        lims: LIMS connection
-        pid: Project ID
-        pid_staging: Staging directory path
-        report_dir: Reports directory path
+        lims (Lims): LIMS connection
+        pid (str): Project ID
+        pid_staging (Path): Staging directory path
+        report_dir (Path): Reports directory path
     """
     samples = lims.get_samples(projectlimsid=pid)
     sample_names = [x.name for x in samples]
@@ -366,13 +374,14 @@ def filter_stats_by_samples(lims, pid: str, pid_staging: Path, report_dir: Path)
                     filtered.write(line)
 
 
-def generate_run_statistics(lims, run_dir: Path, logger: logging.Logger) -> bool:
-    """Generate comprehensive run statistics and quality reports.
+def generate_run_statistics(lims: Lims, run_dir: Path, logger: logging.Logger) -> bool:
+    """
+    Generate comprehensive run statistics and quality reports.
 
     Args:
-        lims: LIMS connection
-        run_dir: Run directory path
-        logger: Logger instance
+        lims (Lims): LIMS connection
+        run_dir (Path): Run directory path
+        logger (logging.Logger): Logger instance
 
     Returns:
         True if statistics generation succeeded
@@ -448,12 +457,13 @@ def generate_run_statistics(lims, run_dir: Path, logger: logging.Logger) -> bool
     return True
 
 
-def consolidate_statistics_files(conversion_dir: Path, stats_dir: Path) -> None:
-    """Consolidate statistics files from individual projects into combined files.
+def consolidate_statistics_files(conversion_dir: Path, stats_dir: Path):
+    """
+    Consolidate statistics files from individual projects into combined files.
 
     Args:
-        conversion_dir: Conversion directory path
-        stats_dir: Statistics directory path
+        conversion_dir (Path): Conversion directory path
+        stats_dir (Path): Statistics directory path
     """
     # Consolidate demultiplexing stats
     with open(stats_dir / 'Demultiplex_Stats.csv', 'w') as all_demux_stats:
@@ -506,11 +516,12 @@ def consolidate_statistics_files(conversion_dir: Path, stats_dir: Path) -> None:
 
 
 def get_expected_yield(run_info_xml: Path, expected_reads: int) -> Dict[str, float]:
-    """Calculate expected yield from run info.
+    """
+    Calculate expected yield from run info.
 
     Args:
-        run_info_xml: Path to RunInfo.xml
-        expected_reads: Expected number of reads
+        run_info_xml (Path): Path to RunInfo.xml
+        expected_reads (int): Expected number of reads
 
     Returns:
         Dictionary with expected yields for R1 and R2
@@ -532,10 +543,11 @@ def get_expected_yield(run_info_xml: Path, expected_reads: int) -> Dict[str, flo
 
 
 def parse_conversion_stats(reports_dir: Path) -> Dict[str, Any]:
-    """Parse conversion statistics from reports directory.
+    """
+    Parse conversion statistics from reports directory.
 
     Args:
-        reports_dir: Path to reports directory
+        reports_dir (Path): Path to reports directory
 
     Returns:
         Dictionary containing parsed statistics
@@ -666,10 +678,11 @@ def parse_conversion_stats(reports_dir: Path) -> Dict[str, Any]:
 
 
 def parse_summary_stats(summary_file: Path) -> Dict[str, Any]:
-    """Parse summary statistics from summary file.
+    """
+    Parse summary statistics from summary file.
 
     Args:
-        summary_file: Path to summary file
+        summary_file (Path): Path to summary file
 
     Returns:
         Dictionary containing parsed summary statistics
@@ -746,11 +759,12 @@ def parse_summary_stats(summary_file: Path) -> Dict[str, Any]:
 
 
 def upload_to_archive(run_dir: Path, logger: logging.Logger) -> bool:
-    """Upload run directory to archive storage.
+    """
+    Upload run directory to archive storage.
 
     Args:
-        run_dir: Run directory path
-        logger: Logger instance
+        run_dir (Path): Run directory path
+        logger (logging.Logger): Logger instance
 
     Returns:
         True if upload succeeded
@@ -779,14 +793,15 @@ def upload_to_archive(run_dir: Path, logger: logging.Logger) -> bool:
     return True
 
 
-def upload_to_hpc(lims, run_dir: Path, pid: Optional[str], logger: logging.Logger) -> bool:
-    """Upload run data to HPC storage.
+def upload_to_hpc(lims: Lims, run_dir: Path, pid: Optional[str], logger: logging.Logger) -> bool:
+    """
+    Upload run data to HPC storage.
 
     Args:
-        lims: LIMS connection
-        run_dir: Run directory path
-        pid: Project ID (optional)
-        logger: Logger instance
+        lims (Lims): LIMS connection
+        run_dir (Path): Run directory path
+        pid (Optional[str]): Project ID (optional)
+        logger (logging.Logger): Logger instance
 
     Returns:
         True if upload succeeded
@@ -836,19 +851,18 @@ def upload_to_hpc(lims, run_dir: Path, pid: Optional[str], logger: logging.Logge
     return True
 
 
-def upload_to_nextcloud(lims, run_dir: Path, pid: str, logger: logging.Logger,
-                       mode: str = 'fastq', skip_undetermined: bool = True,
-                       lanes: Optional[Set[int]] = None) -> bool:
-    """Upload data to Nextcloud storage.
+def upload_to_nextcloud(lims: Lims, run_dir: Path, pid: str, logger: logging.Logger, mode: str = 'fastq', skip_undetermined: bool = True, lanes: Optional[Set[int]] = None) -> bool:
+    """
+    Upload data to Nextcloud storage.
 
     Args:
-        lims: LIMS connection
-        run_dir: Run directory path
-        pid: Project ID
-        logger: Logger instance
-        mode: Upload mode ('fastq' or 'bcl')
-        skip_undetermined: Whether to skip undetermined reads
-        lanes: Set of lane numbers to include
+        lims (Lims): LIMS instance
+        run_dir (Path): Run directory path
+        pid (str): Project ID
+        logger (logging.Logger): Logger instance
+        mode (str): Upload mode ('fastq' or 'bcl')
+        skip_undetermined (bool): Whether to skip undetermined reads
+        lanes (Optional[Set[int]]): Set of lane numbers to include
 
     Returns:
         True if upload succeeded
@@ -1028,16 +1042,16 @@ def upload_to_nextcloud(lims, run_dir: Path, pid: str, logger: logging.Logger,
     return True
 
 
-def send_status_mail(lims, message: str, run_dir: Path, project_data: Dict[str, Any],
-                    run_data: Dict[str, Any]) -> None:
-    """Send status email with run information and attachments.
+def send_status_mail(lims: Lims, message: str, run_dir: Path, project_data: Dict[str, Any], run_data: Dict[str, Any]):
+    """
+    Send status email with run information and attachments.
 
     Args:
-        lims: LIMS connection
-        message: Status message
-        run_dir: Run directory path
-        project_data: Project information
-        run_data: Run information
+        lims (Lims): LIMS instance
+        message (str): Status message
+        run_dir (Path): Run directory path
+        project_data (Dict[str, Any]): Project information
+        run_data (Dict[str, Any]): Run information
     """
     status_file = run_dir / 'status.json'
     log_file = run_dir / 'mgr.log'
@@ -1123,23 +1137,25 @@ def send_status_mail(lims, message: str, run_dir: Path, project_data: Dict[str, 
     }
 
     # Generate email content and send
-    mail_content = renderTemplate('conversion_status_mail.html', template_data)
+    mail_content = render_template('conversion_status_mail.html', template_data)
 
     if status_txt:
         mail_subject = f'[USEQ] Status ({", ".join(status_txt)}): {message}'
     else:
         mail_subject = f'[USEQ] Status ({run_dir.name}): {message}'
 
-    sendMail(mail_subject, mail_content, Config.MAIL_SENDER, Config.MAIL_ADMINS, attachments=attachments)
+    send_mail(mail_subject, mail_content, Config.MAIL_SENDER, Config.MAIL_ADMINS, attachments=attachments)
 
 
-def process_run_directory(lims, run_dir: Path, machine: str, logger: logging.Logger) -> None:
-    """Process a single run directory through the complete pipeline.
+def process_run_directory(lims: Lims, run_dir: Path, machine: str, logger: logging.Logger):
+    """
+    Process a single run directory through the complete pipeline.
 
     Args:
-        run_dir: Run directory path
-        machine: Machine name
-        logger: Logger instance
+        lims (Lims): LIMS instance
+        run_dir (Path): Run directory path
+        machine (str): Machine name
+        logger (logging.Logger): Logger instance
     """
     # Important file paths
     sample_sheet = run_dir / 'SampleSheet.csv'
@@ -1306,11 +1322,12 @@ def process_run_directory(lims, run_dir: Path, machine: str, logger: logging.Log
 
 
 def find_or_retrieve_sample_sheet(run_dir: Path, logger: logging.Logger) -> Optional[Path]:
-    """Find existing sample sheet or retrieve from LIMS.
+    """
+    Find existing sample sheet or retrieve from LIMS.
 
     Args:
-        run_dir: Run directory path
-        logger: Logger instance
+        run_dir (Path): Run directory path
+        logger (logging.Logger): Logger instance
 
     Returns:
         Path to sample sheet if found, None otherwise
@@ -1389,11 +1406,12 @@ def find_or_retrieve_sample_sheet(run_dir: Path, logger: logging.Logger) -> Opti
 
 
 def parse_run_data(sample_sheet: Path, default_lanes: Set[int]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Parse run data from sample sheet.
+    """
+    Parse run data from sample sheet.
 
     Args:
-        sample_sheet: Path to sample sheet
-        default_lanes: Set of default lane numbers
+        sample_sheet (Path): Path to sample sheet
+        default_lanes (Set[int]): Set of default lane numbers
 
     Returns:
         Tuple of (run_data, project_data)
@@ -1450,10 +1468,11 @@ def parse_run_data(sample_sheet: Path, default_lanes: Set[int]) -> Tuple[Dict[st
 
 
 def setup_logger(run_dir: Path) -> logging.Logger:
-    """Set up logger for run processing.
+    """
+    Set up logger for run processing.
 
     Args:
-        run_dir: Run directory path
+        run_dir (Path): Run directory path
 
     Returns:
         Configured logger instance
@@ -1486,12 +1505,11 @@ def setup_logger(run_dir: Path) -> logging.Logger:
     return logger
 
 
-def manage_runs(lims, skip_demux_check: bool = False) -> None:
+def manage_runs(lims: Lims) -> None:
     """Main function to manage sequencing runs.
 
     Args:
-        lims: LIMS connection object
-        skip_demux_check: Whether to skip demultiplexing checks
+        lims (Lims): LIMS instance
     """
     machine_aliases = Config.MACHINE_ALIASES
     if Config.DEVMODE:
@@ -1553,12 +1571,11 @@ def zip_conversion_report(run_dir: Path, logger: logging.Logger) -> str:
     return str(zip_file)
 
 
-def run(lims, skip_demux_check: bool = False) -> None:
+def run(lims: Lims):
     """Main entry point for run management.
 
     Args:
-        lims: LIMS connection object
-        skip_demux_check: Whether to skip demultiplexing checks
+        lims (Lims): LIMS connection object
     """
     # Set up Nextcloud connection
     global nextcloud_util
@@ -1574,7 +1591,7 @@ def run(lims, skip_demux_check: bool = False) -> None:
         )
 
         # Run the main management function
-        manage_runs(lims, skip_demux_check)
+        manage_runs(lims)
 
     except Exception as e:
         # Log to a general log file if specific run logging isn't available

@@ -1,15 +1,30 @@
 from genologics.entities import Project,Step
+from genologics.lims import Lims
 from config import Config
 import sys
 
 
 
-def route(lims, project_id, protocol_type):
+def route(lims: Lims, project_id: str, protocol_type)-> None:
+    """
+    Route project samples to appropriate workflow stages based on protocol type.
+
+    Args:
+        lims (Lims): LIMS instance
+        project_id (str): LIMS project ID
+        protocol_type (str): The type of protocol to route samples to. Valid values are:
+            'ISOLATION', 'LIBPREP', 'POOLING', 'POOL QC', 'ILLUMINA SEQUENCING',
+            'NANOPORE SEQUENCING', or 'POST SEQUENCING'.
+
+    Raises:
+        SystemExit: If the project ID is not found in LIMS
+
+    """
     project = None
     try:
         project = Project(lims, id=project_id)
         project_name = project.name
-    except:
+    except Exception:
         sys.exit(f"Error : Project ID {project_id} not found in LIMS!")
 
 
@@ -54,5 +69,15 @@ def route(lims, project_id, protocol_type):
         uri = f"{Config.LIMS_URI}/api/v2/configuration/workflows/{workflow_nr}/stages/{stage}"
         lims.route_artifacts(artifact_list,stage_uri=uri)
 
-def run(lims, project_id, protocol_type):
+def run(lims: Lims, project_id: str, protocol_type: str) -> None:
+    """
+    Execute the routing process for a project.
+    
+    Args:
+        lims (Lims): LIMS instance
+        project_id (str): LIMS project ID
+        protocol_type (str): The type of protocol to route samples to. Valid values are:
+            'ISOLATION', 'LIBPREP', 'POOLING', 'POOL QC', 'ILLUMINA SEQUENCING',
+            'NANOPORE SEQUENCING', or 'POST SEQUENCING'.
+    """
     route(lims,project_id, protocol_type)

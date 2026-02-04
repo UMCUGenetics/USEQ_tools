@@ -61,7 +61,11 @@ class USEQTools:
             raise ConnectionError(f"LIMS connection failed: {e}")
 
     def setup_argument_parser(self) -> argparse.ArgumentParser:
-        """Set up the main argument parser with all subcommands."""
+
+        """
+        Set up the main argument parser with all subcommands.
+
+        """
         parser = argparse.ArgumentParser(
             description="USEQ Tools - Management utilities",
             formatter_class=argparse.RawDescriptionHelpFormatter
@@ -80,7 +84,13 @@ class USEQTools:
         return parser
 
     def _add_utility_commands(self, subparsers: argparse._SubParsersAction):
-        """Add utility command parsers."""
+        """
+        Internal function to add utility command parsers.
+
+        Args:
+            subparsers: ArgumentParser subparsers
+
+        """
         util_parser = subparsers.add_parser(
             'utilities',
             help="Utility functions for account management, data sharing, and reporting"
@@ -100,11 +110,17 @@ class USEQTools:
         self._add_project_commands(util_subparsers)
 
     def _add_account_commands(self, subparsers: argparse._SubParsersAction):
-        """Add account management commands."""
+        """
+        Internal function to add account management commands.
+
+        Args:
+            subparsers: ArgumentParser subparsers
+
+        """
         # Manage accounts
         accounts_parser = subparsers.add_parser(
             'manage_accounts',
-            help='Create, edit & retrieve accounts (labs)'
+            help='Create, edit, retrieve and batch edit accounts (labs)'
         )
         accounts_parser.add_argument(
             '-m', '--mode',
@@ -156,6 +172,12 @@ class USEQTools:
             'get_researchers',
             help='Get information for all researchers'
         )
+        researchers_parser.add_argument(
+            '-o', '--output_file',
+            type=argparse.FileType('w'),
+            default=sys.stdout,
+            help='Output file path (default: stdout)'
+        )
         researchers_parser.set_defaults(func=self.get_researchers)
 
         # Get accounts
@@ -172,7 +194,14 @@ class USEQTools:
         get_accounts_parser.set_defaults(func=self.get_accounts)
 
     def _add_data_commands(self, subparsers: argparse._SubParsersAction):
-        """Add data management commands."""
+        """
+        Internal function to add data management commands.
+
+        Args:
+            subparsers: ArgumentParser subparsers
+
+        """
+
         # Share data
         share_parser = subparsers.add_parser(
             'share_data',
@@ -222,36 +251,43 @@ class USEQTools:
         runids_parser.set_defaults(func=self.manage_runids)
 
         # Link run results
-        link_parser = subparsers.add_parser(
-            'link_run_results',
-            help='Link run results for a run ID'
-        )
-        link_parser.add_argument(
-            '-i', '--runid',
-            required=True,
-            help='LIMS run ID'
-        )
-        link_parser.set_defaults(func=self.link_run_results)
+        # link_parser = subparsers.add_parser(
+        #     'link_run_results',
+        #     help='Link run results for a run ID'
+        # )
+        # link_parser.add_argument(
+        #     '-i', '--runid',
+        #     required=True,
+        #     help='LIMS run ID'
+        # )
+        # link_parser.set_defaults(func=self.link_run_results)
 
     def _add_reporting_commands(self, subparsers: argparse._SubParsersAction):
-        """Add reporting commands."""
-        # Budget overview
-        budget_parser = subparsers.add_parser(
-            'budget_overview',
-            help='Overview of costs for budget numbers'
-        )
-        budget_parser.add_argument(
-            '-b', '--budgetnrs',
-            required=True,
-            help='Budget numbers to analyze'
-        )
-        budget_parser.add_argument(
-            '-o', '--output_file',
-            type=argparse.FileType('w'),
-            default=sys.stdout,
-            help='Output file path (default: stdout)'
-        )
-        budget_parser.set_defaults(func=self.budget_overview)
+        """
+        Internal function to add reporting commands.
+
+        Args:
+            subparsers: ArgumentParser subparsers
+
+        """
+
+        # Budget overview (old code, will rewrite when needed)
+        # budget_parser = subparsers.add_parser(
+        #     'budget_overview',
+        #     help='Overview of costs for budget numbers'
+        # )
+        # budget_parser.add_argument(
+        #     '-b', '--budgetnrs',
+        #     required=True,
+        #     help='Budget numbers to analyze'
+        # )
+        # budget_parser.add_argument(
+        #     '-o', '--output_file',
+        #     type=argparse.FileType('w'),
+        #     default=sys.stdout,
+        #     help='Output file path (default: stdout)'
+        # )
+        # budget_parser.set_defaults(func=self.budget_overview)
 
         # Sample report
         sample_parser = subparsers.add_parser(
@@ -262,6 +298,12 @@ class USEQTools:
             '-i', '--project_id',
             required=True,
             help='Project ID'
+        )
+        sample_parser.add_argument(
+            '-o', '--output_file',
+            type=argparse.FileType('w'),
+            default=sys.stdout,
+            help='Output file path (default: stdout)'
         )
         sample_parser.set_defaults(func=self.sample_report)
 
@@ -283,7 +325,14 @@ class USEQTools:
         year_parser.set_defaults(func=self.year_overview)
 
     def _add_project_commands(self, subparsers: argparse._SubParsersAction):
-        """Add project management commands."""
+        """
+        Internal function to add project management commands.
+
+        Args:
+            subparsers: ArgumentParser subparsers
+
+        """
+
         # Route project
         route_parser = subparsers.add_parser(
             'route_project',
@@ -327,12 +376,12 @@ class USEQTools:
         )
         finish_parser.set_defaults(func=self.finish_run)
 
-        # Update stats
-        stats_parser = subparsers.add_parser(
-            'update_stats',
-            help='Update statistics database'
-        )
-        stats_parser.set_defaults(func=self.update_stats)
+        # Update stats (old code, will rewrite when needed)
+        # stats_parser = subparsers.add_parser(
+        #     'update_stats',
+        #     help='Update statistics database'
+        # )
+        # stats_parser.set_defaults(func=self.update_stats)
 
         # Update step UDF
         udf_parser = subparsers.add_parser(
@@ -357,41 +406,54 @@ class USEQTools:
         udf_parser.set_defaults(func=self.update_step_udf)
 
     def _add_epp_commands(self, subparsers: argparse._SubParsersAction):
-        """Add EPP (External Process Protocol) commands."""
+        """
+        Internal function to add EPP (External Process Protocol) commands.
+
+        Args:
+            subparsers: ArgumentParser subparsers
+
+        """
+
+
         epp_parser = subparsers.add_parser(
             'epp',
             help="Clarity EPP functions for LIMS integration"
         )
         epp_subparsers = epp_parser.add_subparsers(dest='epp_command')
 
-
-
         # Add other EPP commands with similar pattern...
         self._add_file_commands(epp_subparsers)
         self._add_workflow_commands(epp_subparsers)
 
     def _add_file_commands(self, subparsers: argparse._SubParsersAction):
-        """Add file-related EPP commands."""
+        """
+        Internal function to add file-related EPP commands.
+
+        Args:
+            subparsers: ArgumentParser subparsers
+
+        """
+
         # Modify samplesheet
-        modify_parser = subparsers.add_parser(
-            'modify_samplesheet',
-            help='Modify samplesheet for different sequencers'
-        )
-        modify_parser.add_argument('-s', '--step', required=True, help='Step URI')
-        modify_parser.add_argument('-a', '--aid', required=True, help='Artifact ID')
-        modify_parser.add_argument(
-            '-m', '--mode',
-            choices=['rev', 'v1tov2'],
-            required=True,
-            help='Modification mode'
-        )
-        modify_parser.add_argument(
-            '-o', '--output_file',
-            type=argparse.FileType('w'),
-            default=sys.stdout,
-            help='Output file path'
-        )
-        modify_parser.set_defaults(func=self.modify_samplesheet)
+        # modify_parser = subparsers.add_parser(
+        #     'modify_samplesheet',
+        #     help='Modify samplesheet for different sequencers'
+        # )
+        # modify_parser.add_argument('-s', '--step', required=True, help='Step URI')
+        # modify_parser.add_argument('-a', '--aid', required=True, help='Artifact ID')
+        # modify_parser.add_argument(
+        #     '-m', '--mode',
+        #     choices=['rev', 'v1tov2'],
+        #     required=True,
+        #     help='Modification mode'
+        # )
+        # modify_parser.add_argument(
+        #     '-o', '--output_file',
+        #     type=argparse.FileType('w'),
+        #     default=sys.stdout,
+        #     help='Output file path'
+        # )
+        # modify_parser.set_defaults(func=self.modify_samplesheet)
 
         # Create samplesheet
         create_parser = subparsers.add_parser(
@@ -405,7 +467,6 @@ class USEQTools:
             default=sys.stdout,
             help='Output file path'
         )
-        create_parser.add_argument('-t', '--type', help='Sample sheet type')
         create_parser.set_defaults(func=self.create_samplesheet)
 
         # Finance overview
@@ -444,29 +505,35 @@ class USEQTools:
         worksheet_parser.set_defaults(func=self.parse_worksheet)
 
         # Create recipe
-        recipe_parser = subparsers.add_parser(
-            'create_recipe',
-            help='Create NovaSeq run recipe'
-        )
-        recipe_parser.add_argument('-s', '--step', required=True, help='Step URI')
-        recipe_parser.add_argument(
-            '-o', '--output_file',
-            type=argparse.FileType('w'),
-            default=sys.stdout,
-            help='Output file path'
-        )
-        recipe_parser.set_defaults(func=self.create_recipe)
+        # recipe_parser = subparsers.add_parser(
+        #     'create_recipe',
+        #     help='Create NovaSeq run recipe'
+        # )
+        # recipe_parser.add_argument('-s', '--step', required=True, help='Step URI')
+        # recipe_parser.add_argument(
+        #     '-o', '--output_file',
+        #     type=argparse.FileType('w'),
+        #     default=sys.stdout,
+        #     help='Output file path'
+        # )
+        # recipe_parser.set_defaults(func=self.create_recipe)
 
     def _add_workflow_commands(self, subparsers: argparse._SubParsersAction):
-        """Add workflow-related EPP commands."""
+        """
+        Internal function to add workflow-related EPP commands.
+
+        Args:
+            subparsers: ArgumentParser subparsers
+
+        """
         # Group permissions
-        perms_parser = subparsers.add_parser(
-            'group_permissions',
-            help='Check user group permissions for LIMS step'
-        )
-        perms_parser.add_argument('-s', '--step', required=True, help='Step URI')
-        perms_parser.add_argument('-g', '--groups', required=True, help='Required groups')
-        perms_parser.set_defaults(func=self.group_permissions)
+        # perms_parser = subparsers.add_parser(
+        #     'group_permissions',
+        #     help='Check user group permissions for LIMS step'
+        # )
+        # perms_parser.add_argument('-s', '--step', required=True, help='Step URI')
+        # perms_parser.add_argument('-g', '--groups', required=True, help='Required groups')
+        # perms_parser.set_defaults(func=self.group_permissions)
 
         # Route artifacts
         route_parser = subparsers.add_parser(
@@ -525,7 +592,14 @@ class USEQTools:
         status_parser.set_defaults(func=self.run_status_mail)
 
     def _add_daemon_commands(self, subparsers: argparse._SubParsersAction):
-        """Add daemon command parsers."""
+        """
+        Internal function to add daemon command parsers.
+
+        Args:
+            subparsers: ArgumentParser subparsers
+
+        """
+
         daemon_parser = subparsers.add_parser(
             'daemons',
             help="Background daemon scripts for monitoring and automation"
@@ -544,28 +618,40 @@ class USEQTools:
             'manage_runs',
             help='Manage sequencing run processing pipeline'
         )
-        runs_parser.add_argument(
-            '-d', '--skip_demux_check',
-            action='store_true',
-            help='Skip demultiplexing check (for low quality runs)'
-        )
         runs_parser.set_defaults(func=self.manage_runs)
 
         # Run overview
-        overview_parser = daemon_subparsers.add_parser(
-            'run_overview',
-            help='Update run overview for USEQ website'
-        )
-        overview_parser.add_argument(
-            '-o', '--overview_file',
-            default='overview.json',
-            help='Output overview file path'
-        )
-        overview_parser.set_defaults(func=self.run_overview)
+        # overview_parser = daemon_subparsers.add_parser(
+        #     'run_overview',
+        #     help='Update run overview for USEQ website'
+        # )
+        # overview_parser.add_argument(
+        #     '-o', '--overview_file',
+        #     default='overview.json',
+        #     help='Output overview file path'
+        # )
+        # overview_parser.set_defaults(func=self.run_overview)
 
     # Utility command handlers
     def manage_accounts(self, args):
-        """Handle account management operations."""
+        """
+        Handle account management operations (edit, create, retrieve and batch_edit).
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            - mode: The operation mode (edit/create/retrieve/batch_edit)
+            - csv: Path to account CSV file
+            - account: Specific LIMS account ID
+        Raises:
+            Exception: Re-raises any exceptions that occur during account
+            management operations after logging the error.
+        CLI Examples:
+            Retrieve: python useq_tools.py utilities manage_accounts -m retrieve -c ~/152.csv -a 152
+            Edit: python useq_tools.py utilities manage_accounts -m edit -c ~/152.csv -a 152
+            Create: python useq_tools.py utilities manage_accounts -m create -c ~/new_account.csv
+            Batch: python useq_tools.py utilities manage_accounts -m batch_edit -c ~/accounts_to_edit.csv
+
+        """
         try:
             utilities.useq_manage_accounts.run(
                 self.lims, args.mode, args.csv, args.account
@@ -575,7 +661,25 @@ class USEQTools:
             raise
 
     def client_mail(self, args):
-        """Handle client email operations."""
+        """
+        Handle client email operations.
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            - content: File object containing email subject and content. An example can be found under the resources folder.
+            - mode: Operation mode ('all', 'accounts', or 'labs').
+            - attachment: Optional path to file attachment.
+            - name: Required for 'accounts' and 'labs' modes.
+                Comma-separated list of account usernames or lab names.
+            sender: Email address of the sender. Set in config.py.
+        Raises:
+            Exception: Re-raises any exceptions that occur during client email operations after logging the error.
+        CLI Examples:
+            All: python useq_tools.py utilities -m all -c /path/to/copy/of/client_mail_template.csv -a <optional attachment>
+            Labs: python useq_tools.py utilities client_mail -m labs -c /path/to/copy/of/client_mail_template.csv -a <optional attachment> -n labname1,labname2,labnameetc
+            Accounts: python useq_tools.py utilities client_mail -m accounts -c /path/to/copy/of/client_mail_template.csv -a <optional attachment> -n username1,username2,usernameetc
+
+        """
         try:
             utilities.useq_client_mail.run(
                 self.lims, Config.MAIL_SENDER, args.content,
@@ -586,7 +690,37 @@ class USEQTools:
             raise
 
     def share_data(self, args):
-        """Handle data sharing operations."""
+        """
+        Handle data sharing operations.
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -ids: LIMS project IDs.
+            -username: LIMS username (e.g. u.seq).
+            -dir: Optional directory to share.
+            -fid: Optional flowcell ID, overwrites the flowcell ID found in LIMS.
+            -all_dirs_ont: Flag determining packaging logic. If True, packages full data directories (e.g., fastq_pass.tar.gz). If False, attempts to package by individual barcode folders.
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during data sharing operations after logging the error.
+
+        CLI Examples:
+            Share Illumina sequencing run:
+            python useq_tools.py utilities share_data -i <limsprojectid>
+
+            Share Illumina sequencing run, but use the given flowcell ID to locate the run directory:
+            python useq_tools.py utilities share_data -i <limsprojectid> -fid <flowcellid>
+
+            Share a directory with a user:
+            python useq_tools.py utilities share_data -u <username> -d </path/to/dir>
+
+            Share an ONT sequencing run (all data directories):
+            python useq_tools.py utilities share_data -i <limsprojectid> -a
+
+            Share an ONT sequencing run (only barcode directories):
+            python useq_tools.py utilities share_data -i <limsprojectid>
+        """
+
         try:
             utilities.useq_share_run.run(
                 self.lims, args.ids, args.username, args.dir,
@@ -596,26 +730,78 @@ class USEQTools:
             logger.error(f"Data sharing failed: {e}")
             raise
 
-    def budget_overview(self, args):
-        """Handle budget overview generation."""
-        try:
-            utilities.useq_budget_overview.run(
-                self.lims, args.budgetnrs, args.output_file
-            )
-        except Exception as e:
-            logger.error(f"Budget overview failed: {e}")
-            raise
+    #Old code, will rewrite when needed
+    # def budget_overview(self, args):
+    #     """Handle budget overview generation."""
+    #     try:
+    #         utilities.useq_budget_overview.run(
+    #             self.lims, args.budgetnrs, args.output_file
+    #         )
+    #     except Exception as e:
+    #         logger.error(f"Budget overview failed: {e}")
+    #         raise
 
     def get_researchers(self, args):
-        """Handle researcher information retrieval."""
+        """
+        Handle researcher information retrieval.
+
+        Writes a semicolon-delimited list of LIMS researchers. Includes (in order) the following columns:
+        1. LIMS ID              9. Billing Street
+        2. First Name          10. Billing City
+        3. Last Name           11. Billing State
+        4. Email               12. Billing Country
+        5. Username            13. Billing Postal Code
+        6. Account Locked      14. Billing Institution
+        7. Lab Name            15. Billing Department
+        8. Lab ID
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -output_file: Optional output file, defaults to stdout.
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during retrieval of researcher information.
+
+        CLI Examples:
+            print a list of all LIMS users to stdout:
+            python useq_tools.py utilities get_researchers
+
+            print a list of all LIMS users to a file:
+            python useq_tools.py utilities get_researchers -o <outputfile>
+        """
         try:
-            utilities.useq_get_researchers.run(self.lims)
+            utilities.useq_get_researchers.run(self.lims, args.output_file)
         except Exception as e:
             logger.error(f"Get researchers failed: {e}")
             raise
 
     def get_accounts(self, args):
-        """Handle account information retrieval."""
+        """
+        Handle account information retrieval.
+
+        Writes a semicolon-delimited list of LIMS labs (accounts). Includes (in order) the following columns:
+            1. Name                  8. Billing Institution   15. Shipping Institution
+            2. LIMS ID               9. Billing Department    16. Shipping Department
+            3. Billing Street       10. Shipping Street       17. Budget Numbers
+            4. Billing City         11. Shipping City         18. VAT Number
+            5. Billing State        12. Shipping State        19. Debtor Number
+            6. Billing Country      13. Shipping Country      20. Supervisor Email
+            7. Billing PostalCode   14. Shipping PostalCode   21. Finance Email
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -output_file: Optional output file, defaults to stdout.
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during retrieval of account information.
+
+        CLI Examples:
+            print a list of all LIMS accounts to stdout:
+            python useq_tools.py utilities get_accounts
+
+            print a list of all LIMS accounts to a file:
+            python useq_tools.py utilities get_accounts -o <outputfile>
+        """
         try:
             utilities.useq_get_accounts.run(self.lims, args.output_file)
         except Exception as e:
@@ -623,23 +809,68 @@ class USEQTools:
             raise
 
     def manage_runids(self, args):
-        """Handle run ID management."""
+        """
+        Handle run ID management.
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -csv: A csv file formatted like so:
+                DB_ID,USERNAME,LIMS_ID
+                <unique-portal-run-id>,<lims-username>,<optional-existing-lims-projectID>
+            -mode:
+                'link' to link DB_ID's in the csv to new or existing (requires LIMS_ID) LIMS project IDs.
+                'unlink' to unlink DB_ID's in the csv from LIMS project IDs.
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during the link or unlink operations.
+
+        CLI Examples:
+            Link a portal run id to a new LIMS project ID:
+            python useq_tools.py utilities manage_runids -m link -c <csv_file>
+
+            Unlink a portal run id from an existing LIMS project ID:
+            python useq_tools.py utilities manage_runids -m unlink -c <csv_file>
+        """
         try:
             utilities.useq_manage_runids.run(self.lims, args.csv, args.mode)
         except Exception as e:
             logger.error(f"Run ID management failed: {e}")
             raise
 
-    def link_run_results(self, args):
-        """Handle run result linking."""
-        try:
-            utilities.useq_link_run_results.run(self.lims, args.runid)
-        except Exception as e:
-            logger.error(f"Link run results failed: {e}")
-            raise
+    #Old code used when setting up the portal database. For new runs this functionality is handled by share_run.
+    #Will only update this if needed in the future.
+    # def link_run_results(self, args):
+    #     """Handle run result linking."""
+    #     try:
+    #         utilities.useq_link_run_results.run(self.lims, args.runid)
+    #     except Exception as e:
+    #         logger.error(f"Link run results failed: {e}")
+    #         raise
 
     def year_overview(self, args):
-        """Handle year overview generation."""
+        """
+        Handle year overview generation.
+
+        The overview contains the following columns (semicolon-delimited):
+            1. Year         4. Sample Type
+            2. Platform     5. Runs (nr runs)
+            3. Run Type     6. Samples (nr samples)
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -year: The four-digit year (e.g., '2025') to filter projects based on their `close_date`. If None, projects from all years are processed.
+            -output: Optional output file, defaults to stdout.
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during the creation of the year overview.
+
+        CLI Examples:
+            Create a year overview for the year 2024 and write it to an output file.
+            python useq_tools.py utilities year_overview -y 2024 -o <output_file>
+
+            Create a year overview for all years and write it to sdtout.
+            python useq_tools.py utilities year_overview
+        """
         try:
             utilities.useq_year_overview.run(self.lims, args.year, args.output)
         except Exception as e:
@@ -647,7 +878,24 @@ class USEQTools:
             raise
 
     def route_project(self, args):
-        """Handle project routing."""
+        """
+        Route all the samples in a project to a specific protocol step.
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -project_id: LIMS project ID
+            -protocol_type: The type of protocol to route samples to. Valid values are:
+                'ISOLATION', 'LIBPREP', 'POOLING', 'POOL QC', 'ILLUMINA SEQUENCING',
+                'NANOPORE SEQUENCING', or 'POST SEQUENCING'.
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during routing of the samples.
+
+        CLI Examples:
+            Route all samples in a LIMS project to the appropriate library prep step:
+            python useq_tools.py utilities route_project -i <LIMS project ID> -p 'LIBPREP'
+
+        """
         try:
             utilities.useq_route_project.run(
                 self.lims, args.project_id, args.protocol_type
@@ -657,15 +905,57 @@ class USEQTools:
             raise
 
     def sample_report(self, args):
-        """Handle sample report generation."""
+        """
+        Handle sample report generation for a specific LIMS project ID.
+
+        Writes a simple sample report containing (per sample):
+            Isolated conc. (ng/ul), Pre library prep conc. (ng/ul), RIN, Post library prep conc. (ng/ul)
+        And per pool (if applicable)
+            Library conc. (ng/ul), Average length (bp)
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -project_id: LIMS project ID
+            -output_file: Optional output file, defaults to stdout.
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during the generation of the sample report.
+
+        CLI Examples:
+            Create a sample report for a specific project ID and write it to file:
+            python useq_tools.py utilities sample_report -i <LIMS project ID> -o <output_file>
+        """
         try:
-            utilities.useq_sample_report.run(self.lims, args.project_id)
+            utilities.useq_sample_report.run(self.lims, args.project_id, args.output_file)
         except Exception as e:
             logger.error(f"Sample report failed: {e}")
             raise
 
     def finish_run(self, args):
-        """Handle run finishing."""
+        """
+        Handle run finishing.
+
+        This function processes artifacts in the "Process Raw Data" queue for a
+        specific project, advances them through workflow stages, and updates the
+        sequencing success status in both LIMS and the portal database.
+        This should always be run directly after sharing a run successfully.
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -project_id: LIMS project ID.
+            -flowcell_id: The flowcell identifier associated with the sequencing run.
+            -successful: Boolean indicating whether the sequencing was successful.
+
+        Raises:
+            Exception: Re-raises any exceptions that occur while finishing the run.
+
+        CLI Examples:
+            Move project to next step in LIMS and set status to succesful (default)
+            python useq_tools.py utilities finish_run -i <project_id> --fid <flowcell_id>
+
+            Move project to next step in LIMS and set status to failed
+            python useq_tools.py utilities finish_run -i <project_id> --fid <flowcell_id> -s False
+        """
         try:
             utilities.useq_finished_run.run(
                 self.lims, args.project_id, args.fid, args.successful
@@ -674,16 +964,40 @@ class USEQTools:
             logger.error(f"Finish run failed: {e}")
             raise
 
-    def update_stats(self, args):
-        """Handle statistics update."""
-        try:
-            utilities.useq_update_stats_db.run(self.lims)
-        except Exception as e:
-            logger.error(f"Stats update failed: {e}")
-            raise
+    #Old code used when yield_r1 and yield_r2 were added to the IlluminaSequencingStats portal table.
+    #Will only update this if needed in the future.
+    # def update_stats(self, args):
+    #     """Handle statistics update."""
+    #     try:
+    #         utilities.useq_update_stats_db.run(self.lims)
+    #     except Exception as e:
+    #         logger.error(f"Stats update failed: {e}")
+    #         raise
 
     def update_step_udf(self, args):
-        """Handle step UDF update."""
+        """
+        Handle step UDF update.
+
+        Can be used to change the value belonging to a LIMS step UDF (e.g. wrong flowcell ID).
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -step: URI of the step to update.
+            -name: Name of the UDF to update.
+            -value: New value for the UDF.
+
+        Raises:
+            Exception: Re-raises any exceptions that occur while updating the step UDF.
+
+        CLI Examples:
+            Update the 'Flow Cell ID' of a a 'USEQ - NovaSeq X Run'-step.
+            python useq_tools.py utilities update_step_udf -s https://usf-lims.umcutrecht.nl/api/v2/steps/<STEP_ID> -n 'Flow Cell ID' -v 'NEWFLOWCELLID'
+
+            Note:
+            STEP_ID: Go to the step in the LIMS and copy the number after 'https://usf-lims.umcutrecht.nl/clarity/work-complete/'.
+            For most steps add 24- in front of this number, for pooling steps add 122-.
+
+        """
         try:
             utilities.useq_update_step_udf.run(
                 self.lims, args.step, args.name, args.value
@@ -694,7 +1008,40 @@ class USEQTools:
 
     # EPP command handlers
     def run_status_mail(self, args):
-        """Handle run status email."""
+        """
+        Handle run status email.
+
+        Can send a run started or run finished email.
+
+        The 'run_started' mode is (currently) triggered by the following LIMS steps:
+        -'USEQ - NextSeq2000 Run'
+        -'USEQ - iSeq Run'
+        -'USEQ - NovaSeq X Run'
+
+        The 'run_finished' functionality is run in the useq_route_artifacts module when analysis was requested
+        and/or the run platform is '60 SNP NimaGen panel' or 'Chromium X'. It will generate a Trello card for
+        UBEC.
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -mode: Choose from 'run_started' or 'run_finished'.
+            -step: LIMS step uri
+
+        Raises:
+            Exception: Re-raises any exceptions that occur when sending a run status email.
+
+        CLI Examples:
+            Send a run started email manually.
+            python $USEQ_TOOLS/useq_tools.py epp run_status -s https://usf-lims.umcutrecht.nl/api/v2/steps/<STEP_ID> -m run_started;
+
+            Send a run finished email manually (not supported yet).
+            -
+
+            Note:
+            STEP_ID: Go to the step in the LIMS and copy the number after 'https://usf-lims.umcutrecht.nl/clarity/work-complete/'.
+            For most steps add 24- in front of this number, for pooling steps add 122-.
+
+        """
         try:
             epp.useq_run_status_mail.run(
                 self.lims, Config.MAIL_SENDER, Config.MAIL_ADMINS,
@@ -704,26 +1051,65 @@ class USEQTools:
             logger.error(f"Run status mail failed: {e}")
             raise
 
-    def modify_samplesheet(self, args):
-        """Handle samplesheet modification."""
-        try:
-            epp.useq_modify_samplesheet.run(
-                self.lims, args.step, args.aid, args.output_file, args.mode
-            )
-        except Exception as e:
-            logger.error(f"Samplesheet modification failed: {e}")
-            raise
+    # Old functionality now handled by create_samplesheet and/or the manage_runs script
+    # def modify_samplesheet(self, args):
+    #     """Handle samplesheet modification."""
+    #     try:
+    #         epp.useq_modify_samplesheet.run(
+    #             self.lims, args.step, args.aid, args.output_file, args.mode
+    #         )
+    #     except Exception as e:
+    #         logger.error(f"Samplesheet modification failed: {e}")
+    #         raise
 
-    def group_permissions(self, args):
-        """Handle group permissions check."""
-        try:
-            epp.useq_group_permissions.run(self.lims, args.step, args.groups)
-        except Exception as e:
-            logger.error(f"Group permissions check failed: {e}")
-            raise
+    # Old functionality used in the early LIMS days when sample submission was manual. Both USEQ and Dx
+    # no longer manually submit their samples, removing the risk of users from the wrong group uploading samples in our workflow.
+    # def group_permissions(self, args):
+    #     """Handle group permissions check."""
+    #     try:
+    #         epp.useq_group_permissions.run(self.lims, args.step, args.groups)
+    #     except Exception as e:
+    #         logger.error(f"Group permissions check failed: {e}")
+    #         raise
 
     def finance_overview(self, args):
-        """Handle finance overview generation."""
+        """
+        Handle finance overview generation.
+
+        This function is usually started during the 'USEQ - Ready for billing' step, but can also be started manually as shown in the example.
+        The output contains the following columns (in order):
+        1. errors	                    17. plate_personell_costs	    33. lims_libraryprep
+        2. pool_name	                18. sequencing_step_costs	    34. lims_isolation
+        3. project_name	                19. sequencing_personell_costs	35. requested_analysis
+        4. project_id	                20. analysis_step_costs	        36. sequencing_succesful
+        5. open_date	                21. analysis_personell_costs	37. description
+        6. contact_name	                22. total_step_costs	        38. order_number
+        7. contact_email	            23. total_personell_costs	    39. comments_and_agreements
+        8. account	                    24. billing_institute	        40. deb_nr
+        9. project_budget_number	    25. billing_department	        41. vat_nr
+        10. sample_type	                26. billing_street	            42. nr_samples_isolated
+        11. nr_samples	                27. billing_postalcode	        43. nr_samples_prepped
+        12. isolation_step_costs	    28. billing_city	            44. nr_samples_sequenced
+        13. isolation_personell_costs	29. billing_country	            45. nr_samples_analyzed
+        14. libraryprep_step_costs	    30. requested_runtype	        46. nr_lanes
+        15. libraryprep_personell_costs	31. lims_runtype
+        16. plate_step_costs	        32. requested_libraryprep
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -step: LIMS step uri.
+            -output_file: Optional output file, defaults to stdout.
+
+        Raises:
+            Exception: Re-raises any exceptions that occur when generating the finance overview.
+
+        CLI Examples:
+            (re)create a finance overview from a specific billing step and write it to a file
+            python useq_tools.py epp finance_overview -s https://usf-lims.umcutrecht.nl/api/v2/steps/<STEP_ID> -o <output_file>
+
+            STEP_ID: Go to the step in the LIMS and copy the number after 'https://usf-lims.umcutrecht.nl/clarity/work-complete/'.
+            For most steps add 24- in front of this number, for pooling steps add 122-.
+        """
         try:
             epp.useq_finance_overview.run(self.lims, args.step, args.output_file)
         except Exception as e:
@@ -731,7 +1117,47 @@ class USEQTools:
             raise
 
     def route_artifacts(self, args):
-        """Handle artifact routing."""
+        """
+        Handle artifact routing.
+
+        Routes all input or output artifacts in a LIMS step to the appropriate next workflow stages based on current step and sample properties.
+        This function is usually run at the end of the last step in a protocol. Depending on the step either input or output artifacts
+        are routed. Can also be run manually as seen in the example below.
+
+        The following LIMS (active) steps route their input artifacts:
+        -'USEQ - Bioanalyzer QC DNA'
+        -'USEQ - Aggregate QC (Library Pooling)'
+        -'USEQ - Post LibPrep QC'
+        -'USEQ - Qubit QC'
+        -'USEQ - NextSeq2000 Run'
+        -'USEQ - iSeq Run'
+        -'USEQ - NovaSeq X Run'
+        -'USEQ - Nanopore Run v2'
+
+        The following LIMS (active) steps route their output artifacts:
+        -'USEQ - Isolation v2'
+        -'USEQ - BCL to FastQ'
+        -'USEQ - Library Pooling'
+        -'USEQ - Chromium X Run'
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -step: URI of the current step.
+            -input: If True, route input artifacts; if False, route output artifacts.
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during artifact routing.
+
+        CLI Examples:
+            Route the input artifacts of a step to the next step:
+            python useq_tools.py epp route_artifacts --step https://usf-lims.umcutrecht.nl/api/v2/steps/<STEP_ID> -i True
+
+            Route the output artifacts of a step to the next step:
+            python useq_tools.py epp route_artifacts --step https://usf-lims.umcutrecht.nl/api/v2/steps/<STEP_ID> -i False
+
+            STEP_ID: Go to the step in the LIMS and copy the number after 'https://usf-lims.umcutrecht.nl/clarity/work-complete/'.
+            For most steps add 24- in front of this number, for pooling steps add 122-.
+        """
         try:
             epp.useq_route_artifacts.run(self.lims, args.step, args.input)
         except Exception as e:
@@ -739,33 +1165,123 @@ class USEQTools:
             raise
 
     def close_projects(self, args):
-        """Handle project closing."""
+        """
+        Handle project closing.
+
+        If a project ID is provided, closes that specific project. Otherwise, closes all
+        projects associated with samples in the specified step. This last functionality is used
+        at the end of the 'USEQ - Ready for billing' step.
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -step: URI of the step (required if project_id is not provided).
+            -pid: LIMS project ID of a specific project to close (optional).
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during closing of one or more projects.
+
+        CLI Examples:
+            Close a specific project by project ID:
+            python useq_tools.py epp close_projects -p <LIMS project ID>
+
+            Close all projects in a LIMS step:
+            python useq_tools.py epp close_projects -s https://usf-lims.umcutrecht.nl/api/v2/steps/<STEP_ID>
+
+            STEP_ID: Go to the step in the LIMS and copy the number after 'https://usf-lims.umcutrecht.nl/clarity/work-complete/'.
+            For most steps add 24- in front of this number, for pooling steps add 122-.
+
+        """
         try:
             epp.useq_close_projects.run(self.lims, args.step, args.pid)
         except Exception as e:
             logger.error(f"Project closing failed: {e}")
             raise
 
-    def create_recipe(self, args):
-        """Handle recipe creation."""
-        try:
-            epp.useq_create_recipe.run(self.lims, args.step, args.output_file)
-        except Exception as e:
-            logger.error(f"Recipe creation failed: {e}")
-            raise
+    # Old functionality used for the NovaSeq6000. No longer used and code not updated.
+    # def create_recipe(self, args):
+    #     """Handle recipe creation."""
+    #     try:
+    #         epp.useq_create_recipe.run(self.lims, args.step, args.output_file)
+    #     except Exception as e:
+    #         logger.error(f"Recipe creation failed: {e}")
+    #         raise
 
     def create_samplesheet(self, args):
-        """Handle samplesheet creation."""
+        """
+        Handle samplesheet creation.
+
+        Creates a samplesheet compatible with all modern Illumina sequencers. This script is currently run in the following
+        (active) LIMS protocol steps:
+        - 'USEQ - Denature, Dilute and Load iSeq'
+        - 'USEQ - Denature, Dilute and Load NovaSeqX'
+        - 'USEQ - Denature, Dilute and Load NextSeq2000'
+
+        For each sample in the step it fills the following BCLConvert_Data samplesheet fields (in order):
+        1. Lane                     5. Sample_Project
+        2. Sample_ID                6. OverrideCycles
+        3. index                    7. BarcodeMismatchesIndex1
+        4. index2 (if applicable)   8. BarcodeMismatchesIndex2 (if applicable)
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -step: URI of the step.
+            -output_file: Optional output file, defaults to stdout.
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during samplesheet creation.
+
+        CLI Examples:
+            Create a samplesheet and write it to a file:
+            python useq_tools.py epp create_samplesheet -s https://usf-lims.umcutrecht.nl/api/v2/steps/<STEP_ID> -o SampleSheet.csv
+
+            STEP_ID: Go to the step in the LIMS and copy the number after 'https://usf-lims.umcutrecht.nl/clarity/work-complete/'.
+            For most steps add 24- in front of this number, for pooling steps add 122-.
+
+        """
         try:
             epp.useq_create_samplesheet.run(
-                self.lims, args.step, args.output_file, args.type
+                self.lims, args.step, args.output_file
             )
         except Exception as e:
             logger.error(f"Samplesheet creation failed: {e}")
             raise
-
+    #Continue here!!
     def parse_worksheet(self, args):
-        """Handle worksheet parsing."""
+        """
+        Handle worksheet parsing.
+
+        Parses an Excel worksheet, depending on the LIMS protocol step it expects specific columns:
+        - nr: Incremental sample number (required).
+        - container name: Tube/Plate name (used in: 'USEQ - Isolation v2').
+        - sample: Sample name (required).
+        - pre conc ng/ul: Pre-library prep concentration (used in: 'USEQ - Isolation v2', 'USEQ - Pre LibPrep QC').
+        - RIN: RNA Integrity Number (optional in: 'USEQ - Pre LibPrep QC').
+        - barcode nr: Barcode number (used in: 'USEQ - LibPrep Illumina', 'USEQ - LibPrep Nanopore').
+        - post conc ng/ul: Post-library prep concentration (used in: 'USEQ - Post LibPrep QC').
+        - size: Fragment size (used in: 'USEQ - Post LibPrep QC').
+
+        This script is almost never run manually (except in testing).
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -step: URI of the step
+            -aid: Artifact ID (ID of the worksheet artifact in LIMS)
+            -output_file: Optional output file (used for logging), defaults to stdout.
+            -mode: illumina or ont
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during worksheet parsing.
+
+        CLI Examples:
+            Process a worksheet for an illumina protocol step:
+            python useq_tools.py epp parse_worksheet -a <WORKSHEET-ARTIFACT-ID> -s https://usf-lims.umcutrecht.nl/api/v2/steps/<STEP_ID> -o <LOGFILE-ARTIFACT-ID> -m illumina;
+
+            STEP_ID: Go to the step in the LIMS and copy the number after 'https://usf-lims.umcutrecht.nl/clarity/work-complete/'.
+            For most steps add 24- in front of this number, for pooling steps add 122-.
+            WORKSHEET-ARTIFACT-ID: Go to https://usf-lims.umcutrecht.nl/api/v2/steps/<STEP_ID>/details. Look up an input-output-map where the output artifact type is 'ResultFile' (you'll find multiple).
+            Find the output artifact with the lowest limsid, this is your WORKSHEET-ARTIFACT-ID. The reason you'll look for the lowest is because the worksheet is the first required file in the LIMS protocol step.
+            LOGFILE-ARTIFACT-ID: Go to https://usf-lims.umcutrecht.nl/api/v2/steps/<STEP_ID>/details. Look up an input-output-map where the output artifact type is 'ResultFile' (you'll find multiple).
+            Find the output artifact with the highest limsid, this is your LOGFILE. The reason you'll look for the lowest is because the worksheet is the second required file in the LIMS protocol step.
+        """
         try:
             epp.useq_parse_worksheet.run(
                 self.lims, args.step, args.aid, args.output_file, args.mode
@@ -775,7 +1291,28 @@ class USEQTools:
             raise
 
     def check_barcodes(self, args):
-        """Handle barcode checking."""
+        """
+        Handle barcode checking.
+
+        Validates that each sample in the step has a reagent label (barcode) assigned.
+        This script is run in the following LIMS steps:
+        -'USEQ - LibPrep Nanopore'
+        -'USEQ - LibPrep Illumina'
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -step: URI of the step
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during barcode checking.
+
+        CLI Examples:
+            Check barcodes in a library prep step:
+            python useq_tools.py epp check_barcodes -s https://usf-lims.umcutrecht.nl/api/v2/steps/<STEP_ID>
+
+            STEP_ID: Go to the step in the LIMS and copy the number after 'https://usf-lims.umcutrecht.nl/clarity/work-complete/'.
+            For most steps add 24- in front of this number, for pooling steps add 122-.
+        """
         try:
             epp.useq_check_barcodes.run(self.lims, args.step)
         except Exception as e:
@@ -783,7 +1320,28 @@ class USEQTools:
             raise
 
     def chromium_addons(self, args):
-        """Handle Chromium add-ons."""
+        """
+        Handle Chromium add-ons.
+
+        This script generates new names for derived samples by appending add-on
+        suffixes (BCR, TCR, CSP, CRISPR) based on which processing steps are enabled
+        in the step's UDFs. This script is used in the following LIMS steps:
+        -'USEQ - Chromium X Cell Suspension & QC'
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+            -step: URI of the step
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during renaming of derived samples.
+
+        CLI Examples:
+            Rename add-on derived samples:
+            python useq_tools.py epp chromium_addons -s https://usf-lims.umcutrecht.nl/api/v2/steps/<STEP_ID>
+
+            STEP_ID: Go to the step in the LIMS and copy the number after 'https://usf-lims.umcutrecht.nl/clarity/work-complete/'.
+            For most steps add 24- in front of this number, for pooling steps add 122-.
+        """
         try:
             epp.useq_chromium_addons.run(self.lims, args.step)
         except Exception as e:
@@ -792,7 +1350,22 @@ class USEQTools:
 
     # Daemon command handlers
     def nextcloud_monitor(self, args):
-        """Handle Nextcloud monitoring."""
+        """
+        Handle Nextcloud monitoring.
+
+        Checks storage usage for both raw data and manual directories,
+        sending separate reports for each.
+
+        Args:
+            None
+
+        Raises:
+            Exception: Re-raises any exceptions that occur while creating the Nextcloud usage report.
+
+        CLI Examples:
+            Create and mail a report for the raw_data & processed_data directories on Nextcloud:
+            python useq_tools.py daemons nextcloud_monitor
+        """
         try:
             daemons.useq_nextcloud_monitor.run()
         except Exception as e:
@@ -800,20 +1373,87 @@ class USEQTools:
             raise
 
     def manage_runs(self, args):
-        """Handle run management."""
+        """
+        Handle run management.
+
+        This script handles the demultiplexing, transfer to nextcloud and archiving of Illumina sequencing runs.
+        It currently runs on the 'apenboom' server every 10 minutes.
+
+        A summary of what it's designed to do:
+        1. Run Detection & Initialization
+            -Monitors multiple sequencing machines for completed runs (indicated by RTAComplete.txt)
+            -Retrieves or locates sample sheets from LIMS or run directory
+            -Parses run metadata from XML files (RunInfo.xml, RunParameters.xml)
+            -Implements locking mechanism to prevent concurrent processing
+
+        2. Demultiplexing
+            -Creates project-specific sample sheets with proper index orientations
+            -Tests both forward and reverse complement index configurations
+            -Validates demultiplexing quality by checking undetermined read ratios
+            -Runs BCL Convert to generate FASTQ files from base call files
+            -Adds flowcell IDs to FASTQ filenames for traceability
+
+        3. Quality Control & Statistics
+            -Generates run statistics using InterOp tools
+            -Creates quality visualizations (intensity plots, base percentage, Q-score heatmaps)
+            -Runs FastQC on all FASTQ files
+            -Generates MultiQC reports for consolidated quality metrics
+            -Consolidates per-project statistics into run-wide reports
+
+        4. Data Distribution
+            -Nextcloud: Uploads FASTQ files (or BCL data if demux fails) with MD5 checksums
+            -HPC Storage: Transfers run data with selective file inclusion based on analysis needs
+            -Archive: Long-term storage with compressed run data
+            -Handles project-specific upload requirements (e.g., SNP fingerprinting)
+
+        5. State Management
+            -Tracks processing status in JSON file (status.json)
+            -Records completion of: demultiplexing, statistics generation, transfers, archiving
+            -Enables resumption after failures without repeating completed steps
+            -Supports both per-project and run-level status tracking
+
+        6. Error Handling & Notification
+            -Comprehensive logging to run-specific log files
+            -Email notifications with detailed statistics and quality plots
+            -Graceful degradation (falls back to BCL-only mode if demultiplexing fails)
+            -Proper cleanup of temporary files after successful completion
+
+        The processing flow (in short):
+            1. Run Complete
+            2. Parse Sample Sheet
+            3. Demultiplex (per project)
+            4. Generate Statistics
+            5. Transfer to Nextcloud
+            6. Transfer to HPC
+            7. Archive
+            8. Cleanup
+            9. Email Notification
+
+        Args:
+            None
+
+        Raises:
+            Exception: Re-raises any exceptions that occur during the processing of sequencing runs.
+
+        CLI Examples:
+            Start the run processing daemon:
+            python useq_tools daemons manage_runs
+        """
         try:
-            daemons.useq_manage_runs.run(self.lims, args.skip_demux_check)
+            daemons.useq_manage_runs.run(self.lims)
         except Exception as e:
             logger.error(f"Run management failed: {e}")
             raise
 
-    def run_overview(self, args):
-        """Handle run overview generation."""
-        try:
-            daemons.useq_run_overview.run(self.lims, args.overview_file)
-        except Exception as e:
-            logger.error(f"Run overview failed: {e}")
-            raise
+    # Old functionality used for the previous overview website. This functionality is now handled by the useq portal website.
+    # Code is no longer used and thus not updated.
+    # def run_overview(self, args):
+    #     """Handle run overview generation."""
+    #     try:
+    #         daemons.useq_run_overview.run(self.lims, args.overview_file)
+    #     except Exception as e:
+    #         logger.error(f"Run overview failed: {e}")
+    #         raise
 
     def run(self):
         """Main entry point for the application."""

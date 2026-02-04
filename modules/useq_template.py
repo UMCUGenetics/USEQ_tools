@@ -1,32 +1,35 @@
-import os
+"""Module for rendering Jinja2 templates."""
+
+from pathlib import Path
+from typing import Any, Dict
+
 from jinja2 import Environment, FileSystemLoader
 
-PATH = os.path.dirname(os.path.abspath(__file__))
-TEMPLATE_PATH = os.path.join("/".join(PATH.split("/")[0:-1]),'resources')
+# Path configuration
+_CURRENT_PATH = Path(__file__).parent
+TEMPLATE_PATH = str(_CURRENT_PATH.parent / "resources")
+
+# Jinja2 environment configuration
 TEMPLATE_ENVIRONMENT = Environment(
     autoescape=False,
     loader=FileSystemLoader(TEMPLATE_PATH),
-    trim_blocks=False)
-
-def renderTemplate(template_filename, data):
-    """Render Jinja template."""
-
-    def stringsToUnicode(data):
-        """Convert strings to utf8 encoding"""
-        if isinstance(data, dict):
-            for k,v in data.items():
-                if isinstance(v, dict):
-                    stringsToUnicode(v)
-                elif isinstance(v, list):
-                    for i in range(len(v)):
-                        stringsToUnicode(v[i])
-                elif isinstance(v, set):
-                    for i in v:
-                        stringsToUnicode(i)
-                elif isinstance(v, str):
-                    data[k] = v
+    trim_blocks=False,
+)
 
 
-    stringsToUnicode(data)
+def render_template(template_filename: str, data: Dict[str, Any]) -> str:
+    """
+    Render a Jinja2 template with the provided data.
 
+    Args:
+        template_filename (str): Name of the template file to render.
+        data (Dict[str, Any]): Dictionary containing template variables and values.
+
+    Returns:
+        Rendered template as a string.
+
+    Raises:
+        jinja2.TemplateNotFound: If the template file doesn't exist.
+        jinja2.TemplateError: If there's an error rendering the template.
+    """
     return TEMPLATE_ENVIRONMENT.get_template(template_filename).render(data)
