@@ -10,10 +10,6 @@ import os
 import sys
 import sphinx_rtd_theme
 
-sys.path.insert(0, os.path.abspath('../../'))
-
-from config import Config
-
 project = 'USEQ Tools'
 copyright = '2026, S.W.Boymans'
 author = 'S.W.Boymans'
@@ -53,6 +49,6 @@ html_logo = '_static/useq_logo.png'
 
 # -- Docstring substitutions-------------------------------------------------
 rst_epilog = f"""
-.. |lims_uri| replace:: {Config.LIMS_URI}
+.. |lims_uri| replace:: {https://usf-lims-test.op.umcutrecht.nl}
 
 """
