@@ -34,7 +34,7 @@ class Config(object):
     ##MAIL SETTINGS##
     MAIL_HOST=os.environ.get('MAIL_HOST') or 'localhost'
     MAIL_SENDER=os.environ.get('MAIL_SENDER') or ''
-    MAIL_ADMINS=os.environ.get('MAIL_ADMINS').split(",") or ''
+    MAIL_ADMINS=os.environ.get('MAIL_ADMINS', '').split(",") or ''
 
     ##TRELLO##
     TRELLO_ANALYSIS_BOARD='swboymans+dz1sjzuejttnkxhgya6p@boards.trello.com'
