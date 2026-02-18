@@ -1,10 +1,10 @@
 import epp.useq_run_status_mail
-import epp.useq_modify_samplesheet
-import epp.useq_group_permissions
+# import epp.useq_modify_samplesheet <- legacy code
+# import epp.useq_group_permissions <- legacy code
 import epp.useq_finance_overview
 import epp.useq_route_artifacts
 import epp.useq_close_projects
-import epp.useq_create_recipe
+# import epp.useq_create_recipe <- legacy code
 import epp.useq_create_samplesheet
 import epp.useq_parse_worksheet
 import epp.useq_check_barcodes

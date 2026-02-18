@@ -1,9 +1,16 @@
 {% block content %}
-**Client name  :** {{client.first_name}} {{client.last_name}}<br>
-**Client email :** {{client.email}}<br>
-**Project name :** {{project_name}}<br>
-**Project ID   :** {{project_id}}<br>
-**Analysis     :** {{analysis}}<br>
-**Reference    :** {{reference}}<br>
-**Nr Samples   :** {{nr_samples}}<br>
+
+<b>Client username :</b> {{client.username}}<br>
+<b>Client name     :</b> {{client.first_name}} {{client.last_name}}<br>
+<b>Client email    :</b> {{client.email}}<br>
+<br>
+<b>Project name    :</b> {{project_name}}<br>
+<b>Project ID      :</b> {{project_id}}<br>
+<b>Application     :</b> {{application}}<br>
+<b>Platform        :</b> {{platform}}<br>
+<b>Run Type        :</b> {{run_type}}<br>
+<b>Add-ons         :</b> {{add_ons}}<br>
+<b>Analysis        :</b> {{analysis}}<br>
+<b>Reference(s)    :</b> {{references}}<br>
+<b>Nr Samples      :</b> {{nr_samples}}<br>
 {% endblock %}

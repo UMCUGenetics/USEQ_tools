@@ -1,152 +1,217 @@
-import os
-import xml.etree.cElementTree as ET
-from xml.dom.minidom import parseString, parse
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Dict, List, Optional, Any, Union
+
+# Assuming Config is available in the environment
 from config import Config
 
-def parseConversionStats( conversion_stats_file ):
 
-    if not os.path.isfile( conversion_stats_file ):
+def parse_conversion_stats(conversion_stats_file: Union[str, Path]) -> Optional[Dict[str, Any]]:
+    """
+    Parses the Illumina ConversionStats.xml file to aggregate yield and Q30 metrics.
+
+    Args:
+        conversion_stats_file (Union[str, Path]): Path to the XML file.
+
+    Returns:
+        A dictionary containing parsed statistics or None if file does not exist.
+    """
+    file_path = Path(conversion_stats_file)
+    if not file_path.is_file():
         return None
 
-    # tree = ET.ElementTree(file=conversion_stats)
-    # parser = ET.iterparse(conversion_stats)
-    conversion_stats = {'samples':{}, 'unknown':{}, 'total_reads' : 0, 'total_reads_raw' : 0}
-    #
-    paired_end = False
-    for event, elem in ET.iterparse(conversion_stats_file):
+    # Initialize data structure
+    conversion_stats = {
+        'samples': {},
+        'unknown': {},
+        'total_reads': 0,
+        'total_reads_raw': 0
+    }
 
+    # Use iterparse for memory efficiency on large XML files
+    context = ET.iterparse(file_path, events=("end",))
+
+    for _, elem in context:
         if elem.tag == 'Sample':
-            sample_name = elem.attrib['name']
-            print(sample_name)
-            if sample_name != "all":
-                barcode = elem.find('Barcode')
-                barcode_name = barcode.attrib['name']
-                if "N" in barcode_name:
-                    continue
+            sample_name = elem.get('name')
 
-                conversion_stats['samples'][ sample_name ] = {}
-                conversion_stats['samples'][ sample_name] = {'barcode':barcode_name, 'qsum':0,'yield':0,'yield_Q30':0,'cluster_count':0, 'mean_quality':0, 'percent_Q30':0}
-                for lane in barcode.findall("Lane"):
-                    lane_nr = lane.attrib["number"]
-                    lane_counts = {
-                        'pf' : {'r1':{'yield':0,'yield_Q30':0,'qscore_sum':0}, 'r2':{'yield':0,'yield_Q30':0,'qscore_sum':0}}
-                    }
-                    for tile in lane.findall("Tile"):
+            # Skip "all" or invalid samples
+            if not sample_name or sample_name == "all":
+                continue
 
-                        tile_nr = tile.attrib["number"]
-                        raw_counts = tile.find("Raw")
-                        pf_counts = tile.find("Pf")
+            barcode = elem.find('Barcode')
+            if barcode is None:
+                continue
 
-                        conversion_stats['samples'][ sample_name]['cluster_count'] += int(pf_counts.find("ClusterCount").text)
-                        conversion_stats['total_reads'] += int(pf_counts.find("ClusterCount").text)
-                        conversion_stats['total_reads_raw'] += int(raw_counts.find("ClusterCount").text)
+            barcode_name = barcode.get('name')
+            if barcode_name and "N" in barcode_name:
+                continue
 
-                        for read in pf_counts.findall("Read"):
-                            read_number = read.attrib["number"]
-                            if int(read_number) > 2: continue
-                            print(tile_nr, read_number, read.find("Yield").text, read.find("YieldQ30").text, read.find("QualityScoreSum").text)
-                            lane_counts['pf']['r'+str(read_number)]['yield'] += int(read.find("Yield").text)
-                            lane_counts['pf']['r'+str(read_number)]['yield_Q30'] += int(read.find("YieldQ30").text)
-                            lane_counts['pf']['r'+str(read_number)]['qscore_sum'] += int(read.find("QualityScoreSum").text)
+            # Initialize sample dict
+            if sample_name not in conversion_stats['samples']:
+                conversion_stats['samples'][sample_name] = {
+                    'barcode': barcode_name,
+                    'qsum': 0,
+                    'yield': 0,
+                    'yield_Q30': 0,
+                    'cluster_count': 0,
+                    'mean_quality': 0,
+                    'percent_Q30': 0
+                }
 
-                        conversion_stats['samples'][ sample_name]['qsum'] += lane_counts['pf']['r1']['qscore_sum']
-                        conversion_stats['samples'][ sample_name]['qsum'] += lane_counts['pf']['r2']['qscore_sum']
-                        conversion_stats['samples'][ sample_name]['yield'] += lane_counts['pf']['r1']['yield']
-                        conversion_stats['samples'][ sample_name]['yield'] += lane_counts['pf']['r2']['yield']
-                        conversion_stats['samples'][ sample_name]['yield_Q30'] += lane_counts['pf']['r1']['yield_Q30']
-                        conversion_stats['samples'][ sample_name]['yield_Q30'] += lane_counts['pf']['r2']['yield_Q30']
+            current_sample = conversion_stats['samples'][sample_name]
 
+            for lane in barcode.findall("Lane"):
+                # Temporary storage for this lane's calculation
+                lane_metrics = {
+                    'r1': {'yield': 0, 'yield_Q30': 0, 'qscore_sum': 0},
+                    'r2': {'yield': 0, 'yield_Q30': 0, 'qscore_sum': 0}
+                }
 
-                if float( conversion_stats['samples'][ sample_name ]['yield'] ):
-                    conversion_stats['samples'][ sample_name ]['percent_Q30'] = "{0:.2f}".format( (conversion_stats['samples'][ sample_name ]['yield_Q30'] / float(conversion_stats['samples'][ sample_name ]['yield']))*100 )
-                    conversion_stats['samples'][ sample_name ]['mean_quality'] = "{0:.2f}".format( conversion_stats['samples'][ sample_name ]['qsum'] / float(conversion_stats['samples'][ sample_name ]['yield']) )
-                else:
-                    conversion_stats['samples'][ sample_name ]['percent_Q30'] = "{0:.2f}".format(0)
-                    conversion_stats['samples'][ sample_name ]['mean_quality'] = "{0:.2f}".format(0)
+                for tile in lane.findall("Tile"):
+                    raw_counts = tile.find("Raw")
+                    pf_counts = tile.find("Pf")
 
-                conversion_stats['samples'][ sample_name ]['cluster_count'] = "{0:,}".format( conversion_stats['samples'][ sample_name]['cluster_count'] )
+                    if raw_counts is None or pf_counts is None:
+                        continue
 
+                    # Update global and sample cluster counts
+                    pf_cluster_count = int(pf_counts.findtext("ClusterCount", "0"))
+                    raw_cluster_count = int(raw_counts.findtext("ClusterCount", "0"))
+
+                    current_sample['cluster_count'] += pf_cluster_count
+                    conversion_stats['total_reads'] += pf_cluster_count
+                    conversion_stats['total_reads_raw'] += raw_cluster_count
+
+                    for read in pf_counts.findall("Read"):
+                        read_number = read.get("number")
+                        if not read_number or int(read_number) > 2:
+                            continue
+
+                        read_key = f'r{read_number}'
+                        lane_metrics[read_key]['yield'] += int(read.findtext("Yield", "0"))
+                        lane_metrics[read_key]['yield_Q30'] += int(read.findtext("YieldQ30", "0"))
+                        lane_metrics[read_key]['qscore_sum'] += int(read.findtext("QualityScoreSum", "0"))
+
+                # Aggregate Lane metrics into Sample metrics
+                for r_key in ['r1', 'r2']:
+                    current_sample['qsum'] += lane_metrics[r_key]['qscore_sum']
+                    current_sample['yield'] += lane_metrics[r_key]['yield']
+                    current_sample['yield_Q30'] += lane_metrics[r_key]['yield_Q30']
+
+            # Calculate percentages and averages
+            total_yield = float(current_sample['yield'])
+            if total_yield > 0:
+                p_q30 = (current_sample['yield_Q30'] / total_yield) * 100
+                mean_q = current_sample['qsum'] / total_yield
+                current_sample['percent_Q30'] = f"{p_q30:.2f}"
+                current_sample['mean_quality'] = f"{mean_q:.2f}"
+            else:
+                current_sample['percent_Q30'] = "0.00"
+                current_sample['mean_quality'] = "0.00"
+
+            # Format cluster count with commas
+            current_sample['cluster_count'] = f"{current_sample['cluster_count']:,}"
+
+            # Clear element to free memory
             elem.clear()
-        elif elem.tag =='TopUnknownBarcodes':
+
+        elif elem.tag == 'TopUnknownBarcodes':
             for barcode in elem.findall("Barcode"):
+                bc_count = int(barcode.get("count", 0))
+                bc_seq = barcode.get("sequence")
 
-                bc_count = int(barcode.attrib["count"])
-                bc_seq = barcode.attrib["sequence"]
-
-                if bc_seq in conversion_stats['unknown']:
-                    conversion_stats['unknown'][bc_seq] += bc_count
-                else:
-                    conversion_stats['unknown'][bc_seq] = bc_count
+                if bc_seq:
+                    conversion_stats['unknown'][bc_seq] = conversion_stats['unknown'].get(bc_seq, 0) + bc_count
 
             elem.clear()
 
+    # Format unknown counts with commas
     for bc in conversion_stats['unknown']:
-
-        conversion_stats['unknown'][bc] = "{0:,}".format(conversion_stats['unknown'][bc])
-    print(conversion_stats['unknown'])
+        conversion_stats['unknown'][bc] = f"{conversion_stats['unknown'][bc]:,}"
 
     return conversion_stats
 
-def getExpectedReads( run_parameters):
-    if not os.path.isfile( run_parameters ):
+
+def get_expected_reads(run_parameters_file: Union[str, Path]) -> Optional[int]:
+    """
+    Parses RunParameters.xml to determine expected yield based on configuration.
+
+    Args:
+        run_parameters_file (Union[str, Path]): Path to the XML file.
+
+    Returns:
+        Expected reads count (int) or None if file missing.
+    """
+    file_path = Path(run_parameters_file)
+    if not file_path.is_file():
         return None
 
-    run_parameters = parse(run_parameters)
-    expected_reads = None
     try:
-        run_chem = run_parameters.getElementsByTagName('Chemistry')[0].firstChild.nodeValue
-    except:
-        run_chem = ''
-    try:
-        run_version = run_parameters.getElementsByTagName('ReagentKitVersion')[0].firstChild.nodeValue
-    except:
-        run_version = ''
+        tree = ET.parse(file_path)
+        root = tree.getroot()
+    except ET.ParseError:
+        return None
 
-    try:
-        flowcell_mode = run_parameters.getElementsByTagName('FlowCellMode')[0].firstChild.nodeValue
-    except:
-        flowcell_mode = ''
+    # Helper to safely extract text from XML tags
+    def get_tag_value(tag_name: str) -> str:
+        # Search recursively for the tag
+        node = root.find(f".//{tag_name}")
+        return node.text if node is not None and node.text else ''
 
-    try:
-        application_name = run_parameters.getElementsByTagName('ApplicationName')[0].firstChild.nodeValue
-    except:
-        application_name = ''
+    run_chem = get_tag_value('Chemistry')
+    run_version = get_tag_value('ReagentKitVersion')
+    flowcell_mode = get_tag_value('FlowCellMode')
 
-    try:
-        if not application_name:
-            application_name = run_parameters.getElementsByTagName('RecipeName')[0].firstChild.nodeValue
-    except:
-        application_name = ''
+    application_name = get_tag_value('ApplicationName')
+    if not application_name:
+        application_name = get_tag_value('RecipeName')
 
-
-
+    # Determine expected reads based on priority
     if run_chem in Config.RUNTYPE_YIELDS:
-        expected_reads = Config.RUNTYPE_YIELDS[run_chem]
+        return Config.RUNTYPE_YIELDS[run_chem]
     elif run_version in Config.RUNTYPE_YIELDS:
-        expected_reads = Config.RUNTYPE_YIELDS[run_version]
+        return Config.RUNTYPE_YIELDS[run_version]
     elif flowcell_mode in Config.RUNTYPE_YIELDS:
-        expected_reads = Config.RUNTYPE_YIELDS[flowcell_mode]
+        return Config.RUNTYPE_YIELDS[flowcell_mode]
     elif application_name in Config.RUNTYPE_YIELDS:
-        expected_reads = Config.RUNTYPE_YIELDS[application_name]
-    else:
-        expected_reads = Config.RUNTYPE_YIELDS['HiSeq rapid']
+        return Config.RUNTYPE_YIELDS[application_name]
 
-    return expected_reads
+    return Config.RUNTYPE_YIELDS.get('HiSeq rapid')
 
-def parseSampleSheet(sample_sheet):
-    data = {'top': '', 'samples': [], 'header':[] }
-    with open(sample_sheet) as sheet:
-        header = None
 
-        for line in sheet.readlines():
-            line = line.rstrip()
-            if 'Sample_ID' in line:
-                header = line.rstrip().split(',')
-                data['header'] = header
-                continue
-            elif header and line:
-                sample = line.split(",")
-                data['samples'].append(sample)
-            else:
-                data['top'] += f"{line}\n"
+def parse_sample_sheet(sample_sheet_path: Union[str, Path]) -> Dict[str, Any]:
+    """
+    Parses a CSV-style Illumina Sample Sheet.
+
+    Args:
+        sample_sheet_path (Union[str, Path]): Path to the sample sheet file.
+
+    Returns:
+        Dictionary containing header, samples list, and top section metadata.
+    """
+    data = {'top': '', 'samples': [], 'header': []}
+
+    try:
+        with open(sample_sheet_path, 'r') as sheet:
+            header_found = False
+
+            for line in sheet:
+                line = line.rstrip()
+
+                if 'Sample_ID' in line:
+                    data['header'] = line.split(',')
+                    header_found = True
+                    continue
+
+                if header_found and line:
+                    # Assuming CSV format
+                    data['samples'].append(line.split(','))
+                else:
+                    data['top'] += f"{line}\n"
+
+    except FileNotFoundError:
+        print(f"Error: Sample sheet not found at {sample_sheet_path}")
         return data
+
+    return data

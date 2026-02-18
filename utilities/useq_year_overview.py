@@ -1,79 +1,133 @@
+"""Module for generating yearly overview reports of LIMS projects."""
+
 from config import Config
-import pprint
+from genologics.lims import Lims
+from typing import Dict, Any, Optional, TextIO
+from collections import defaultdict
+from tqdm import tqdm
 
+import csv
+def get_year_overview(lims: Lims, year: Optional[str]) -> Dict[str, Dict[str, Any]]:
+    """Generate overview of projects by year, platform, run type, and sample type.
 
-def getYearOverview(lims, year):
-    ovw = {
+    Args:
+        lims: LIMS instance
+        year: The four-digit year (e.g., '2025') to filter projects based on their `close_date`. If None, projects from all years are processed.
 
-    }
+    Returns:
+        Nested dictionary with structure:
+        {year: {platform: {run_types: {run_type: {sample_types: {sample_type: {runs, samples}}}}}}}
 
-    projects = lims.get_projects()
-    for project in projects:
+    Note:
+        - Projects without a `close_date` or a billing process are ignored.
+        - Projects without a platform but labeled as 'SNP' are automatically
+          categorized under 'SNP Fingerprinting'.
+    """
+    # Define a recursive factory for the nested structure
+    # Structure: Year -> Platform -> "run_types" -> RunType -> "sample_types" -> SampleType -> Metrics
+    tree = lambda: defaultdict(lambda: {
+        'run_types': defaultdict(lambda: {
+            'sample_types': defaultdict(lambda: {'runs': 0, 'samples': 0})
+        })
+    })
 
-        if not project.close_date: continue
-        if year and not project.close_date.startswith(year) : continue
+    overview = defaultdict(tree)
 
-        if not 'Application' in project.udf : continue #Most projects in 2015 don't have an application yet
+    all_projects = lims.get_projects()
 
-        if not project.udf['Application'] in Config.PROJECT_TYPES.values(): continue
+    for project in tqdm(all_projects, desc="Processing Projects", unit="proj"):
+        # 1. Validation and Filtering
+        if not project.close_date:
+            continue
 
-        application = project.udf['Application']
+        if year and not project.close_date.startswith(year):
+            continue
+
+        if 'Application' not in project.udf:
+            continue
+
+        if project.udf['Application'] not in Config.PROJECT_TYPES.values():
+            continue
+
+        # 2. Sample and Process Retrieval
         samples = lims.get_samples(projectlimsid=project.id)
-        nr_samples = len(samples)
-        if nr_samples == 0 : continue
+        if not samples:
+            continue
 
-        project_processes = lims.get_processes(type=['USEQ - Ready for billing','Ready for billing' ],projectname=project.name)
-        if not project_processes : continue
-        # print(project.id)
+        project_processes = lims.get_processes(
+            type=['USEQ - Ready for billing', 'Ready for billing'],
+            projectname=project.name
+        )
+        if not project_processes:
+            continue
 
-        # if 'Sequencing' in application:
+        # 3. Data Extraction
         billing_year = project.close_date.split("-")[0]
-        sample_type = samples[0].udf.get('Sample Type', None)
-        platform  = samples[0].udf.get('Platform', None)
-        run_type = samples[0].udf.get('Sequencing Runtype', None)
+        sample_type = samples[0].udf.get('Sample Type')
+        platform = samples[0].udf.get('Platform')
+        run_type = samples[0].udf.get('Sequencing Runtype')
+        application = project.udf['Application']
+
+        # Handle missing platform for SNP projects
         if not platform and 'SNP' in application:
             platform = 'SNP Fingerprinting'
         elif not platform:
-            print(project.id)
+            print(f"Warning: Project {project.id} has no platform defined")
+            continue
 
-        if billing_year not in ovw:
-            ovw[billing_year] = {}
+        # 4. Increment Counters (No "if" checks needed due to defaultdict)
+        stats = overview[billing_year][platform]['run_types'][run_type]['sample_types'][sample_type]
+        stats['runs'] += 1
+        stats['samples'] += len(samples)
 
-        if platform not in ovw[billing_year]:
-            ovw[billing_year][platform] = { 'run_types' : {} }
-
-        if run_type not in ovw[billing_year][platform]['run_types']:
-            ovw[billing_year][platform]['run_types'][run_type] = { 'sample_types' : {} }
-
-        if sample_type not in ovw[billing_year][platform]['run_types'][run_type]['sample_types']:
-            ovw[billing_year][platform]['run_types'][run_type]['sample_types'][sample_type] = {
-                'runs' : 0,
-                'samples' : 0
-            }
+    # Convert back to standard dict for cleaner output/serialization if needed
+    return overview
 
 
-        ovw[billing_year][platform]['run_types'][run_type]['sample_types'][sample_type]['runs'] +=1
-        ovw[billing_year][platform]['run_types'][run_type]['sample_types'][sample_type]['samples'] += nr_samples
+def print_overview(overview: Dict[str, Dict[str, Any]], overview_file: TextIO):
+    """Write overview data to CSV file.
 
-    return ovw
+    Args:
+        overview: Nested dictionary from get_year_overview()
+        overview_file: File object to write CSV data to
+    """
+    # Write header
+    # Initialize the CSV writer with semicolon delimiter
+    writer = csv.writer(overview_file, delimiter=';', lineterminator='\n')
+
+    # Write header
+    writer.writerow(["Year", "Platform", "Run type", "Sample Type", "Runs", "Samples"])
+
+    # Flatten and write data rows
+    for year in sorted(overview.keys()):
+        for platform in sorted(overview[year].keys()):
+            run_types_dict = overview[year][platform].get('run_types', {})
+
+            for run_type in sorted(run_types_dict.keys()):
+                sample_types_dict = run_types_dict[run_type].get('sample_types', {})
+
+                for sample_type in sorted(sample_types_dict.keys()):
+                    stats = sample_types_dict[sample_type]
+
+                    # Prepare row data with 'N/A' fallback for missing keys
+                    row = [
+                        year or 'N/A',
+                        platform or 'N/A',
+                        run_type or 'N/A',
+                        sample_type or 'N/A',
+                        stats.get('runs', 0),
+                        stats.get('samples', 0)
+                    ]
+                    writer.writerow(row)
 
 
-def printOverview(ovw, overview_file):
-    overview_file.write("Year;Platform;Run type;Sample Type;Runs;Samples\n")
-    for year in ovw:
-        for platform in ovw[year]:
-            for run_type in ovw[year][platform]['run_types']:
-                for sample_type in ovw[year][platform]['run_types'][run_type]['sample_types']:
-                    runs = ovw[year][platform]['run_types'][run_type]['sample_types'][sample_type]['runs']
-                    samples = ovw[year][platform]['run_types'][run_type]['sample_types'][sample_type]['samples']
-                    overview_file.write(f"{year};{platform};{run_type};{sample_type};{runs};{samples}\n")
+def run(lims: Lims, year: str, overview_file: TextIO):
+    """Generate and write yearly overview report.
 
-
-
-
-
-
-def run(lims, year, overview_file):
-
-    ovw = getYearOverview(lims, year)
-    printOverview(ovw, overview_file)
+    Args:
+        lims: LIMS instance
+        year: The four-digit year (e.g., '2025') to filter projects based on their `close_date`. If None, projects from all years are processed.
+        overview_file: File object to write CSV report to
+    """
+    overview = get_year_overview(lims, year)
+    print_overview(overview, overview_file)

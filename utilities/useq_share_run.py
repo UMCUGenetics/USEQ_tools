@@ -15,23 +15,34 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Any
 
-from genologics.entities import Project
+from genologics.entities import Project, Researcher, Sample
+from genologics.lims import Lims
 from sqlalchemy import create_engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from texttable import Texttable
 
 from config import Config
-from modules.useq_mail import sendMail
+from modules.useq_mail import send_mail
 from modules.useq_nextcloud import NextcloudUtil
-from modules.useq_template import renderTemplate
-from utilities.useq_sample_report import getSampleMeasurements
-from modules.useq_illumina_parsers import parseSampleSheet
+from modules.useq_template import render_template
+from utilities.useq_sample_report import get_sample_measurements
+from modules.useq_illumina_parsers import parse_sample_sheet
+from modules.useq_ui import query_yes_no
+from epp.useq_run_status_mail import run_finished
 
 class DatabaseManager:
-    """Manages database connections and operations."""
+    """
+    Manages database connections and operations.
+
+    Attributes:
+        session (Session): The active SQLAlchemy database session.
+        Run: The automapped Portal DB 'run' table class.
+        IlluminaSequencingStats: The 'illumina_sequencing_stats' table class.
+        NanoporeSequencingStats: The 'nanopore_sequencing_stats' table class.
+    """
 
     def __init__(self):
         self.session = None
@@ -40,7 +51,12 @@ class DatabaseManager:
         self.NanoporeSequencingStats = None
 
     def create_session(self) -> Tuple:
-        """Create and return database session and model classes."""
+        """
+        Create and return database session and model classes.
+
+        Returns:
+            Tuple: A tuple containing (session, Run, IlluminaStats, NanoporeStats).
+        """
         Base = automap_base()
         ssl_args = {'ssl_ca': Config.SSL_CERT}
         engine = create_engine(
@@ -60,11 +76,24 @@ class DatabaseManager:
 
 
 class StatsParser:
-    """Handles parsing of sequencing statistics files."""
+    """Utilities for parsing sequencing statistics from various file formats."""
 
     @staticmethod
     def parse_samplesheet(run_dir: Path, project_id: str) -> Optional[Dict]:
-        """Extract project_id lane info Samplesheet CSV file"""
+        """Extracts lane information for a project from a SampleSheet CSV.
+
+        Args:
+            run_dir (Path): The root directory of the sequencing run.
+            project_id (str): The LIMS project ID to search for.
+
+        Returns:
+            Optional[List[int]]: A list of unique lane numbers associated with
+                the project. Returns None if the SampleSheet is missing or
+                lanes cannot be determined.
+        Raises:
+            IOError: If samplesheet_file could not be read.
+            ValueError: If Sample_Project is not in the samplesheet file.
+        """
         samplesheet_file = run_dir / "Conversion" / project_id / "Demux-check" / f"SampleSheet-{project_id}" / "Reports" / "SampleSheet.csv" #Demux check samplesheet should always be there
 
         pid_lanes = set()
@@ -73,7 +102,7 @@ class StatsParser:
             return None
 
         try:
-            samplesheet_info = parseSampleSheet(samplesheet_file)
+            samplesheet_info = parse_sample_sheet(samplesheet_file)
 
             for sample in samplesheet_info['samples']:
 
@@ -91,7 +120,19 @@ class StatsParser:
         return list(pid_lanes)
     @staticmethod
     def parse_summary_stats(run_dir: Path, pid_lanes: List) -> Optional[Dict]:
-        """Parse Illumina summary statistics from CSV file."""
+        """Parses Illumina summary statistics from the run summary CSV.
+
+        Args:
+            run_dir (Path): The root directory of the sequencing run.
+            pid_lanes (List[int]): Lanes to include in the statistics.
+
+        Returns:
+            Optional[Dict[str, float]]: Dictionary of calculated stats including yield, reads, cluster density, and quality metrics.
+
+        Raises:
+            IOError: If summary_stats_file could not be read.
+            ValueError: If one or more of the expected stat fields is not present.
+        """
         run_name = run_dir.name
         summary_stats_file = run_dir / "Conversion" / "Reports" / f"{run_name}_summary.csv"
 
@@ -189,8 +230,30 @@ class StatsParser:
         return stats
 
     @staticmethod
-    def parse_conversion_stats(lims, run_dir: Path, project_id: str) -> Optional[Dict]:
-        """Parse Illumina conversion statistics from CSV files."""
+    def parse_conversion_stats(lims: Lims, run_dir: Path, project_id: str) -> Optional[Dict]:
+        """
+        Parse Illumina conversion statistics from CSV files.
+
+        Args:
+            lims (Lims): LIMS instance.
+            run_dir (Path): The root directory of the sequencing run.
+            project_id (str): LIMS Project ID
+
+        Returns:
+            Optional[Dict[]: Dictionary of calculated stats including total_reads, total_mean_qual, total_q30, avg_quality_r1, avg_quality_r2 and
+            sample specific info:
+            -Index
+            -Lane(s)
+            -# Reads
+            -# Perfect Index Reads
+            -# One Mismatch Index Reads
+
+        Raises:
+            IOError: If demux_stats_file or qual_metrics_file could not be read.
+            ValueError: If one or more of the expected stat fields is not present.
+        """
+
+
         demux_stats_file = run_dir / "Conversion" / project_id / "Reports" / "Demultiplex_Stats.csv"
         qual_metrics_file = run_dir / "Conversion" / project_id / "Reports" / "Quality_Metrics.csv"
 
@@ -300,8 +363,27 @@ class RunDetailsRetriever:
     """Retrieves run details for different sequencing platforms."""
 
     @staticmethod
-    def get_nanopore_run_details(lims, project_id: str, fid: Optional[str]) -> Optional[Dict]:
-        """Get Nanopore run details from summary files."""
+    def get_nanopore_run_details(lims: Lims, project_id: str) -> Optional[Dict]:
+        """
+        Get Nanopore run details from summary files.
+
+        Args:
+            lims (Lims): LIMS instance.
+            project_id (str): LIMS Project ID
+
+        Returns:
+            Optional[Dict[str, Any]: Dictionary of latest nanopore run details corresponding to project_id, contains:
+            -flowcell_id
+            -run_dir
+            -stats_file
+            -date
+
+        Raises:
+            IOError: If summary_file could not be read.
+            ValueError: If 'started' or 'flow_cell_id' can not be found in summary_file.
+
+        """
+
         runs = {}
         pattern = f"{Config.HPC_RAW_ROOT}/nanopore/**/final_summary_*txt"
 
@@ -350,8 +432,22 @@ class RunDetailsRetriever:
         return runs[latest_date]
 
     @staticmethod
-    def get_illumina_run_details(lims, project: Project, fid: Optional[str]) -> Optional[Tuple]:
-        """Get Illumina run details from LIMS processes."""
+    def get_illumina_run_details(lims: Lims, project: Project, fid: Optional[str]) -> Optional[Tuple]:
+        """
+        Get Illumina run details from LIMS processes.
+
+        Args:
+            lims (Lims): LIMS instance.
+            project (Project): LIMS Project object.
+            fid: Optional flowcell ID. Overwrites any flowcell ID found while looking through the projects' processes.
+
+        Returns:
+            Optional[Tuple[Path, str, str]: Returns a tuple containing (in order):
+            -Run directory
+            -Flowcell ID
+            -Date of sequencing
+
+        """
         runs = {}
         project_processes = lims.get_processes(projectname=project.name)
 
@@ -428,21 +524,20 @@ class DataSharer:
         self.stats_parser = StatsParser()
         self.run_retriever = RunDetailsRetriever()
 
-    def _confirm_action(self, message: str) -> bool:
-        """Get user confirmation for an action."""
-        valid_responses = {'yes', 'y', 'no', 'n'}
+    def _send_text(self, researcher: Researcher, project_id: str, password: str):
+        """
+        Internal function to send an SMS notification to researcher.
 
-        while True:
-            print(f"{message} (yes/no): ", end="")
-            choice = input().lower().strip()
+        Args:
 
-            if choice in valid_responses:
-                return choice in {'yes', 'y'}
-            else:
-                print("Please respond with 'yes' or 'no'")
+            researcher (Researcher): LIMS Researcher object.
+            project_id (str): LIMS project ID.
+            password (str): Password to share with researcher.
 
-    def _send_text(self, researcher, project_id: str, password: str):
-        """Send SMS notification to researcher."""
+        Returns:
+            None
+
+        """
 
         sms_command = (
             f"ssh usfuser@{Config.SMS_SERVER} "
@@ -454,7 +549,18 @@ class DataSharer:
         os.system(sms_command)
 
     def _create_archive(self, source_dir: Path, archive_path: Path) -> bool:
-        """Create tar archive of directory."""
+        """
+        Internal function to create a tar archive of a directory.
+
+        Args:
+            source_dir (Path): Path of tar target directory
+            archive_path (Path): Where to create tar file
+
+        Returns:
+            True if tar file was succesfully created, False otherwise.
+
+
+        """
         archive_command = f"cd {source_dir.parent} && tar -chf {archive_path} {source_dir.name}"
         exit_code = os.system(archive_command)
 
@@ -467,7 +573,17 @@ class DataSharer:
             return False
 
     def _upload_to_nextcloud(self, local_path: Path, remote_dir: str) -> bool:
-        """Upload file or directory to Nextcloud."""
+        """
+        Internal function to upload a file or directory to Nextcloud.
+
+        Args:
+            local_path (Path): Path of file or directory to upload.
+            remote_dir (str): Location on Nextcloud to write local_path to.
+
+        Returns:
+            True if file or directory was succesfully uploaded to Nextcloud.
+
+        """
         upload_command = (
             f'scp -r {local_path} {Config.NEXTCLOUD_HOST}:'
             f'{Config.NEXTCLOUD_DATA_ROOT}/{remote_dir}'
@@ -482,6 +598,13 @@ class DataSharer:
         return True
 
     def _display_texttable(self, rows: List[List]):
+        """
+        Internal function to display a List of Lists in a userfriendly fashion.
+
+        Args:
+            rows (List[List]): A list of lists (basically a matrix)
+
+        """
         table = Texttable(max_width=0)
         # print(rows)
         # for row in rows:
@@ -489,8 +612,15 @@ class DataSharer:
         table.add_rows(rows)
         print(table.draw())
 
-    def _share_manual_data(self, researcher, data_dir: Path):
-        """Share manual data directory with researcher."""
+    def _share_manual_data(self, researcher: Researcher, data_dir: Path):
+        """
+        Internal function to share a data directory with a researcher.
+
+        Args:
+            researcher (Researcher): LIMS Researcher object.
+            data_dir (Path): Data directory to share.
+        """
+
         print("Starting manual data sharing")
 
         archive_path = data_dir / f"{data_dir.name}.tar"
@@ -525,8 +655,19 @@ class DataSharer:
         done_file.unlink(missing_ok=True)
 
 
-    def share_data_by_user(self, lims, username: str, directory: str):
-        """Share data with a specific user by username."""
+    def share_data_by_user(self, lims: Lims, username: str, directory: str) -> bool:
+        """
+        Share data with a specific user by username.
+
+        Args:
+            lims (Lims): LIMS instance.
+            username (str): LIMS username (e.g. u.seq).
+            directory (str): Directory to share.
+
+        Returns:
+            True if share was successful, False otherwise.
+
+        """
         researchers = lims.get_researchers(username=username)
         data_dir = Path(directory)
 
@@ -618,14 +759,27 @@ class DataSharer:
                 [data_dir.name, str(data_dir), researcher.email]
             ]
         )
-        if self._confirm_action("Are you sure you want to share this data"):
+        if query_yes_no("Are you sure you want to share this data"):
             self._share_manual_data(researcher, data_dir)
             return True
 
         return False
 
-    def share_data_by_id(self, lims, project_id: str, fid: Optional[str], all_dirs_ont: bool):
-        """Share data by project ID."""
+    def share_data_by_id(self, lims: Lims, project_id: str, fid: Optional[str], all_dirs_ont: bool) -> bool:
+        """
+        Share data by project ID.
+
+        Args:
+            lims (Lims): LIMS instance.
+            project_id (str): LIMS project ID
+            fid (Optional[str]): Optional flowcell ID. Overwrites any flowcell ID found while looking through the projects' processes.
+            all_dirs_ont (bool): Flag determining packaging logic. If True, packages full data directories (e.g., fastq_pass.tar.gz). If False, attempts to package by individual barcode folders.
+
+        Returns:
+            True if share was successful, False otherwise.
+
+        """
+
         try:
             project = Project(lims, id=project_id)
         except:
@@ -648,17 +802,36 @@ class DataSharer:
         application = project.udf.get('Application', '')
 
         if application == 'ONT Sequencing':
+
             return self._share_nanopore_data(
-                lims, project, researcher, project_id, fid, all_dirs_ont, session, NanoporeStats, portal_run
+                lims, project, researcher, project_id, all_dirs_ont, session, NanoporeStats, portal_run
             )
         else:
             return self._share_illumina_data(
                 lims, project, researcher, project_id, fid, session, IlluminaStats, portal_run
             )
 
-    def _share_nanopore_data(self, lims, project, researcher, project_id, fid, all_dirs_ont, session, NanoporeStats, portal_run):
-        """Handle sharing of Nanopore sequencing data."""
-        run_info = self.run_retriever.get_nanopore_run_details(lims, project_id, fid)
+    def _share_nanopore_data(self, lims: Lims, project: Project, researcher: Researcher, project_id: str, all_dirs_ont: Optional[bool], session: Any, NanoporeStats: Any, portal_run):
+        """
+        Internal function to handle sharing of Nanopore sequencing data.
+
+        Args:
+            lims: LIMS instance.
+            project: LIMS Project.
+            researcher: LIMS Researcher.
+            project_id (str): LIMS project ID.
+            all_dirs_ont (bool): Flag determining packaging logic. If True, packages full data directories (e.g., fastq_pass.tar.gz). If False, attempts to package by individual barcode folders.
+            session: SQLAlchemy or equivalent database session for tracking stats.
+            NanoporeStats: The database model class for Nanopore statistics.
+            portal_run: The portal run object/record to be updated.
+
+        Returns:
+            True if share was successful, False otherwise.
+
+        Raises:
+            OSError: If directory creation or cleanup fails.
+        """
+        run_info = self.run_retriever.get_nanopore_run_details(lims, project_id)
 
         if not run_info:
             print('Error: No Nanopore run directory could be found!')
@@ -674,11 +847,11 @@ class DataSharer:
                 [run_dir.name, f"{project_id}:{project.name}", researcher.email]
             ]
         )
-        if not self._confirm_action("Are you sure you want to send this dataset"):
+        if not query_yes_no("Are you sure you want to send this dataset"):
             return False
 
         # Check if already exists on Nextcloud
-        if self.nextcloud_util.checkExists(project_id):
+        if self.nextcloud_util.check_exists(project_id):
             print(f'Warning: Deleting previous version of {project_id} on Nextcloud')
             self.nextcloud_util.delete(project_id)
             self.nextcloud_util.delete(f'{project_id}.done')
@@ -700,7 +873,7 @@ class DataSharer:
 
         self._send_nanopore_notification(
             researcher, project_id, share_response, file_list,
-            getSampleMeasurements(lims, project_id), run_dir
+            get_sample_measurements(lims, project_id), run_dir
         )
 
         # Update database
@@ -711,7 +884,19 @@ class DataSharer:
         return True
 
     def _package_nanopore_data(self, run_dir: Path, upload_dir: Path, all_dirs_ont: bool, project_id: str) -> List[str]:
-        """Package Nanopore data for sharing."""
+        """
+        Package Nanopore data for sharing.
+
+        Args:
+            run_dir (Path): The source directory containing the Nanopore run data.
+            upload_dir (Path): The destination directory where the .tar.gz archives will be created.
+            all_dirs_ont (bool): Flag determining packaging logic. If True, packages full data directories (e.g., fastq_pass.tar.gz). If False, attempts to package by individual barcode folders.
+            project_id (str): LIMS project ID
+
+        Returns:
+            A list of filenames (strings) representing all the archives successfully created and moved to the upload directory.
+
+        """
         data_directories = [
             'fast5_pass', 'fast5_fail', 'fastq_pass', 'fastq_fail',
             'bam_pass', 'bam_fail', 'pod5_pass', 'pod5_fail', 'pod5'
@@ -754,7 +939,19 @@ class DataSharer:
         return file_list
 
     def _create_barcode_archive(self, run_dir: Path, upload_dir: Path, barcode_dir: Path, data_dirs: List[str], archive_name: str):
-        """Create archive for specific barcode directory."""
+        """
+        Internal function to create an archive for a specific barcode directory.
+
+        Args:
+            run_dir (Path): The base directory of the Nanopore run.
+            upload_dir (Path): The destination directory where the resulting archive will be stored.
+            barcode_dir (Path): The path to the specific barcode directory (used to extract the directory name, e.g., 'barcode01').
+            data_dirs (List[str]): A list of subdirectory names to search within (e.g., ['fastq_pass', 'fast5_pass', 'pod5']).
+            archive_name (str): The filename for the resulting archive (e.g., 'barcode01.tar.gz').
+
+        Raises:
+            RuntimeError: If the `tar` command execution returns a non-zero exit code, indicating a failure in archive creation.
+        """
         zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{archive_name}"
 
         for data_dir_name in data_dirs:
@@ -767,16 +964,38 @@ class DataSharer:
             raise RuntimeError(f"Failed to create archive {archive_name}")
 
     def _create_data_archive(self, run_dir: Path, upload_dir: Path, data_dir_name: str, archive_name: str):
-        """Create archive for data directory."""
+        """
+        Internal function to create an archive for data a directory.
+        Args:
+            run_dir (Path): The base directory of the Nanopore run containing the source data.
+            upload_dir (Path): The destination directory where the resulting archive will be saved.
+            data_dir_name (str): The name of the directory to be archived (e.g., 'fast5_pass').
+            archive_name (str): The desired filename for the resulting .tar.gz file.
+
+        Raises:
+            RuntimeError: If the shell command fails (returns a non-zero exit code), likely due to permissions issues or the source directory being missing.
+
+        """
         zip_command = f"cd {run_dir} && tar -czf {upload_dir}/{archive_name} {data_dir_name}"
         exit_code = os.system(zip_command)
         if exit_code != 0:
             raise RuntimeError(f"Failed to create archive {archive_name}")
 
 
-    def _send_manual_notification(self, researcher, data_dir : Path, share_response):
-        """Send notification for manual data sharing."""
-        share_id, password = share_response["SUCCES"]
+    def _send_manual_notification(self, researcher: Researcher, data_dir : Path, share_response):
+        """
+        Send notification for manual data sharing.
+
+        Args:
+            researcher (Researcher): LIMS Researcher
+            data_dir (Path): The path to the directory being shared; used to extract the directory name for the notification.
+            share_response (dict): A dictionary containing Nextcloud share information. Must contain a "SUCCESS" key with a tuple or list of (share_id, password).
+
+        Notes:
+            - In production: Sends email to the researcher and an SMS via `_send_text`.
+            - In development (`Config.DEVMODE`): Redirects email to a hardcoded dev address and skips the SMS, printing the password instead.
+        """
+        share_id, password = share_response["SUCCESS"]
 
         template_data = {
             'name': f"{researcher.first_name} {researcher.last_name}",
@@ -786,23 +1005,41 @@ class DataSharer:
             'phone': researcher.phone
         }
 
-        mail_content = renderTemplate('share_manual_template.html', template_data)
+        mail_content = render_template('share_manual_template.html', template_data)
         mail_subject = "USEQ has shared a file with you."
 
         if Config.DEVMODE:
-            sendMail(mail_subject, mail_content, Config.MAIL_SENDER, 's.w.boymans@umcutrecht.nl')
+            send_mail(mail_subject, mail_content, Config.MAIL_SENDER, 's.w.boymans@umcutrecht.nl')
             print(f"Development mode: Password is {password}")
         else:
-            sendMail(mail_subject, mail_content, Config.MAIL_SENDER, researcher.email)
+            send_mail(mail_subject, mail_content, Config.MAIL_SENDER, researcher.email)
             self._send_text(researcher, data_dir.name, password)
 
         print(f'Shared {data_dir} with {researcher.email}')
 
-    def _send_illumina_notification(self, researcher, project_id, share_response, file_list,
-                                  conversion_stats, sample_measurements, samples, available_files_path):
-        """Send notification for Illumina data sharing."""
-        share_id, password = share_response["SUCCES"]
+    def _send_illumina_notification(self, lims: Lims, researcher: Researcher, project_id: str, share_response: Dict[str, Any], file_list: List[str],
+                                  conversion_stats: Dict[str, Any], sample_measurements: List[Any], samples: List[Sample], available_files_path: Path):
+        """
+        Internal function to send a notification for Illumina data sharing.
+
+        Args:
+            lims: LIMS instance
+            researcher: LIMS Researcher.
+            project_id (str): LIMS project ID.
+            share_response (Dict[str, Any]): Dictionary containing Nextcloud "SUCCESS" details (share_id, password).
+            file_list (List[str]): List of filenames included in the share.
+            conversion_stats (Dict[str, Any]): Statistics related to BCL to FASTQ conversion.
+            sample_measurements (List): List of sample-specific metrics or QC values.
+            samples (List[Sample]): List of LIMS Sample objects used to extract UDF metadata.
+            available_files_path (Path): Path to the text file manifest to be attached.
+
+        Notes:
+            If `Config.DEVMODE` is True, emails are rerouted to development staff and passwords are printed to the console instead of sent via SMS.
+
+        """
+        share_id, password = share_response["SUCCESS"]
         analysis_steps = samples[0].udf.get('Analysis', '').split(',') if samples else []
+        platform = samples[0].udf.get('Platform', '')
 
         template_data = {
             'project_id': project_id,
@@ -816,24 +1053,36 @@ class DataSharer:
             'analysis_steps': analysis_steps,
         }
 
-        mail_content = renderTemplate('share_illumina_template.html', template_data)
+        mail_content = render_template('share_illumina_template.html', template_data)
         mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
-
         attachments = {'available_files': str(available_files_path)}
 
         if Config.DEVMODE:
-            sendMail(mail_subject, mail_content, Config.MAIL_SENDER, 's.w.boymans@umcutrecht.nl', attachments=attachments)
+            send_mail(mail_subject, mail_content, Config.MAIL_SENDER, 's.w.boymans@umcutrecht.nl', attachments=attachments)
             print(f"Development mode: Password is {password}")
+
+            if platform in ["60 SNP NimaGen panel", "Chromium X"] or analysis_steps:
+                run_finished(lims, Config.MAIL_SENDER, Config.TRELLO_ANALYSIS_BOARD, samples)
         else:
-            sendMail(mail_subject, mail_content, Config.MAIL_SENDER, researcher.email, attachments=attachments)
+            send_mail(mail_subject, mail_content, Config.MAIL_SENDER, researcher.email, attachments=attachments)
             self._send_text(researcher, project_id, password)
 
         print(f'Shared {project_id} with {researcher.email}')
 
 
-    def _send_nanopore_notification(self, researcher, project_id, share_response, file_list, sample_measurements, run_dir):
-        """Send notification for Nanopore data sharing."""
-        share_id, password = share_response["SUCCES"]
+    def _send_nanopore_notification(self, researcher: Researcher, project_id: str, share_response: Dict[str, Any], file_list: List[str], sample_measurements: List[Any], run_dir: Path):
+        """Internal function to send a notification for Nanopore data sharing.
+
+        Args:
+            researcher: LIMS Researcher.
+            project_id (str): LIMS project ID.
+            share_response (Dict[str, Any]): Dictionary containing Nextcloud "SUCCESS" details (share_id, password).
+            file_list (List[str]): List of archived filenames (e.g., .tar.gz files).
+            sample_measurements (List): List of sample-specific metrics or QC values.
+            run_dir (Path): The directory path where the run data and manifest reside.
+
+        """
+        share_id, password = share_response["SUCCESS"]
 
         template_data = {
             'name': f"{researcher.first_name} {researcher.last_name}",
@@ -845,22 +1094,35 @@ class DataSharer:
             'sample_measurements': sample_measurements
         }
 
-        mail_content = renderTemplate('share_nanopore_template.html', template_data)
+        mail_content = render_template('share_nanopore_template.html', template_data)
         mail_subject = f"USEQ sequencing of sequencing-run ID {project_id} finished"
 
         attachments = {'available_files': f'{run_dir}/available_files_{project_id}.txt'}
 
         if Config.DEVMODE:
-            sendMail(mail_subject, mail_content, Config.MAIL_SENDER, 's.w.boymans@umcutrecht.nl', attachments=attachments)
+            send_mail(mail_subject, mail_content, Config.MAIL_SENDER, 's.w.boymans@umcutrecht.nl', attachments=attachments)
             print(f"Development mode: Password is {password}")
         else:
-            sendMail(mail_subject, mail_content, Config.MAIL_SENDER, researcher.email, attachments=attachments)
+            send_mail(mail_subject, mail_content, Config.MAIL_SENDER, researcher.email, attachments=attachments)
             self._send_text(researcher, project_id, password)
 
         print(f'Shared {project_id} with {researcher.email}')
 
     def _update_nanopore_stats(self, session, NanoporeStats, run_info, portal_run, project_id, run_dir):
-        """Update database with Nanopore sequencing statistics."""
+        """
+        Internal function to update database with Nanopore sequencing statistics.
+
+        Args:
+            session: SQLAlchemy or equivalent database session for performing transactions.
+            NanoporeStats: The database model class for Nanopore statistics.
+            run_info (dict): Dictionary containing run metadata including 'flowcell_id', 'date', and optionally 'stats_file'.
+            portal_run: The portal run object/record to which these stats will be linked.
+            project_id (str): LIMS project ID
+            run_dir (Path): The local directory path where the run data is located.
+
+        Raises:
+            OSError: If directory creation or file removal fails.
+        """
         flowcell_id = run_info['flowcell_id']
 
         # Check if stats already exist
@@ -912,8 +1174,31 @@ class DataSharer:
         else:
             print(f'Added minimal record for {project_id} to portal DB (no stats file found).')
 
-    def _share_illumina_data(self, lims, project, researcher, project_id, fid, session, IlluminaStats, portal_run):
-        """Handle sharing of Illumina sequencing data."""
+    def _share_illumina_data(self, lims, project, researcher, project_id, fid, session, IlluminaStats, portal_run) -> bool:
+        """
+        Internal function to handle sharing of Illumina sequencing data.
+        A short description of what it does:
+        1. Locates the Illumina run directory and validates its existence on Nextcloud.
+        2. Parses conversion and summary statistics from the run data.
+        3. Displays a summary table (Reads, Q30, Quality) for user confirmation.
+        4. Generates a manifest of files available on Nextcloud.
+        5. Shares the Nextcloud folder and sends a notification email/SMS.
+        6. Updates the portal database with detailed Illumina statistics.
+
+        Args:
+            lims: LIMS instance
+            project: LIMS Project.
+            researcher: LIMS Researcher.
+            project_id (str): LIMS project ID.
+            fid (str): The flowcell ID.
+            session: Database session for tracking stats.
+            IlluminaStats: The database model class for Illumina statistics.
+            portal_run: The portal run object/record to be updated.
+
+        Returns:
+            True if the sharing process completed successfully, False otherwise.
+        """
+
         run_details = self.run_retriever.get_illumina_run_details(lims, project, fid)
 
         if not run_details:
@@ -931,7 +1216,7 @@ class DataSharer:
 
         nextcloud_run_id = None
         for run_id in possible_nextcloud_ids:
-            if self.nextcloud_util.checkExists(run_id):
+            if self.nextcloud_util.check_exists(run_id):
                 nextcloud_run_id = run_id
                 break
 
@@ -977,11 +1262,11 @@ class DataSharer:
             table_rows
         )
 
-        if not self._confirm_action("Are you sure you want to send this dataset"):
+        if not query_yes_no("Are you sure you want to send this dataset"):
             return False
 
         # Get file list and share
-        file_list = self.nextcloud_util.simpleFileList(nextcloud_run_id)
+        file_list = self.nextcloud_util.simple_file_list(nextcloud_run_id)
         if not file_list:
             print(f"Error: No files found in nextcloud directory {nextcloud_run_id}!")
             return False
@@ -997,10 +1282,11 @@ class DataSharer:
             print(f"Error sharing: {share_response['ERROR']}")
             return False
 
+
         # Send notification
         self._send_illumina_notification(
-            researcher, project_id, share_response, file_list,
-            conversion_stats, getSampleMeasurements(lims, project_id),
+            lims, researcher, project_id, share_response, file_list,
+            conversion_stats, get_sample_measurements(lims, project_id),
             lims.get_samples(projectlimsid=project_id), available_files_path
         )
 
@@ -1014,7 +1300,29 @@ class DataSharer:
 
     def _update_illumina_stats(self, session, IlluminaStats, flowcell_id, portal_run, project_id,
                              run_dir, run_meta, conversion_stats, summary_stats):
-        """Update database with Illumina sequencing statistics."""
+        """
+        Internal method to update the portal database with Illumina sequencing statistics.
+
+        1. Checks for existing records to prevent duplicate entries for the same flowcell/run.
+        2. If conversion stats are provided, it stages a JSON metadata file and copies associated QC plot images (.png) to a temporary directory.
+        3. Synchronizes these files to the portal storage server using rsync.
+        4. Creates and commits a new `IlluminaStats` record containing primary metrics (yield, reads, Q30, etc.) and links to the uploaded plot filenames.
+
+        Args:
+            session: SQLAlchemy or equivalent database session for transactions.
+            IlluminaStats: The database model class for Illumina statistics.
+            flowcell_id (str): The flowcell ID.
+            portal_run: The portal run object/record to which these stats will be linked.
+            project_id (str): LIMS project ID.
+            run_dir (Path): The local directory path containing the Illumina run data.
+            run_meta (dict): Metadata from the run (e.g., start date, loading concentration).
+            conversion_stats (dict): Statistics derived from BCL conversion (e.g., Q-scores).
+            summary_stats (dict): Aggregated summary metrics (e.g., yields, cluster density).
+
+        Raises:
+            OSError: If directory creation, file copying, or cleanup fails.
+
+        """
         # Check if stats already exist
         existing_stats = session.query(IlluminaStats).filter_by(
             flowcell_id=flowcell_id, run_id=portal_run.id
@@ -1103,7 +1411,24 @@ class DataSharer:
 
 
 def chunkify(lst: List, n: int) -> List:
-    """Yield successive n-sized chunks from list."""
+    """
+    Yield successive n-sized chunks from list.
+
+    This is a generator function that splits a larger list into smaller sub-lists
+    of a specified size. If the total length of the list is not evenly divisible
+    by 'n', the final chunk will contain the remaining elements.
+
+    Args:
+        lst (List): The source list to be partitioned.
+        n (int): The maximum size of each chunk.
+
+    Yields:
+        List: A sub-list containing up to 'n' elements from the original list.
+
+    Example:
+        >>> list(chunkify([1, 2, 3, 4, 5], 2))
+        [[1, 2], [3, 4], [5]]
+    """
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
@@ -1114,16 +1439,25 @@ def run(lims, ids: Optional[str], username: Optional[str], directory: Optional[s
     Main entry point for data sharing functionality.
 
     Args:
-        lims: LIMS connection object
-        ids: Project ID(s) to share (comma-separated)
-        username: Username to share data with (for manual sharing)
-        directory: Directory to share (for manual sharing)
-        fid: Override flowcell ID
-        all_dirs_ont: Share all Nanopore directories
+        lims: LIMS connection object.
+        ids (Optional[str]): A comma-separated string of project IDs (e.g., 'PRJ1,PRJ2'). If provided, the script enters project-based sharing mode.
+        username (Optional[str]): The username/email of the researcher for manual data sharing. Required if `ids` is not provided.
+        directory (Optional[str]): The local path to the directory to be shared manually. Required if `ids` is not provided.
+        fid (Optional[str]): An optional flowcell ID to override automatic detection.
+        all_dirs_ont (bool): Nanopore-specific flag. If True, packages the entire data category folders. If False, attempts to package by barcode.
+
+    Returns:
+        bool: True if all specified project shares were attempted successfully (or
+            if the manual share succeeded); False if parameters were missing or
+            a fatal exception occurred.
+
+    Raises:
+        Exception: Catches and prints any unexpected errors occurring during the setup or sharing execution to ensure clean termination.
+
     """
     # Initialize NextCloud utility
     nextcloud_util = NextcloudUtil()
-    nextcloud_util.setHostname(Config.NEXTCLOUD_HOST)
+    nextcloud_util.set_hostname(Config.NEXTCLOUD_HOST)
 
     # Initialize data sharer
     data_sharer = DataSharer(nextcloud_util)
@@ -1174,6 +1508,7 @@ def run(lims, ids: Optional[str], username: Optional[str], directory: Optional[s
             return False
 
     except Exception as e:
+
         print(f"Fatal error during data sharing: {e}")
         return False
 

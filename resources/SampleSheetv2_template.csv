@@ -14,14 +14,7 @@ Index2Cycles,{{index2_cycles}}{% endif %}
 CreateFastqForIndexReads,1
 
 [BCLConvert_Data]
-{% if lanes -%}
 Lane,Sample_ID,index,{% if dual_index %}index2,{% endif %}Sample_Project,OverrideCycles,BarcodeMismatchesIndex1{% if dual_index %},BarcodeMismatchesIndex2{% endif %}
 {% for sample in samples -%}
 {{sample['lane']}},{{sample['Sample_ID']}},{{sample['index']}},{% if dual_index %}{{sample['index2']}},{% endif %}{{sample['Sample_Project']}},{{sample['OverrideCycles']}},{{sample['BarcodeMismatchesIndex1']}}{% if dual_index %},{{sample['BarcodeMismatchesIndex2']}}{% endif %}
 {% endfor -%}
-{% else -%}
-Sample_ID,index,{% if dual_index %}index2,{% endif %}Sample_Project,OverrideCycles,BarcodeMismatchesIndex1{% if dual_index %},BarcodeMismatchesIndex2{% endif %}
-{% for sample in samples -%}
-{{sample['Sample_ID']}},{{sample['index']}},{% if dual_index %}{{sample['index2']}},{% endif %}{{sample['Sample_Project']}},{{sample['OverrideCycles']}},{{sample['BarcodeMismatchesIndex1']}}{% if dual_index %},{{sample['BarcodeMismatchesIndex2']}}{% endif %}
-{% endfor -%}
-{% endif -%}

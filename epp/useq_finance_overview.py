@@ -7,14 +7,17 @@ by fetching project costs from the portal API and combining with LIMS data.
 import json
 import re
 import sys
-from typing import Dict, List, Any, Set, Tuple, Optional
+from typing import Dict, List, Any, Set, Tuple, Optional, TextIO
 
 import requests
-from genologics.entities import Step, ProtocolStep
+
+from genologics.entities import Step, ProtocolStep, Artifact, Sample
+from genologics.lims import Lims
 
 from config import Config
-from modules.useq_template import renderTemplate
+from modules.useq_template import render_template
 
+from tqdm import tqdm
 
 class FinanceError(Exception):
     """Custom exception for finance-related errors."""
@@ -26,14 +29,13 @@ class CostCalculationError(FinanceError):
     pass
 
 
-def get_step_protocol(lims, step_id: Optional[str] = None,
-                     step_uri: Optional[str] = None) -> str:
+def get_step_protocol(lims, step_id: Optional[str] = None,step_uri: Optional[str] = None) -> str:
     """Get protocol name from step ID or URI.
 
     Args:
-        lims: LIMS connection
-        step_id: Optional step ID
-        step_uri: Optional step URI
+        lims (Lims): LIMS instance.
+        step_id (str): Optional step ID
+        step_uri (str): Optional step URI
 
     Returns:
         Protocol name
@@ -57,7 +59,7 @@ def initialize_project_run_data(pool_id: str) -> Dict[str, Any]:
     """Initialize run data structure for a project.
 
     Args:
-        pool_id: Pool identifier
+        pool_id (str): Pool identifier
 
     Returns:
         Initialized run data dictionary
@@ -162,8 +164,8 @@ def normalize_application_platform(application: str, platform: str) -> Tuple[str
     """Normalize legacy application and platform names.
 
     Args:
-        application: Application name
-        platform: Platform name
+        application (str): Application name
+        platform (str): Platform name
 
     Returns:
         Tuple of normalized (application, platform)
@@ -188,14 +190,13 @@ def normalize_application_platform(application: str, platform: str) -> Tuple[str
     return application, platform
 
 
-def process_isolation_artifact(sample_artifact, sample_meta: Dict[str, Any],
-                              run_data: Dict[str, Any]) -> None:
+def process_isolation_artifact(sample_artifact: Artifact, sample_meta: Dict[str, Any], run_data: Dict[str, Any]):
     """Process isolation artifact and update metadata.
 
     Args:
-        sample_artifact: Artifact from isolation process
-        sample_meta: Sample metadata dictionary
-        run_data: Run data dictionary
+        sample_artifact (Artifact): LIMS Artifact from isolation process
+        sample_meta (Dict[str, Any]): Sample metadata dictionary
+        run_data (Dict[str, Any]): Run data dictionary
     """
     if sample_artifact.type == 'ResultFile':
         return
@@ -222,22 +223,18 @@ def process_isolation_artifact(sample_artifact, sample_meta: Dict[str, Any],
         )
 
 
-def process_libprep_artifact(lims, sample, sample_artifact,
-                            sample_meta: Dict[str, Any],
-                            run_data: Dict[str, Any]) -> None:
+def process_libprep_artifact(lims: Lims, sample: Sample, sample_artifact: Artifact, sample_meta: Dict[str, Any], run_data: Dict[str, Any]):
     """Process library prep artifact and update metadata.
 
     Args:
-        lims: LIMS connection
-        sample: Sample object
-        sample_artifact: Artifact from library prep process
-        sample_meta: Sample metadata dictionary
-        run_data: Run data dictionary
+        lims (Lims): LIMS instance.
+        sample (Sample): LIMS Sample
+        sample_artifact (Artifact): LIMS Artifact from library prep process
+        sample_meta (Dict[str, Any]): Sample metadata dictionary
+        run_data (Dict[str, Any]): Run data dictionary
     """
     if sample_artifact.type == 'ResultFile':
         return
-
-
 
     runtype = sample.udf['Sequencing Runtype']
     lims_library_prep = ''
@@ -262,19 +259,17 @@ def process_libprep_artifact(lims, sample, sample_artifact,
     run_data['libprep_date'].add(sample_artifact.parent_process.date_run)
 
 
-def process_run_artifact(lims, sample_artifact, sample_meta: Dict[str, Any],
-                        run_data: Dict[str, Any], run_meta: Dict[str, Any],
-                        run_date, pid_sequenced: Dict[str, Set]) -> None:
+def process_run_artifact(lims: Lims, sample_artifact: Artifact, sample_meta: Dict[str, Any], run_data: Dict[str, Any], run_meta: Dict[str, Any], run_date: str, pid_sequenced: Dict[str, Set]):
     """Process run artifact and update metadata.
 
     Args:
-        lims: LIMS connection
-        sample_artifact: Artifact from run process
-        sample_meta: Sample metadata dictionary
-        run_data: Run data dictionary
-        run_meta: Run metadata for API
-        run_date: Run date
-        pid_sequenced: Dictionary tracking when projects were sequenced
+        lims (Lims): LIMS instance.
+        sample_artifact (Artifact): LIMS Artifact from run process
+        sample_meta (Dict[str, Any]) : Sample metadata dictionary
+        run_data (Dict[str, Any]): Run data dictionary
+        run_meta (Dict[str, Any]): Run metadata for API
+        run_date (str): Run date
+        pid_sequenced (Dict[str, Set]): Dictionary tracking when projects were sequenced
     """
     protocol_name = get_step_protocol(lims, step_id=sample_artifact.parent_process.id)
     run_data['lims_runtype'] = protocol_name.split("-", 1)[1].lower().strip()
@@ -293,15 +288,14 @@ def process_run_artifact(lims, sample_artifact, sample_meta: Dict[str, Any],
         sample_meta['Sequenced'] = True
 
 
-def process_analysis_artifact(sample_artifact, sample, sample_meta: Dict[str, Any],
-                             run_data: Dict[str, Any]) -> None:
+def process_analysis_artifact(sample_artifact: Artifact, sample: Sample, sample_meta: Dict[str, Any], run_data: Dict[str, Any]):
     """Process analysis artifact and update metadata.
 
     Args:
-        sample_artifact: Artifact from analysis process
-        sample: Sample object
-        sample_meta: Sample metadata dictionary
-        run_data: Run data dictionary
+        sample_artifact (Artifact): LIMS Artifact from analysis process
+        sample (Sample): LIMS Sample object
+        sample_meta (Dict[str, Any]): Sample metadata dictionary
+        run_data (Dict[str, Any]): Run data dictionary
     """
     run_data['analysis_date'].add(sample_artifact.parent_process.date_run)
 
@@ -345,13 +339,13 @@ def process_analysis_artifact(sample_artifact, sample, sample_meta: Dict[str, An
         sample_meta['Analyzed'] = True
 
 
-def set_project_metadata(sample, pool, run_data: Dict[str, Any]) -> None:
+def set_project_metadata(sample: Sample, pool: Artifact, run_data: Dict[str, Any]):
     """Set project metadata from sample information (only once per project).
 
     Args:
-        sample: Sample object
-        pool: Pool artifact
-        run_data: Run data dictionary to update
+        sample (Sample): LIMS Sample object
+        pool (Artifact): LIMS Pool Artifact
+        run_data (Dict[str, Any]): Run data dictionary to update
     """
     run_data['first_submission_date'] = sample.date_received
 
@@ -404,8 +398,8 @@ def fetch_project_costs(project_id: str, run_meta: Dict[str, Any]) -> Dict[str, 
     """Fetch project costs from the portal API.
 
     Args:
-        project_id: Project ID
-        run_meta: Run metadata for cost calculation
+        project_id (str): Project ID
+        run_meta (Dict[str, Any]): Run metadata for cost calculation
 
     Returns:
         Cost data from API or error information
@@ -429,14 +423,13 @@ def fetch_project_costs(project_id: str, run_meta: Dict[str, Any]) -> Dict[str, 
         return {'error': f'Failed to retrieve costs - {str(e)}'}
 
 
-def update_run_costs(run_data: Dict[str, Any], costs: Dict[str, Any],
-                    application: str) -> None:
+def update_run_costs(run_data: Dict[str, Any], costs: Dict[str, Any], application: str):
     """Update run data with cost information from API response.
 
     Args:
-        run_data: Run data dictionary to update
-        costs: Cost data from API
-        application: Application name for cost lookup
+        run_data (Dict[str, Any]): Run data dictionary to update
+        costs (Dict[str, Any]): Cost data from API
+        application (str): Application name for cost lookup
     """
     if 'error' in costs:
         run_data['errors'].add(costs['error'])
@@ -461,7 +454,7 @@ def convert_sets_to_strings(data_dict: Dict[str, Any]) -> None:
     """Convert all set values in dictionary to comma-separated strings.
 
     Args:
-        data_dict: Dictionary to process in-place
+        data_dict (Dict[str, Any]): Dictionary to process in-place
     """
     for key, value in data_dict.items():
         if isinstance(value, set):
@@ -472,7 +465,7 @@ def deduplicate_runs(runs: Dict[str, Dict[str, Dict[str, Any]]]) -> Dict[str, Di
     """Deduplicate runs based on project ID and run date.
 
     Args:
-        runs: Dictionary of runs organized by pool and project
+        runs (Dict[str, Dict[str, Dict[str, Any]]]): Dictionary of runs organized by pool and project
 
     Returns:
         Deduplicated runs dictionary
@@ -494,12 +487,12 @@ def deduplicate_runs(runs: Dict[str, Dict[str, Dict[str, Any]]]) -> Dict[str, Di
     return runs_dedup
 
 
-def get_seq_finance(lims, step_uri: str) -> str:
+def get_seq_finance(lims: Lims, step_uri: str) -> str:
     """Calculate costs for all sequencing runs included in the step.
 
     Args:
-        lims: LIMS connection
-        step_uri: Step URI
+        lims (Lims): LIMS instance.
+        step_uri (str): Step URI
 
     Returns:
         Rendered CSV template with finance data
@@ -512,7 +505,9 @@ def get_seq_finance(lims, step_uri: str) -> str:
     pool_samples = {}
     pid_sequenced = {}
 
-    for io_map in step_details.input_output_maps:
+    io_maps = step_details.input_output_maps
+    for io_map in tqdm(io_maps, desc="Processing Runs", unit="run"):
+    # for io_map in step_details.input_output_maps:
         if io_map[1]['output-generation-type'] == 'PerAllInputs':
             continue  # Skip the billing table file
 
@@ -707,15 +702,15 @@ def get_seq_finance(lims, step_uri: str) -> str:
 
     # Deduplicate and convert sets to strings
     runs_dedup = deduplicate_runs(runs)
-    return renderTemplate('seq_finance_overview_template.csv', {'pools': runs_dedup})
+    return render_template('seq_finance_overview_template.csv', {'pools': runs_dedup})
 
 
-def get_snp_finance(lims, step_uri: str) -> str:
+def get_snp_finance(lims: Lims, step_uri: str) -> str:
     """Calculate costs for SNP fingerprinting runs.
 
     Args:
-        lims: LIMS connection
-        step_uri: Step URI
+        lims (Lims): LIMS instance
+        step_uri (str): Step URI
 
     Returns:
         Rendered CSV template with finance data
@@ -821,16 +816,16 @@ def get_snp_finance(lims, step_uri: str) -> str:
     for run_id in runs:
         convert_sets_to_strings(runs[run_id])
 
-    return renderTemplate('snp_finance_overview_template.csv', {'runs': runs})
+    return render_template('snp_finance_overview_template.csv', {'runs': runs})
 
 
-def run(lims, step_uri: str, output_file) -> None:
+def run(lims: Lims, step_uri: str, output_file: TextIO) -> None:
     """Run the finance overview generation based on protocol.
 
     Args:
-        lims: LIMS connection
-        step_uri: Step URI
-        output_file: Output file handle
+        lims (Lims): LIMS connection
+        step_uri (str): Step URI
+        output_file (TextIO): Output file handle
 
     Raises:
         FinanceError: If protocol is unknown or finance calculation fails
