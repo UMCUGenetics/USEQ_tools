@@ -31,6 +31,7 @@ from modules.useq_template import render_template
 from utilities.useq_sample_report import get_sample_measurements
 from modules.useq_illumina_parsers import parse_sample_sheet
 from modules.useq_ui import query_yes_no
+from epp.useq_run_status_mail import run_finished
 
 class DatabaseManager:
     """
@@ -1016,12 +1017,13 @@ class DataSharer:
 
         print(f'Shared {data_dir} with {researcher.email}')
 
-    def _send_illumina_notification(self, researcher: Researcher, project_id: str, share_response: Dict[str, Any], file_list: List[str],
+    def _send_illumina_notification(self, lims: Lims, researcher: Researcher, project_id: str, share_response: Dict[str, Any], file_list: List[str],
                                   conversion_stats: Dict[str, Any], sample_measurements: List[Any], samples: List[Sample], available_files_path: Path):
         """
         Internal function to send a notification for Illumina data sharing.
 
         Args:
+            lims: LIMS instance
             researcher: LIMS Researcher.
             project_id (str): LIMS project ID.
             share_response (Dict[str, Any]): Dictionary containing Nextcloud "SUCCESS" details (share_id, password).
@@ -1037,6 +1039,7 @@ class DataSharer:
         """
         share_id, password = share_response["SUCCESS"]
         analysis_steps = samples[0].udf.get('Analysis', '').split(',') if samples else []
+        platform = samples[0].udf.get('Platform', '')
 
         template_data = {
             'project_id': project_id,
@@ -1057,6 +1060,9 @@ class DataSharer:
         if Config.DEVMODE:
             send_mail(mail_subject, mail_content, Config.MAIL_SENDER, 's.w.boymans@umcutrecht.nl', attachments=attachments)
             print(f"Development mode: Password is {password}")
+
+            if platform in ["60 SNP NimaGen panel", "Chromium X"] or analysis_steps:
+                run_finished(lims, Config.MAIL_SENDER, Config.TRELLO_ANALYSIS_BOARD, samples)
         else:
             send_mail(mail_subject, mail_content, Config.MAIL_SENDER, researcher.email, attachments=attachments)
             self._send_text(researcher, project_id, password)
@@ -1279,7 +1285,7 @@ class DataSharer:
 
         # Send notification
         self._send_illumina_notification(
-            researcher, project_id, share_response, file_list,
+            lims, researcher, project_id, share_response, file_list,
             conversion_stats, get_sample_measurements(lims, project_id),
             lims.get_samples(projectlimsid=project_id), available_files_path
         )

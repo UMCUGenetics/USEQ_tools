@@ -212,7 +212,7 @@ def _route_from_post_sequencing(lims: Lims, current_step: str, first_sample: Sam
             next_stages.append(
                 Config.WORKFLOW_STEPS["SEQUENCING"]["steps"]["POST SEQUENCING"]["stage_nrs"]["USEQ - Analysis"]
             )
-            run_finished(lims, Config.MAIL_SENDER, Config.TRELLO_ANALYSIS_BOARD, artifact)
+            # run_finished(lims, Config.MAIL_SENDER, Config.TRELLO_ANALYSIS_BOARD, artifact)
 
         next_stages.append(
             Config.WORKFLOW_STEPS["SEQUENCING"]["steps"]["POST SEQUENCING"]["stage_nrs"]["USEQ - Ready for billing"]

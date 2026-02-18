@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from genologics.entities import Artifact, StepDetails
+from genologics.entities import Artifact, StepDetails, Sample
 from genologics.lims import Lims
 
 from modules.useq_mail import send_mail
@@ -53,7 +53,7 @@ def run_started(lims: Lims, sender: str, receivers: List[str], step_uri: str):
     send_mail(subject, content, sender, receivers, None)
 
 
-def run_finished(lims: Lims, sender: str, receivers: List[str], artifact: Artifact):
+def run_finished(lims: Lims, sender: str, receivers: List[str], samples: List[Sample]):
     """
     Send a run finished notification email formatted for Trello.
 
@@ -61,24 +61,29 @@ def run_finished(lims: Lims, sender: str, receivers: List[str], artifact: Artifa
         lims: LIMS instance.
         sender: Email address of the sender.
         receivers: List of recipient email addresses.
-        artifact: Artifact associated with the finished run.
+        samples: List of LIMS Sample objects.
     """
     run_samples = []
     client = ""
     platform = ""
 
-    for sample in artifact.samples:
+    for sample in samples:
+
         run_samples.append({
             "name": sample.name,
             "project_name": sample.project.name,
             "project_id": sample.project.id,
-            "analysis": sample.udf.get("Analysis", "SNP Fingerprinting"),
+            "platform" : sample.udf.get("Platform", ""),
+            "application": sample.project.udf.get("Application", ""),
+            "run_type" : sample.udf.get("Sequencing Runtype", ""),
+            "analysis": sample.udf.get("Analysis", ""),
+            "add_ons" : sample.udf.get('Add-ons', ""),
             "reference": sample.udf.get("Reference Genome", "Human - GRCh38"),
         })
         client = sample.project.researcher
         platform = sample.udf["Platform"]
 
-    references = ", ".join(set(sample["reference"] for sample in run_samples))
+    references = ", ".join(set([sample["reference"] for sample in run_samples]))
 
     content = render_template(
         "run_finished_template.html",
@@ -86,8 +91,12 @@ def run_finished(lims: Lims, sender: str, receivers: List[str], artifact: Artifa
             "nr_samples": len(run_samples),
             "project_name": run_samples[0]["project_name"],
             "project_id": run_samples[0]["project_id"],
+            "application": run_samples[0]["application"],
+            "platform": run_samples[0]["platform"],
+            "run_type": run_samples[0]["run_type"],
+            "add_ons": run_samples[0]["add_ons"],
             "analysis": run_samples[0]["analysis"],
-            "reference(s)": references,
+            "references": references,
             "client": client,
         },
     )
