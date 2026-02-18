@@ -17,26 +17,24 @@ class Config(object):
     USEQ_USER=os.environ.get('USEQ_USER') or 'usfuser'
 
     ## PORTAL SETTINGS##
-    PORTAL_SERVER=os.environ.get('PORTAL_SERVER')
-    PORTAL_USER=os.environ.get('PORTAL_USER')
-    PORTAL_STORAGE=os.environ.get('PORTAL_STORAGE')
-    PORTAL_URL=os.environ.get('PORTAL_URL')
-    PORTAL_API_KEY=os.environ.get('PORTAL_API_KEY')
+    PORTAL_SERVER=os.environ.get('PORTAL_SERVER') or 'localhost'
+    PORTAL_USER=os.environ.get('PORTAL_USER') or 'usfuser'
+    PORTAL_STORAGE=os.environ.get('PORTAL_STORAGE') or '/tmp'
+    PORTAL_URL=os.environ.get('PORTAL_URL') or 'localhost:5000'
+    PORTAL_API_KEY=os.environ.get('PORTAL_API_KEY') or ''
     # PORTAL_DB_USER=os.environ.get('PORTAL_DB_USER')
     # PORTAL_DB_PW=os.environ.get('PORTAL_DB_PW')
-    PORTAL_DB_URI=os.environ.get('PORTAL_DB_URI')
-    PORTAL_URL=os.environ.get('PORTAL_URL')
-    PORTAL_API_KEY=os.environ.get('PORTAL_API_KEY')
+    PORTAL_DB_URI=os.environ.get('PORTAL_DB_URI') or ''
 
     ##LIMS SETTINGS##
-    LIMS_URI=os.environ.get('LIMS_URI')
-    LIMS_USER=os.environ.get('LIMS_USER')
-    LIMS_PW=os.environ.get('LIMS_PW')
+    LIMS_URI=os.environ.get('LIMS_URI') or ''
+    LIMS_USER=os.environ.get('LIMS_USER') or ''
+    LIMS_PW=os.environ.get('LIMS_PW') or ''
 
     ##MAIL SETTINGS##
-    MAIL_HOST=os.environ.get('MAIL_HOST')
-    MAIL_SENDER=os.environ.get('MAIL_SENDER')
-    MAIL_ADMINS=os.environ.get('MAIL_ADMINS').split(",")
+    MAIL_HOST=os.environ.get('MAIL_HOST') or 'localhost'
+    MAIL_SENDER=os.environ.get('MAIL_SENDER') or ''
+    MAIL_ADMINS=os.environ.get('MAIL_ADMINS').split(",") or ''
 
     ##TRELLO##
     TRELLO_ANALYSIS_BOARD='swboymans+dz1sjzuejttnkxhgya6p@boards.trello.com'
@@ -44,17 +42,17 @@ class Config(object):
     MACHINE_ALIASES=['miseq_umc01','nextseq_umc03','nextseq2000_umc01','nextseq2000_umc02','novaseq_umc01','novaseq_umc02','iseq_umc01','novaseq_umc01/MyRun','novaseq_umc02/MyRun']
 
     ##HPC SERVER SETTINGS##
-    HPC_MAIN_DIR = os.environ.get('HPC_MAIN_DIR')
-    HPC_ARCHIVE_DIR = os.environ.get('HPC_ARCHIVE_DIR')
+    HPC_MAIN_DIR = os.environ.get('HPC_MAIN_DIR') or ''
+    HPC_ARCHIVE_DIR = os.environ.get('HPC_ARCHIVE_DIR') or ''
     HPC_TMP_DIR = os.path.join(basedir, 'tmp')
     HPC_RAW_ROOT = os.path.join(HPC_MAIN_DIR,'raw_data')
     HPC_STATS_DIR = os.path.join(HPC_RAW_ROOT, 'runstats')
     HPC_TRANSFER_SERVER='hpct04'
 
     ##CONVERSION SERVER SETTINGS##
-    CONV_MAIN_DIR=os.environ.get('CONV_MAIN_DIR')
+    CONV_MAIN_DIR=os.environ.get('CONV_MAIN_DIR') or ''
     CONV_STAGING_DIR=os.path.join(CONV_MAIN_DIR,'staging')
-    CONV_SCRIPT_DIR=os.environ.get('CONV_SCRIPT_DIR')
+    CONV_SCRIPT_DIR=os.environ.get('CONV_SCRIPT_DIR') or ''
     CONV_INTEROP=os.path.join(CONV_SCRIPT_DIR,'interop/interop-1.2.0-Linux-GNU')
     #CONV_BCLCONVERT=os.path.join(CONV_SCRIPT_DIR,'bcl-convert-3.10.5-2/usr/bin')
     CONV_BCLCONVERT=os.path.join(CONV_SCRIPT_DIR,'bcl-convert-4.3.6-2/usr/bin')
@@ -67,9 +65,9 @@ class Config(object):
 
 
     ##NEXTCLOUD SERVER SETTINGS##
-    NEXTCLOUD_HOST = os.environ.get('NEXTCLOUD_HOST')
+    NEXTCLOUD_HOST = os.environ.get('NEXTCLOUD_HOST') or ''
     NEXTCLOUD_USER = USEQ_USER
-    NEXTCLOUD_PW = os.environ.get('NEXTCLOUD_PW')
+    NEXTCLOUD_PW = os.environ.get('NEXTCLOUD_PW') or ''
     NEXTCLOUD_DATA_ROOT = '/data/ncie02/nextcloud/usfuser/files/'
     NEXTCLOUD_WEBDAV_ROOT = 'remote.php/dav/files/usfuser/'
     NEXTCLOUD_RAW_DIR = 'raw_data/'
@@ -81,7 +79,7 @@ class Config(object):
 
 
     ##SMS SERVER SETTINGS##
-    SMS_SERVER = os.environ.get('SMS_SERVER')
+    SMS_SERVER = os.environ.get('SMS_SERVER') or ''
 
     SSL_CERT = '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt'
 
