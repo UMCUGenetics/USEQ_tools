@@ -49,6 +49,6 @@ html_logo = '_static/useq_logo.png'
 
 # -- Docstring substitutions-------------------------------------------------
 rst_epilog = f"""
-.. |lims_uri| replace:: {https://usf-lims-test.op.umcutrecht.nl}
+.. |lims_uri| replace:: {'https://usf-lims-test.op.umcutrecht.nl'}
 
 """
