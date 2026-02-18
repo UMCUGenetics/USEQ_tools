@@ -3,7 +3,7 @@ charset-normalizer==3.4.4
 dotenv==0.9.9
 easywebdav==1.2.0
 et_xmlfile==2.0.0
-genologics==1.0.0
+genologics
 greenlet==3.3.0
 idna==3.11
 Jinja2==3.1.6
