@@ -19,6 +19,8 @@ from modules.useq_template import render_template
 
 from tqdm import tqdm
 
+from retry import retry
+
 class FinanceError(Exception):
     """Custom exception for finance-related errors."""
     pass
@@ -28,7 +30,7 @@ class CostCalculationError(FinanceError):
     """Exception for cost calculation errors."""
     pass
 
-
+@retry(requests.exceptions.ConnectionError, tries=2, delay=2)
 def get_step_protocol(lims, step_id: Optional[str] = None,step_uri: Optional[str] = None) -> str:
     """Get protocol name from step ID or URI.
 
@@ -287,7 +289,7 @@ def process_run_artifact(lims: Lims, sample_artifact: Artifact, sample_meta: Dic
         run_data['nr_samples_sequenced'] += 1
         sample_meta['Sequenced'] = True
 
-
+@retry(requests.exceptions.ConnectionError, tries=2, delay=2)
 def process_analysis_artifact(sample_artifact: Artifact, sample: Sample, sample_meta: Dict[str, Any], run_data: Dict[str, Any]):
     """Process analysis artifact and update metadata.
 
@@ -338,7 +340,7 @@ def process_analysis_artifact(sample_artifact: Artifact, sample: Sample, sample_
         sample_meta['Analyzed_date'] = sample_artifact.parent_process.date_run
         sample_meta['Analyzed'] = True
 
-
+@retry(requests.exceptions.ConnectionError, tries=2, delay=2)
 def set_project_metadata(sample: Sample, pool: Artifact, run_data: Dict[str, Any]):
     """Set project metadata from sample information (only once per project).
 
@@ -393,7 +395,7 @@ def set_project_metadata(sample: Sample, pool: Artifact, run_data: Dict[str, Any
     if 'UMCU_VATNr' in researcher.lab.udf:
         run_data['vat_nr'] = researcher.lab.udf['UMCU_VATNr']
 
-
+@retry(requests.exceptions.ConnectionError, tries=2, delay=2)
 def fetch_project_costs(project_id: str, run_meta: Dict[str, Any]) -> Dict[str, Any]:
     """Fetch project costs from the portal API.
 
@@ -415,7 +417,7 @@ def fetch_project_costs(project_id: str, run_meta: Dict[str, Any]) -> Dict[str, 
             url,
             headers=headers,
             data=json.dumps(run_meta, indent=4),
-            timeout=30
+            timeout=60
         )
         response.raise_for_status()
         return response.json()
@@ -486,7 +488,7 @@ def deduplicate_runs(runs: Dict[str, Dict[str, Dict[str, Any]]]) -> Dict[str, Di
 
     return runs_dedup
 
-
+@retry(requests.exceptions.ConnectionError, tries=2, delay=2)
 def get_seq_finance(lims: Lims, step_uri: str) -> str:
     """Calculate costs for all sequencing runs included in the step.
 
@@ -704,7 +706,7 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
     runs_dedup = deduplicate_runs(runs)
     return render_template('seq_finance_overview_template.csv', {'pools': runs_dedup})
 
-
+@retry(requests.exceptions.ConnectionError, tries=2, delay=2)
 def get_snp_finance(lims: Lims, step_uri: str) -> str:
     """Calculate costs for SNP fingerprinting runs.
 
