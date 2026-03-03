@@ -63,7 +63,7 @@ class DatabaseManager:
             Config.PORTAL_DB_URI,
             connect_args=ssl_args,
             pool_pre_ping=True,
-            pool_recycle=21600
+            pool_recycle=86400
         )
 
         Base.prepare(engine, reflect=True)
@@ -1061,11 +1061,12 @@ class DataSharer:
             send_mail(mail_subject, mail_content, Config.MAIL_SENDER, 's.w.boymans@umcutrecht.nl', attachments=attachments)
             print(f"Development mode: Password is {password}")
 
-            if platform in ["60 SNP NimaGen panel", "Chromium X"] or analysis_steps:
-                run_finished(lims, Config.MAIL_SENDER, Config.TRELLO_ANALYSIS_BOARD, samples)
         else:
             send_mail(mail_subject, mail_content, Config.MAIL_SENDER, researcher.email, attachments=attachments)
             self._send_text(researcher, project_id, password)
+
+        if platform in ["60 SNP NimaGen panel", "Chromium X"] or analysis_steps:
+            run_finished(lims, Config.MAIL_SENDER, Config.TRELLO_ANALYSIS_BOARD, samples)
 
         print(f'Shared {project_id} with {researcher.email}')
 
