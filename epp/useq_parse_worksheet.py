@@ -1,6 +1,5 @@
 """Module for parsing and updating LIMS artifacts from worksheet data."""
 
-import sys
 import xml.etree.ElementTree as ET
 from io import BytesIO
 from typing import Dict, List, Tuple, Optional, Any, TextIO
@@ -75,16 +74,16 @@ def _get_worksheet_columns(sample_worksheet: Worksheet) -> Dict[str, Optional[in
         Dictionary mapping column names to their indices
 
     Raises:
-        SystemExit: If 'sample' column is not found
+        ValueError: If 'sample' column is not found
     """
     columns = COLUMN_NAMES.copy()
 
     for col in sample_worksheet.iter_cols(max_row=1, max_col=sample_worksheet.max_column):
         if col[0].value in columns:
             columns[col[0].value] = col[0].column - 1
-
-    if not columns['sample']:
-        sys.exit('ERROR: No "sample" column found.')
+        else:
+            raise ValueError(f'ERROR: "{col[0].value}" is not a valid column name.')
+    _validate_column_exists(columns, 'sample')
 
     return columns
 
@@ -93,15 +92,15 @@ def _validate_column_exists(columns: Dict[str, Optional[int]], column_name: str)
     """
     Validate that a required column exists.
 
-    Args:
+    Args:raise ValueError
         columns (Dict[str, Optional[int]]): Dictionary of column indices
         column_name (str): Name of the column to validate
 
     Raises:
-        SystemExit: If column is not found
+        ValueError: If column is not found
     """
     if not columns[column_name]:
-        sys.exit(f'ERROR: No "{column_name}" column found.')
+        raise ValueError(f'ERROR: No "{column_name}" column found.')
 
 
 def _get_cell_value(row_cells: Tuple[Cell, ...], columns: Dict[str, Optional[int]], column_name: str, row_nr: int, required: bool = True) -> Any:
@@ -119,12 +118,12 @@ def _get_cell_value(row_cells: Tuple[Cell, ...], columns: Dict[str, Optional[int
         Cell value if found
 
     Raises:
-        SystemExit: If required value is missing
+        ValueError: If required value is missing
     """
     value = row_cells[columns[column_name]].value
 
     if required and not value:
-        sys.exit(f'ERROR: No "{column_name}" found at row {row_nr}.')
+        raise ValueError(f'ERROR: No "{column_name}" found at row {row_nr}.')
 
     return value
 
@@ -197,7 +196,7 @@ def _parse_libprep_data(row_cells: Tuple[Cell, ...], columns: Dict[str, Optional
         Dictionary of parsed sample data
 
     Raises:
-        SystemExit: If barcode is invalid
+        ValueError: If barcode is invalid
     """
     sample = {}
     _validate_column_exists(columns, 'barcode nr')
@@ -206,7 +205,7 @@ def _parse_libprep_data(row_cells: Tuple[Cell, ...], columns: Dict[str, Optional
     if barcode_nr and barcode_set and barcode_nr in barcode_set:
         sample['barcode'] = barcode_set[barcode_nr]
     else:
-        sys.exit(f'ERROR: No valid "barcode nr" found at row {row_nr}.')
+        raise ValueError(f'ERROR: No valid "barcode nr" found at row {row_nr}.')
 
     return sample
 
@@ -278,7 +277,6 @@ def _parse_samples_from_worksheet(sample_worksheet: Worksheet, columns: Dict[str
 
     return samples
 
-
 def _update_artifact_concentration(artifact: Artifact, sample_info: Dict[str, Any], concentration_key: str):
     """
     Update artifact concentration UDF if not already set.
@@ -302,16 +300,21 @@ def _update_artifact_container(artifact: Artifact, sample_info: Dict[str, Any], 
         first_sample (Sample): LIMS Sample
         containers_to_update (List[Container]): List to append updated containers to
     """
-    if 'container name' in sample_info:
-        container: Container = artifact.location[0]
-        container.name = sample_info['container name']
-        containers_to_update.append(container)
+    has_container_name = "container name" in sample_info
+    is_snp_sample = (first_sample.udf[UDF_PLATFORM] == PLATFORM_NIMAGEN)
 
-        # Update artifact name for NimaGen platform
-        if (first_sample.udf[UDF_PLATFORM] == PLATFORM_NIMAGEN and
-                sample_info['container name'] not in artifact.name):
-            artifact.name = f"{sample_info['container name']}-{artifact.samples[0].name}"
+    if is_snp_sample and not has_container_name:
+        raise ValueError('ERROR: No "container name" column found for SNP NimaGen sample.')
 
+    if not has_container_name:
+        return
+
+    container = artifact.location[0]
+    container.name = sample_info["container name"]
+    containers_to_update.append(container)
+
+    if is_snp_sample and sample_info["container name"] not in artifact.name:
+        artifact.name = f"{sample_info['container name']}-{artifact.samples[0].name}"
 
 def _update_artifact_rin(artifact: Artifact, sample_info: Dict[str, Any]):
     """
