@@ -1165,11 +1165,6 @@ def process_run_directory(lims: Lims, run_dir: Path, machine: str, logger: loggi
     done_file = run_dir / '.mgr_done'
     status_file = run_dir / 'status.json'
 
-    # Check if run should be processed
-    if not (rta_complete.is_file() and
-            not any(f.is_file() for f in [running_file, failed_file, done_file])):
-        return
-
     # Lock directory for processing
     running_file.touch()
 
@@ -1524,6 +1519,17 @@ def manage_runs(lims: Lims) -> None:
         for run_dir in machine_dir.iterdir():
             # Validate run directory format
             if not run_dir.is_dir() or run_dir.name.count('_') != 3:
+                continue
+
+            # Important files
+            rta_complete = run_dir / 'RTAComplete.txt'
+            running_file = run_dir / '.mgr_running'
+            failed_file = run_dir / '.mgr_failed'
+            done_file = run_dir / '.mgr_done'
+
+            # Check if run should be processed
+            if not (rta_complete.is_file() and
+                    not any(f.is_file() for f in [running_file, failed_file, done_file])):
                 continue
 
             # Set up logging for this run
