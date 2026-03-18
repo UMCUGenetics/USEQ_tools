@@ -1065,7 +1065,7 @@ class DataSharer:
             send_mail(mail_subject, mail_content, Config.MAIL_SENDER, researcher.email, attachments=attachments)
             self._send_text(researcher, project_id, password)
 
-        if platform in ["60 SNP NimaGen panel", "Chromium X"] or analysis_steps:
+        if platform in ["60 SNP NimaGen panel", "Chromium X"] or len(analysis_steps) > 1:
             run_finished(lims, Config.MAIL_SENDER, Config.TRELLO_ANALYSIS_BOARD, samples)
 
         print(f'Shared {project_id} with {researcher.email}')
