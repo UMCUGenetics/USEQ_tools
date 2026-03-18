@@ -149,9 +149,12 @@ def _parse_isolation_data(row_cells: Tuple[Cell, ...], columns: Dict[str, Option
             row_cells, columns, 'pre conc ng/ul', row_nr
         )
 
-        container_name = row_cells[columns['container name']].value
-        if container_name:
-            sample['container name'] = container_name
+        sample['container name'] = _get_cell_value(
+            row_cells, columns, 'container name', row_nr
+        )
+        # container_name = row_cells[columns['container name']].value
+        # if container_name:
+        #     sample['container name'] = container_name
 
     return sample
 
@@ -173,7 +176,9 @@ def _parse_pre_libprep_qc_data(row_cells: Tuple[Cell, ...], columns: Dict[str, O
     sample['pre conc ng/ul'] = _get_cell_value(
         row_cells, columns, 'pre conc ng/ul', row_nr
     )
-
+    # sample['container name'] =  _get_cell_value(
+    #     row_cells, columns, 'container name', row_nr
+    # )
     if columns['RIN']:
         rin_value = row_cells[columns['RIN']].value
         if rin_value:
@@ -207,6 +212,9 @@ def _parse_libprep_data(row_cells: Tuple[Cell, ...], columns: Dict[str, Optional
     else:
         raise ValueError(f'ERROR: No valid "barcode nr" found at row {row_nr}.')
 
+    sample['container name'] =  _get_cell_value(
+        row_cells, columns, 'container name', row_nr
+    )
     return sample
 
 
@@ -227,7 +235,9 @@ def _parse_post_libprep_qc_data(row_cells: Tuple[Cell, ...], columns: Dict[str, 
     sample['post conc ng/ul'] = _get_cell_value(
         row_cells, columns, 'post conc ng/ul', row_nr
     )
-
+    sample['container name'] =  _get_cell_value(
+        row_cells, columns, 'container name', row_nr
+    )
     _validate_column_exists(columns, 'size')
     sample['size'] = _get_cell_value(row_cells, columns, 'size', row_nr)
 
@@ -314,6 +324,7 @@ def _update_artifact_container(artifact: Artifact, sample_info: Dict[str, Any], 
     containers_to_update.append(container)
 
     if is_snp_sample and sample_info["container name"] not in artifact.name:
+
         artifact.name = f"{sample_info['container name']}-{artifact.samples[0].name}"
 
 def _update_artifact_rin(artifact: Artifact, sample_info: Dict[str, Any]):
@@ -384,10 +395,12 @@ def _update_artifacts(step: Step, samples: Dict[str, Dict[str, Any]], first_samp
         artifact_sample = artifact.samples[0]
         sample_info = samples[str(artifact_sample.name)]
         project_id = artifact_sample.project.id
+        # print(sample_info)
 
         # Update various artifact properties
         _update_artifact_concentration(artifact, sample_info, 'pre conc ng/ul')
-        _update_artifact_container(artifact, sample_info, first_sample, containers_to_update)
+        if artifact.type == 'Analyte': #Only update the container name for analytes
+            _update_artifact_container(artifact, sample_info, first_sample, containers_to_update)
         _update_artifact_rin(artifact, sample_info)
         _update_artifact_barcode(artifact, sample_info, artifact_sample, project_id, output_file)
         _update_artifact_concentration(artifact, sample_info, 'post conc ng/ul')
@@ -429,7 +442,7 @@ def parse(lims: Lims, step_uri: str, aid: str, output_file: TextIO, mode: str):
     samples = _parse_samples_from_worksheet(
         sample_worksheet, columns, current_step, barcode_set
     )
-
+    # print(samples)
     # Update artifacts
     artifacts_to_update, containers_to_update = _update_artifacts(
         step, samples, first_sample, output_file
