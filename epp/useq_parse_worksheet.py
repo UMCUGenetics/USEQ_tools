@@ -77,7 +77,7 @@ def _get_worksheet_columns(sample_worksheet: Worksheet) -> Dict[str, Optional[in
         ValueError: If 'sample' column is not found
     """
     columns = COLUMN_NAMES.copy()
-    print(columns)
+
     for col in sample_worksheet.iter_cols(max_row=1, max_col=sample_worksheet.max_column):
         if not col[0].value : continue
         if col[0].value in columns:
@@ -396,7 +396,6 @@ def _update_artifacts(step: Step, samples: Dict[str, Dict[str, Any]], first_samp
         artifact_sample = artifact.samples[0]
         sample_info = samples[str(artifact_sample.name)]
         project_id = artifact_sample.project.id
-        # print(sample_info)
 
         # Update various artifact properties
         _update_artifact_concentration(artifact, sample_info, 'pre conc ng/ul')
@@ -437,15 +436,15 @@ def parse(lims: Lims, step_uri: str, aid: str, output_file: TextIO, mode: str):
     content = lims.get_file_contents(id=worksheet_id).read()
     workbook = load_workbook(filename=BytesIO(content))
     sample_worksheet = workbook['Samples']
-    print('test')
+
     # Parse worksheet structure and data
     columns = _get_worksheet_columns(sample_worksheet)
-    print(columns)
+
     samples = _parse_samples_from_worksheet(
         sample_worksheet, columns, current_step, barcode_set
     )
 
-    print(samples)
+
     # Update artifacts
     artifacts_to_update, containers_to_update = _update_artifacts(
         step, samples, first_sample, output_file
