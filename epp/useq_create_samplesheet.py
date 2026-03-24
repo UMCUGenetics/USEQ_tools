@@ -107,7 +107,7 @@ def create_samplesheet(lims: Lims, step_uri: str) -> str:
             )
 
             samplesheet_data["samples"].append(sample_data)
-    print(samplesheet_data)
+
     # Render and return the sample sheet
     samplesheet = render_template("SampleSheetv2_template.csv", samplesheet_data)
     return samplesheet
@@ -193,7 +193,8 @@ def _calculate_sample_settings(input_sample: Sample, input_sample_artifact: Arti
     )
 
     sample_id = input_sample_artifact.name
-    lane = lane_placements[lane_pool.id].split(":")[0]
+    lane_placements_parts = lane_placements[lane_pool.id].split(":")
+    lane = lane_placements_parts[0] if lane_placements_parts[0].isdigit() else lane_placements_parts[1]
 
     if Config.DEVMODE:
         print(
