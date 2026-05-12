@@ -584,8 +584,11 @@ class DataSharer:
             True if file or directory was succesfully uploaded to Nextcloud.
 
         """
+        upload_done_file = Path(f"{local_path}.done")
+        upload_done_file.touch()
+
         upload_command = (
-            f'scp -r {local_path} {Config.NEXTCLOUD_HOST}:'
+            f'scp -r {local_path} {upload_done_file} {Config.NEXTCLOUD_HOST}:'
             f'{Config.NEXTCLOUD_DATA_ROOT}/{remote_dir}'
         )
 
@@ -935,6 +938,7 @@ class DataSharer:
             if os.system(stats_command) == 0:
                 file_list.append(stats_archive)
                 available_files.write(f"{stats_archive}\n")
+
 
         return file_list
 

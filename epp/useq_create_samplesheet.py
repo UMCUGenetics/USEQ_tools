@@ -77,9 +77,6 @@ def create_samplesheet(lims: Lims, step_uri: str) -> str:
             v.id: k for k, v in lane_pool.container.placements.items()
         }
 
-        # if len(lane_placements) > 1:
-        #     samplesheet_data["lanes"] = True
-
         pooling_process = input_pool.parent_process
 
         # Process each sample in the pool
@@ -87,7 +84,8 @@ def create_samplesheet(lims: Lims, step_uri: str) -> str:
             input_sample_artifact, output_pool = [io["uri"] for io in pooling_io_map]
             input_sample = input_sample_artifact.samples[0]
 
-            # Get index information
+            samplesheet_data["run_type"] = input_sample.udf.get('Sequencing Runtype', 'NA')
+
             index_name = input_sample_artifact.reagent_labels[0]
             reagent = lims.get_reagent_types(name=index_name)[0]
             index_seqs = reagent.sequence.split("-")
@@ -107,7 +105,7 @@ def create_samplesheet(lims: Lims, step_uri: str) -> str:
             )
 
             samplesheet_data["samples"].append(sample_data)
-
+    # print(samplesheet_data)
     # Render and return the sample sheet
     samplesheet = render_template("SampleSheetv2_template.csv", samplesheet_data)
     return samplesheet
