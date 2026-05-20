@@ -57,7 +57,7 @@ class Config(object):
     #CONV_BCLCONVERT=os.path.join(CONV_SCRIPT_DIR,'bcl-convert-3.10.5-2/usr/bin')
     CONV_BCLCONVERT=os.path.join(CONV_SCRIPT_DIR,'bcl-convert-4.3.6-2/usr/bin')
     CONV_FASTQC=os.path.join(CONV_SCRIPT_DIR,'FastQC-v0.11.9/')
-
+    MAX_UNDETERMINED=0.40
 
     # HPC_RAW_NANOPORE=[
     #     os.path.join(HPC_RAW_ROOT, 'nanopore')
