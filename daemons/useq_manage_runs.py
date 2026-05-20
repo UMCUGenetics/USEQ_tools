@@ -1197,7 +1197,7 @@ def process_run_directory(lims: Lims, run_dir: Path, machine: str, logger: loggi
 
         # Find or retrieve sample sheet
         if not sample_sheet.is_file():
-            sample_sheet = find_or_retrieve_sample_sheet(run_dir, logger)
+            sample_sheet = find_or_retrieve_sample_sheet(lims, run_dir, logger)
             if not sample_sheet:
                 logger.error('Failed to find SampleSheet.csv')
                 raise RunManagerError('Sample sheet not found')
@@ -1316,11 +1316,12 @@ def process_run_directory(lims: Lims, run_dir: Path, machine: str, logger: loggi
             logger.error(f'Failed to send status mail: {mail_error}')
 
 
-def find_or_retrieve_sample_sheet(run_dir: Path, logger: logging.Logger) -> Optional[Path]:
+def find_or_retrieve_sample_sheet(lims: Lims, run_dir: Path, logger: logging.Logger) -> Optional[Path]:
     """
     Find existing sample sheet or retrieve from LIMS.
 
     Args:
+        lims (Lims): LIMS instance
         run_dir (Path): Run directory path
         logger (logging.Logger): Logger instance
 
