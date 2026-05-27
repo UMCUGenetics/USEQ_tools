@@ -5,6 +5,7 @@ import utilities.useq_share_run
 import utilities.useq_get_researchers
 import utilities.useq_get_accounts
 import utilities.useq_manage_runids
+import utilities.useq_match_barcodes
 # import utilities.useq_link_run_results <- legacy code
 import utilities.useq_year_overview
 import utilities.useq_route_project

@@ -17,7 +17,7 @@ import epp
 import daemons
 from config import Config
 
-
+print(utilities.__file__)
 class USEQTools:
     """Main class for USEQ Tools"""
 
@@ -219,6 +219,25 @@ class USEQTools:
             help='Operation mode'
         )
         runids_parser.set_defaults(func=self.manage_runids)
+
+        #Match Barcodes
+        match_barcodes_parser = subparsers.add_parser(
+            'match_barcodes',
+            help = 'Match unknown barcodes to an existing set of barcodes.'
+        )
+
+        match_barcodes_parser.add_argument(
+            '-c', '--csv',
+            type=Path,
+            help='Path Top_Unknown_Barcodes.csv CSV file.'
+        )
+        match_barcodes_parser.add_argument(
+            '-j', '--json',
+            type=Path,
+            help='Path reagents.json JSON file. Defaults to resources/reagents.json.',
+            default='resources/reagents.json'
+        )
+        match_barcodes_parser.set_defaults(func=self.match_barcodes)
 
         # Link run results
         # link_parser = subparsers.add_parser(
@@ -874,6 +893,39 @@ class USEQTools:
     #     except Exception as e:
     #         logger.error(f"Link run results failed: {e}")
     #         raise
+
+    def match_barcodes(self, args):
+        """
+        Looks up index & index2 sequences from Top_Unknown_Barcodes.csv in reagents.json,
+        trying all orientations (forward/reverse complement, swapped order).
+
+        Args:
+            args (argparse.Namespace): Contains command-line arguments including:
+
+                - csv: A Top_Unknown_Barcodes.csv file formatted like so::
+
+                    Lane,index,index2,# Reads,% of Unknown Barcodes,% of All Reads
+
+                - json: A reagents.json file containing known index/barcode sets. See resources/reagents.json.
+
+        Raises:
+            None
+
+        Examples:
+            Find matching barcodes using the default resources/reagents.json::
+
+                python useq_tools.py utilities match_barcodes --csv Top_Unknown_Barcodes.csv
+
+            Find matching barcodes using a custom reagents.json::
+
+                python useq_tools.py utilities match_barcodes --csv Top_Unknown_Barcodes.csv --json reagents.json
+
+        """
+        try:
+            utilities.useq_match_barcodes.run(args.csv, args.json)
+        except Exception as e:
+            logger.error(f"Matching barcodes failed: {e}")
+            raise
 
     def year_overview(self, args):
         """
