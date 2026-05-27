@@ -407,7 +407,8 @@ def run(lims: Lims, mode: str, csv_path: str, lab: Optional[str] = None) -> None
             f"Valid modes are: {', '.join(operations.keys())}"
         )
 
-    operation = operations[mode]
-
-    if operation() is None and lab is None:
+    modes_requiring_lab = {'edit', 'retrieve'}
+    if mode in modes_requiring_lab and lab is None:
         raise ValueError(f"Mode '{mode}' requires a lab parameter.")
+
+    operations[mode]()

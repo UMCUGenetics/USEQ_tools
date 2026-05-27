@@ -81,6 +81,7 @@ def initialize_project_run_data(pool_id: str) -> Dict[str, Any]:
         'first_submission_date': None,
         'received_date': set(),
         'project_comments': None,
+        'run_comments' : None,
         'times_sequenced': 0,
         'pool': pool_id,
         'lims_runtype': None,
@@ -274,6 +275,7 @@ def process_run_artifact(lims: Lims, sample_artifact: Artifact, sample_meta: Dic
         pid_sequenced (Dict[str, Set]): Dictionary tracking when projects were sequenced
     """
     protocol_name = get_step_protocol(lims, step_id=sample_artifact.parent_process.id)
+    # print('test', protocol_name)
     run_data['lims_runtype'] = protocol_name.split("-", 1)[1].lower().strip()
 
     if not run_data['run_date']:
@@ -518,6 +520,7 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
         runs[pool.id] = {}
 
         run_date = None
+        run_comments = ''
         pool_parent_process = pool.parent_process  # BCL to FastQ
 
         # Try to determine the date this run was sequenced
@@ -532,6 +535,7 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
                     for process in processes:
 
                         if process.type.name in Config.RUN_PROCESSES:
+                            run_comments = process.udf.get('Run Comments', '')
                             run_date = process.date_run
                             break
 
@@ -628,6 +632,8 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
                     run_meta['date'] = sample.date_received
                     runs[pool.id][project_id]['run_date'] = run_meta['date']
                 else:
+
+
                     # Process sample artifacts
                     sample_artifacts = lims.get_artifacts(samplelimsid=sample.id)
                     for sample_artifact in sample_artifacts:
@@ -636,7 +642,7 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
                             continue
 
                         process_name = sample_artifact.parent_process.type.name
-
+                        # print('test', process_name)
                         # Handle different process types
                         if process_name in Config.ISOLATION_PROCESSES:
                             process_isolation_artifact(
@@ -660,7 +666,7 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
                                 runs[pool.id][project_id], run_meta,
                                 run_date, pid_sequenced
                             )
-
+                            # print('Run artifact found', project_id, process_name)
                         elif process_name in Config.ANALYSIS_PROCESSES and application != 'SNP Fingerprinting':
                             process_analysis_artifact(
                                 sample_artifact, sample, sample_meta,
@@ -698,10 +704,12 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
                     #     sample_meta['Sequenced'] = True
                 ###Check if sample_meta['Sequenced'] = True needs to be set####
 
+
             # Fetch and update costs
             costs = fetch_project_costs(project_id, run_meta)
             update_run_costs(runs[pool.id][project_id], costs, application)
 
+            runs[pool.id][project_id]['run_comments'] = run_comments
     # Deduplicate and convert sets to strings
     runs_dedup = deduplicate_runs(runs)
     return render_template('seq_finance_overview_template.csv', {'pools': runs_dedup})

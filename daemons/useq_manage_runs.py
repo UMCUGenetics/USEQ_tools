@@ -188,7 +188,7 @@ def validate_demultiplexing_stats(stats: Dict[str, Any], pid: str, project_data:
     """
     undetermined_ratio = stats['undetermined_reads'] / stats['total_reads']
 
-    if undetermined_ratio < 0.40:
+    if undetermined_ratio < Config.MAX_UNDETERMINED :
         logger.info(f'Demultiplexing check stats PASSED (undetermined ratio: {undetermined_ratio:.3f})')
         return True
 
