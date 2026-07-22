@@ -265,6 +265,7 @@ class NextcloudUtil:
         Returns:
             True if file exists, False otherwise.
         """
+
         remote_path = f"{self.webdav_root}/{self.run_dir}/{file}"
         return self.webdav.exists(remote_path)
 
@@ -357,5 +358,5 @@ class NextcloudUtil:
         # Extract share ID from response
         response_dom = parseString(response.text)
         share_id = response_dom.getElementsByTagName("token")[0].firstChild.data
-        
+
         return {"SUCCESS": [share_id, password]}
