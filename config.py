@@ -76,7 +76,7 @@ class Config(object):
     NEXTCLOUD_LOG_DIR = 'log/'
     NEXTCLOUD_STORAGE = 1073741824000 #in bytes
     NEXTCLOUD_MAX = 90 #percent
-
+    NEXTCLOUD_REMINDER = 5 #days before expiry of download link (if not downloaded)
 
     ##SMS SERVER SETTINGS##
     SMS_SERVER = os.environ.get('SMS_SERVER') or ''

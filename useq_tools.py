@@ -5,7 +5,7 @@ import sys
 import argparse
 import logging
 import datetime
-
+import traceback
 from typing import Optional, Dict, Any, List
 from pathlib import Path
 from genologics.lims import Lims
@@ -600,6 +600,25 @@ class USEQTools:
             'nextcloud_monitor',
             help='Monitor NextCloud storage and send alerts'
         )
+        nc_parser.add_argument(
+            '-m', '--mode',
+            choices=['weekly', 'daily'],
+            default='weekly',
+            help='Monitoring mode'
+        )
+        nc_parser.add_argument(
+            '-e', '--download_events',
+            type=argparse.FileType('w'),
+            default=sys.stdout,
+            help='File for logging download events'
+        )
+        nc_parser.add_argument(
+            '-s', '--download_event_summary',
+            type=argparse.FileType('w'),
+            default=sys.stdout,
+            help='File for logging download event summaries'
+        )
+
         nc_parser.set_defaults(func=self.nextcloud_monitor)
 
         # Manage runs
@@ -1509,9 +1528,9 @@ class USEQTools:
                 python useq_tools.py daemons nextcloud_monitor
         """
         try:
-            daemons.useq_nextcloud_monitor.run()
-        except Exception as e:
-            logger.error(f"Nextcloud monitoring failed: {e}")
+            daemons.useq_nextcloud_monitor.run(self.lims, args.mode, args.download_events, args.download_event_summary)
+        except Exception:
+            logger.error(f"Nextcloud monitoring failed: {traceback.format_exc()}")
             raise
 
     def manage_runs(self, args):

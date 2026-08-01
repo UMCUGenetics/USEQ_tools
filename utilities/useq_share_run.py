@@ -816,16 +816,24 @@ class DataSharer:
             return False
 
         application = project.udf.get('Application', '')
-
+        share_response = False
         if application == 'ONT Sequencing':
 
-            return self._share_nanopore_data(
+            share_response = self._share_nanopore_data(
                 lims, project, researcher, project_id, all_dirs_ont, session, NanoporeStats, portal_run
             )
         else:
-            return self._share_illumina_data(
+            share_response = self._share_illumina_data(
                 lims, project, researcher, project_id, fid, session, IlluminaStats, portal_run
             )
+
+        if share_response:
+            portal_run.raw_share = share_response
+            session.commit()    
+            return True    
+        else:
+            return False
+
 
     def _share_nanopore_data(self, lims: Lims, project: Project, researcher: Researcher, project_id: str, all_dirs_ont: Optional[bool], session: Any, NanoporeStats: Any, portal_run):
         """
@@ -911,7 +919,7 @@ class DataSharer:
 
         # Cleanup
         if upload : os.system(f'rm -rf {upload_dir}')
-        return True
+        return share_response['SUCCESS'][0]  # Return share_id
 
     def _package_nanopore_data(self, run_dir: Path, upload_dir: Path, all_dirs_ont: bool, project_id: str) -> List[str]:
         """
@@ -1328,7 +1336,7 @@ class DataSharer:
             run_dir, run_meta, conversion_stats, summary_stats
         )
 
-        return True
+        return share_response["SUCCESS"][0]  # Return share_id
 
     def _update_illumina_stats(self, session, IlluminaStats, flowcell_id, portal_run, project_id,
                              run_dir, run_meta, conversion_stats, summary_stats):

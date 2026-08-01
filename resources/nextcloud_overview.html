@@ -1,10 +1,82 @@
 {% extends "useq_mail_template.html" %}
 {% block content %}
-<p>Current usage for directory {{ dir }}: {{total_usage}}</p>
-<table class='useq_table'>
-  <tr><th>File name</th><th>File size</th><th>Share ID</th><th>Upload date</th><th>Downloaded</th><th>Download date</th><th>Downloaded from</th></tr>
+
+{%- macro format_date(value) -%}
+{%- set months = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06',
+                   'Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12'} -%}
+{%- if not value -%}
+    {{ value }}
+{%- elif ',' in value -%}
+    {#- e.g. "Fri, 24 Jul 2026 10:25:02 GMT" -#}
+    {%- set parts = value.split(', ')[1].split(' ') -%}
+    {%- if parts|length >= 3 and parts[1] in months -%}
+        {{ '%02d'|format(parts[0]|int) }}-{{ months[parts[1]] }}-{{ parts[2] }}
+    {%- else -%}
+        {{ value }}
+    {%- endif -%}
+{%- elif '/' in value -%}
+    {#- e.g. "27/Jul/2026:10:53:31 +0200" -#}
+    {%- set parts = value.split(':')[0].split('/') -%}
+    {%- if parts|length >= 3 and parts[1] in months -%}
+        {{ '%02d'|format(parts[0]|int) }}-{{ months[parts[1]] }}-{{ parts[2] }}
+    {%- else -%}
+        {{ value }}
+    {%- endif -%}
+{%- elif '-' in value -%}
+    {#- e.g. "2026-08-10 00:00:00" -#}
+    {%- set parts = value.split(' ')[0].split('-') -%}
+    {%- if parts|length >= 3 -%}
+        {{ '%02d'|format(parts[2]|int) }}-{{ '%02d'|format(parts[1]|int) }}-{{ parts[0] }}
+    {%- else -%}
+        {{ value }}
+    {%- endif -%}
+{%- else -%}
+    {{ value }}
+{%- endif -%}
+{%- endmacro -%}
+
+
+<p style="font-size:13px; color:#52525b; margin:0 0 16px 0;">
+  Current usage for directory <strong style="color:#18181b;">{{ dir }}</strong>: <strong style="color:#18181b;">{{ total_usage }}</strong>
+</p>
+
+<table class="useq_table" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse; font-size:13px;">
+  <tr style="background-color:#f4f4f5;">
+    <th align="left"  style="padding:8px 10px; color:#52525b; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; border-bottom:2px solid #e4e4e7;">File name</th>
+    <th align="right" style="padding:8px 10px; color:#52525b; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; border-bottom:2px solid #e4e4e7;">Size</th>
+    <th align="left"  style="padding:8px 10px; color:#52525b; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; border-bottom:2px solid #e4e4e7;">Uploaded</th>
+    <th align="right"  style="padding:8px 10px; color:#52525b; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; border-bottom:2px solid #e4e4e7;">Expiration</th>
+    <th align="left"  style="padding:8px 10px; color:#52525b; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; border-bottom:2px solid #e4e4e7;">Downloads</th>
+    <th align="right"  style="padding:8px 10px; color:#52525b; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; border-bottom:2px solid #e4e4e7;">Last seen</th>
+    <th align="center" style="padding:8px 10px; color:#52525b; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; border-bottom:2px solid #e4e4e7;">Integrity</th>
+  </tr>
   {% for file in files|sort %}
-  <tr><td>{{ file }}</td> <td>{{ files[file].size }}</td> <td>{{ files[file].share_id }}</td> <td>{{ files[file].mtime }}</td> <td>{{ files[file].downloaded }}</td> <td>{{ files[file].download_dates[-1] }}</td> <td>{{ files[file].downloaded_from[-1] }}</td></tr>
+  <tr style="background-color : {{ '#fafafa' if loop.index0 is even else '#ffffff' }};">
+    <td style="padding:9px 10px; border-bottom:1px solid #f0f0f1; color:#18181b;">{{ file }}</td>
+    <td align="right" style="padding:9px 10px; border-bottom:1px solid #f0f0f1; color:#52525b; font-variant-numeric:tabular-nums;">{{ files[file].size }}</td>
+    <td style="padding:9px 10px; border-bottom:1px solid #f0f0f1; color:#52525b;">{{ format_date(files[file].mtime) }}</td>
+    <td style="padding:9px 10px; border-bottom:1px solid #f0f0f1; color:#52525b;">{% if files[file].share_expiration  %} {{ format_date(files[file].share_expiration) }} {% else %} Expired {% endif %}</td>
+    <td align="right" style="padding:9px 10px; border-bottom:1px solid #f0f0f1; color:#52525b; font-variant-numeric:tabular-nums;">{{ files[file].download_count }}</td>
+    <td style="padding:9px 10px; border-bottom:1px solid #f0f0f1; color:#52525b;">{{ format_date(files[file].last_seen) }}</td>
+    <td align="center" style="padding:9px 10px; border-bottom:1px solid #f0f0f1;">
+      {% if files[file].integrity_flags == 'OK' %}
+      <span style="display:inline-block; padding:2px 8px; border-radius:10px; background-color:#dcfce7; color:#166534; font-size:11px; font-weight:bold;">Ok</span>
+      {% elif not files[file].integrity_flags %}
+      <span style="display:inline-block; padding:2px 8px; border-radius:10px; background-color:#fef3c7; color:#78350f; font-size:11px; font-weight:bold;">Unknown</span>
+      {% else %}
+      <span style="display:inline-block; padding:2px 8px; border-radius:10px; background-color:#fee2e2; color:#991b1b; font-size:11px; font-weight:bold;">Review Logs</span>
+      {% endif %}
+    </td>
+  </tr>
   {% endfor %}
 </table>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5; border-radius:6px; margin-top:20px;">
+  <tr>
+    <td style="padding:12px 16px; font-size:13px; color:#3f3f46;">
+      📎 <strong>Full details attached</strong> — the attached report includes every field per file: file name, size, upload date, share ID, downloaded, download count, view count, not found count, unique IPs, IP locations, files, total bytes downloaded, first seen, last seen, and integrity flags.
+    </td>
+  </tr>
+</table>
+
 {% endblock %}
