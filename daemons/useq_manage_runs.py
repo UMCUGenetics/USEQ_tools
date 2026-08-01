@@ -573,10 +573,9 @@ def parse_conversion_stats(reports_dir: Path) -> Dict[str, Any]:
         with open(demux_stats, 'r') as d:
             csv_reader = csv.DictReader(d)
             for row in csv_reader:
-                sample_id = row['SampleID']
                 lane = int(row['Lane'])
                 project_id = row.get('Sample_Project', 'Unknown')
-
+                sample_id = f"{project_id}:{row['SampleID']}"
                 # Initialize data structures
                 if lane not in samples_tmp:
                     samples_tmp[lane] = {}
@@ -599,7 +598,7 @@ def parse_conversion_stats(reports_dir: Path) -> Dict[str, Any]:
 
                 reads = float(row['# Reads'])
 
-                if sample_id == 'Undetermined':
+                if 'Undetermined' in sample_id :
                     stats['undetermined_reads'] += reads
                 else:
                     stats['total_reads_project'][project_id] += reads
@@ -622,9 +621,10 @@ def parse_conversion_stats(reports_dir: Path) -> Dict[str, Any]:
         with open(qual_metrics, 'r') as q:
             csv_reader = csv.DictReader(q)
             for row in csv_reader:
-                sample_id = row['SampleID']
                 lane = int(row['Lane'])
                 read_num = row['ReadNumber']
+                project_id = row.get('Sample_Project', 'Unknown')
+                sample_id = f"{project_id}:{row['SampleID']}"
 
                 if lane in samples_tmp and sample_id in samples_tmp[lane]:
                     mqs_key = f'Read {read_num} Mean Quality Score (PF)'
@@ -645,7 +645,7 @@ def parse_conversion_stats(reports_dir: Path) -> Dict[str, Any]:
 
         for sample_id, sample_data in lane_samples.items():
             stats['samples'][lane][sample_id] = {
-                'SampleID': sample_id,
+                'SampleID': sample_id.split(":")[-1],
                 'ProjectID': sample_data['ProjectID'],
                 'Index': sample_data['Index'],
                 '# Reads': sample_data['# Reads'],

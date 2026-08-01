@@ -629,18 +629,31 @@ class DataSharer:
         archive_path = data_dir / f"{data_dir.name}.tar"
         done_file = Path(f"{archive_path}.done")
 
-        # Create archive if not exists
-        if not (archive_path.is_file() and done_file.is_file()):
-            print("Creating archive")
-            if not self._create_archive(data_dir, archive_path):
-                return
-        else:
-            print(f"Using existing archive")
+        upload = True
 
-        # Upload to NextCloud
-        print(f"Uploading to NextCloud")
-        if not self._upload_to_nextcloud(archive_path, Config.NEXTCLOUD_MANUAL_DIR):
-            return
+        # Check if already exists on Nextcloud
+        exists_on_nextcloud = self.nextcloud_util.check_exists(archive_path.name)
+        if exists_on_nextcloud :
+            upload = query_yes_no(f'{archive_path.name} already exists on Nextcloud, do you want to re-upload it?')
+
+        if upload :
+            if exists_on_nextcloud:
+                print(f'Deleting previous version of {archive_path.name} on Nextcloud')
+                self.nextcloud_util.delete(archive_path.name)
+                self.nextcloud_util.delete(f'{archive_path.name}.done')
+
+            # Create archive if not exists
+            if not (archive_path.is_file() and done_file.is_file()):
+                print("Creating archive")
+                if not self._create_archive(data_dir, archive_path):
+                    return
+            else:
+                print(f"Using existing archive")
+
+            # Upload to NextCloud
+            print(f"Uploading to NextCloud")
+            if not self._upload_to_nextcloud(archive_path, Config.NEXTCLOUD_MANUAL_DIR):
+                return
 
         # Share with researcher
         print(f"Sharing with {researcher.email}")
@@ -803,16 +816,24 @@ class DataSharer:
             return False
 
         application = project.udf.get('Application', '')
-
+        share_response = False
         if application == 'ONT Sequencing':
 
-            return self._share_nanopore_data(
+            share_response = self._share_nanopore_data(
                 lims, project, researcher, project_id, all_dirs_ont, session, NanoporeStats, portal_run
             )
         else:
-            return self._share_illumina_data(
+            share_response = self._share_illumina_data(
                 lims, project, researcher, project_id, fid, session, IlluminaStats, portal_run
             )
+
+        if share_response:
+            portal_run.raw_share = share_response
+            session.commit()    
+            return True    
+        else:
+            return False
+
 
     def _share_nanopore_data(self, lims: Lims, project: Project, researcher: Researcher, project_id: str, all_dirs_ont: Optional[bool], session: Any, NanoporeStats: Any, portal_run):
         """
@@ -853,20 +874,34 @@ class DataSharer:
         if not query_yes_no("Are you sure you want to send this dataset"):
             return False
 
+        upload = True
+        file_list = []
+
         # Check if already exists on Nextcloud
-        if self.nextcloud_util.check_exists(project_id):
-            print(f'Warning: Deleting previous version of {project_id} on Nextcloud')
-            self.nextcloud_util.delete(project_id)
-            self.nextcloud_util.delete(f'{project_id}.done')
+        exists_on_nextcloud = self.nextcloud_util.check_exists(run_dir.name)
+        if exists_on_nextcloud :
+            upload = query_yes_no(f'{run_dir.name} already exists on Nextcloud, do you want to re-upload it?')
 
-        # Create upload directory and package data
-        upload_dir = run_dir / project_id
-        upload_dir.mkdir(exist_ok=True)
+        if upload:
+            if exists_on_nextcloud:
+                print(f'Deleting previous version of {project_id} on Nextcloud')
+                self.nextcloud_util.delete(project_id)
+                self.nextcloud_util.delete(f'{project_id}.done')
 
-        file_list = self._package_nanopore_data(run_dir, upload_dir, all_dirs_ont, project_id)
+            # Create upload directory and package data
+            upload_dir = run_dir / project_id
+            upload_dir.mkdir(exist_ok=True)
 
-        if not self._upload_to_nextcloud(upload_dir, Config.NEXTCLOUD_RAW_DIR):
-            return False
+            file_list = self._package_nanopore_data(run_dir, upload_dir, all_dirs_ont, project_id)
+
+            if not self._upload_to_nextcloud(upload_dir, Config.NEXTCLOUD_RAW_DIR):
+                return False
+        else:
+            # Get file list
+            file_list = self.nextcloud_util.simple_file_list(run_dir.name)
+            if not file_list:
+                print(f"Error: No files found in nextcloud directory {run_dir.name}!")
+                return False
 
         # Share and send notification
         share_response = self.nextcloud_util.share(project_id, researcher.email)
@@ -883,8 +918,8 @@ class DataSharer:
         self._update_nanopore_stats(session, NanoporeStats, run_info, portal_run, project_id, run_dir)
 
         # Cleanup
-        os.system(f'rm -rf {upload_dir}')
-        return True
+        if upload : os.system(f'rm -rf {upload_dir}')
+        return share_response['SUCCESS'][0]  # Return share_id
 
     def _package_nanopore_data(self, run_dir: Path, upload_dir: Path, all_dirs_ont: bool, project_id: str) -> List[str]:
         """
@@ -1301,7 +1336,7 @@ class DataSharer:
             run_dir, run_meta, conversion_stats, summary_stats
         )
 
-        return True
+        return share_response["SUCCESS"][0]  # Return share_id
 
     def _update_illumina_stats(self, session, IlluminaStats, flowcell_id, portal_run, project_id,
                              run_dir, run_meta, conversion_stats, summary_stats):

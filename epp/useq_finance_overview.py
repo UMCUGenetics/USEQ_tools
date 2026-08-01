@@ -108,6 +108,9 @@ def initialize_project_run_data(pool_id: str) -> Dict[str, Any]:
         'analysis_date': set(),
         'total_step_costs': 0,
         'total_personell_costs': 0,
+        'discount_step_costs' : 0,
+        'discount_personell_costs' : 0,
+        'discount_percentage' : 0,
         'contact_name': None,
         'contact_email': None,
         'lab_name': None,
@@ -450,6 +453,10 @@ def update_run_costs(run_data: Dict[str, Any], costs: Dict[str, Any], applicatio
         run_data['analysis_personell_costs'] = f"{float(costs['Analysis']['personell_cost']):.2f}"
         run_data['total_step_costs'] = f"{float(costs['Total']['step_cost']):.2f}"
         run_data['total_personell_costs'] = f"{float(costs['Total']['personell_cost']):.2f}"
+        run_data['discount_step_costs'] = f"{float(costs['Discount']['step_cost']):.2f}"
+        run_data['discount_personell_costs'] = f"{float(costs['Discount']['personell_cost']):.2f}"
+        run_data['discount'] = f"{float(costs['UMCU Discount']):.2f}"
+        
     except (KeyError, ValueError) as e:
         run_data['errors'].add(f"Warning: Error parsing cost data - {str(e)}")
 
