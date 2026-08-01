@@ -99,8 +99,8 @@ def _send_usage_report(nextcloud_util: NextcloudUtil, files: Dict[str, Dict[str,
     }
 
     content = render_template('nextcloud_overview.html', data)
-    # send_mail(subject, content, Config.MAIL_SENDER, Config.MAIL_ADMINS)
-    send_mail(subject, content, Config.MAIL_SENDER, 's.w.boymans@umcutrecht.nl')
+    send_mail(subject, content, Config.MAIL_SENDER, Config.MAIL_ADMINS)
+    
 
 def _send_reminder_email(lims, files: Dict[str, Dict[str, Any]]):
     """Send reminder email for files that have not been downloaded.
@@ -121,7 +121,7 @@ def _send_reminder_email(lims, files: Dict[str, Dict[str, Any]]):
 
         if days_from_expiration == Config.NEXTCLOUD_REMINDER and not info.get('download_count'):
             candidate_runid = path.split("/")[-1].split("_")[0]
-            print(f"{candidate_runid} is about to expire in {days_from_expiration} days and has not been downloaded yet.")
+            # print(f"{candidate_runid} is about to expire in {days_from_expiration} days and has not been downloaded yet.")
             project = None
             try:
                 project = Project(lims, id=candidate_runid)
@@ -140,7 +140,7 @@ def _send_reminder_email(lims, files: Dict[str, Dict[str, Any]]):
                 'expiration': expiration_date.strftime("%Y-%m-%d")
             }
             content = render_template('share_reminder_template.html', data)
-            send_mail(subject, content, Config.MAIL_SENDER, 's.w.boymans@umcutrecht.nl')
+            send_mail(subject, content, Config.MAIL_SENDER, researcher.email)
 
 def check_usage(lims, nextcloud_util: NextcloudUtil, historic_shares: Dict[Any, Any], mode: str, download_events: TextIO, download_event_summary: TextIO):
     """Check storage usage for a Nextcloud directory and send report.
