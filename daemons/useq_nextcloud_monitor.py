@@ -88,7 +88,6 @@ def _send_usage_report(nextcloud_util: NextcloudUtil, files: Dict[str, Dict[str,
         nextcloud_util (NextcloudUtil): Configured NextcloudUtil instance
         files (Dict[str, Dict[str, Any]]): Dictionary of file information
         total_size (int): Total size in bytes
-        summary_file (TextIO): File object for logging summary information
     """
     usage = convert_file_size(total_size)
     subject = f'Nextcloud overview of directory {nextcloud_util.run_dir}'
