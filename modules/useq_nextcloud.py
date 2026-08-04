@@ -10,10 +10,11 @@ import secrets
 import csv
 import ipaddress
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TextIO
 from xml.dom.minidom import parseString
 from collections import defaultdict
 from urllib.parse import urlparse, parse_qs, unquote
+from config import Config
 import easywebdav
 import requests
 
@@ -221,39 +222,18 @@ class NextcloudUtil:
             }
         return summary
 
-    def _write_token_summary_csv(self, summary, out_path, delimiter=';'):
-        fields = ['token', 'downloaded', 'download_count', 'view_count', 'password_prompt_count',
-                'not_found_count', 'unique_ips', 'ip_locations', 'files', 'total_bytes_downloaded',
-                'first_seen', 'last_seen', 'integrity_flags']
-        with open(out_path, 'w', newline='', encoding='utf-8') as f:
-            w = csv.DictWriter(f, fieldnames=fields, delimiter=delimiter)
+    def _write_file_summary_csv(self, summary, delimiter=';'):
+        """Write a summary of file information to a CSV file."""
+        
+        fields =[
+            'file', 'size', 'mtime', 'share_expiration', 'share_id', 'downloaded', 'download_count', 'view_count', 
+            'not_found_count', 'unique_ips', 'ip_locations', 'files', 'total_bytes_downloaded', 'first_seen', 'last_seen', 'integrity_flags'
+        ]
+        with open(Config.NEXTCLOUD_DOWNLOAD_SUMMARY, 'w', newline='') as out_path:
+            w = csv.DictWriter(out_path, fieldnames=fields, delimiter=delimiter)
             w.writeheader()
-            w.writerows(summary)
-        print(f"\nWrote per-token summary ({len(summary)} tokens) to {out_path}")
+            w.writerows(summary.values())
 
-
-    def _write_token_csv(self, events, out_path, delimiter=';'):
-        fields = ['token', 'action', 'time', 'ip', 'filename', 'status', 'size', 'likely_status', 'agent', 'raw_path']
-        with open(out_path, 'w', newline='', encoding='utf-8') as f:
-            w = csv.DictWriter(f, fieldnames=fields, delimiter=delimiter, extrasaction='ignore')
-            w.writeheader()
-            for e in events:
-                e.setdefault('likely_status', '')
-                w.writerow(e)
-        print(f"\nWrote {len(events)} share-related events to {out_path}")
-
-    def _print_token_summary(self, summary):
-        print("\n=== Per-token summary ===")
-        for s in summary:
-            print(f"\nToken: {summary[s]['token']}")
-            print(f"  Downloaded: {summary[s]['downloaded']}  ({summary[s]['download_count']} download request(s), "
-                f"{summary[s]['view_count']} view(s), {summary[s]['not_found_count']} 404(s))")
-            print(f"  Unique IPs ({summary[s]['unique_ips']}): {summary[s]['ip_locations'] or '-'}")
-            print(f"  Files: {summary[s]['files'] or '-'}")
-            print(f"  Total bytes downloaded: {summary[s]['total_bytes_downloaded']:,}")
-            print(f"  First seen: {summary[s]['first_seen']}   Last seen: {summary[s]['last_seen']}")
-            if summary[s]['integrity_flags']:
-                print(f"  Integrity flags: {summary[s]['integrity_flags']}")
 
     def file_list(self, historic_shares: Dict[Any,Any]) -> Dict[str, Dict[str, Any]]:
         """
@@ -284,7 +264,7 @@ class NextcloudUtil:
         geo = self._geolocate_ips(all_ips)
 
         token_summary = self._build_token_summary(events, geo)
-
+     
         # List files in run directory
         for file in self.webdav.ls(f"{self.webdav_root}{self.run_dir}"):
             file_path = file.name.replace(self.webdav_root, "")
@@ -305,6 +285,7 @@ class NextcloudUtil:
 
 
                 files[file_path] = {
+                    "file": file_path,
                     "size": size,
                     "mtime": file.mtime,
                     "share_expiration" : "",
@@ -324,6 +305,8 @@ class NextcloudUtil:
 
         # Get share IDs and match with download logs
         self._populate_share_info(files, token_summary, historic_shares)
+
+        self._write_file_summary_csv(files)
 
         return files
 

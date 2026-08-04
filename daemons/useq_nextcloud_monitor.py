@@ -99,7 +99,7 @@ def _send_usage_report(nextcloud_util: NextcloudUtil, files: Dict[str, Dict[str,
     }
 
     content = render_template('nextcloud_overview.html', data)
-    send_mail(subject, content, Config.MAIL_SENDER, Config.MAIL_ADMINS)
+    send_mail(subject, content, Config.MAIL_SENDER, Config.MAIL_ADMINS, attachments={'summary': Config.NEXTCLOUD_DOWNLOAD_SUMMARY})
     
 
 def _send_reminder_email(lims, files: Dict[str, Dict[str, Any]]):
@@ -121,7 +121,6 @@ def _send_reminder_email(lims, files: Dict[str, Dict[str, Any]]):
 
         if days_from_expiration == Config.NEXTCLOUD_REMINDER and not info.get('download_count'):
             candidate_runid = path.split("/")[-1].split("_")[0]
-            # print(f"{candidate_runid} is about to expire in {days_from_expiration} days and has not been downloaded yet.")
             project = None
             try:
                 project = Project(lims, id=candidate_runid)
@@ -130,7 +129,7 @@ def _send_reminder_email(lims, files: Dict[str, Dict[str, Any]]):
                 continue
 
             researcher = project.researcher
-            #print(researcher.first_name, researcher.last_name, researcher.email)
+
             subject = f"REMINDER: USEQ sequencing of sequencing-run ID {candidate_runid} finished"
 
             data = {
@@ -140,9 +139,9 @@ def _send_reminder_email(lims, files: Dict[str, Dict[str, Any]]):
                 'expiration': expiration_date.strftime("%Y-%m-%d")
             }
             content = render_template('share_reminder_template.html', data)
-            send_mail(subject, content, Config.MAIL_SENDER, researcher.email)
+            send_mail(subject, content, Config.MAIL_SENDER, [researcher.email, Config.MAIL_ADMINS[0]])
 
-def check_usage(lims, nextcloud_util: NextcloudUtil, historic_shares: Dict[Any, Any], mode: str, download_events: TextIO, download_event_summary: TextIO):
+def check_usage(lims, nextcloud_util: NextcloudUtil, historic_shares: Dict[Any, Any], mode: str):
     """Check storage usage for a Nextcloud directory and send report.
 
     Retrieves file list from Nextcloud, calculates total storage usage,
@@ -152,11 +151,8 @@ def check_usage(lims, nextcloud_util: NextcloudUtil, historic_shares: Dict[Any, 
         lims: LIMS instance for project information retrieval
         nextcloud_util (NextcloudUtil): Configured NextcloudUtil instance with directory set
         historic_shares (Dict[Any, Any]): Dictionary of historic shares
-        mode (str): Mode of operation (e.g., 'weekly', 'daily')
-        download_events (TextIO): File object for logging download events
-        download_event_summary (TextIO): File object for logging download event summaries   
+        mode (str): Mode of operation (e.g., 'weekly', 'daily')   
     """
-
 
     files = nextcloud_util.file_list(historic_shares)
     total_size = _calculate_total_size(files)
@@ -187,7 +183,7 @@ def _setup_nextcloud_util(directory: str) -> NextcloudUtil:
     return nextcloud_util
 
 
-def run(lims, mode: str = 'weekly', download_events: TextIO = None, download_event_summary: TextIO = None):
+def run(lims, mode: str = 'weekly'):
     """
     Entry point for Nextcloud usage monitoring.
 
@@ -197,8 +193,6 @@ def run(lims, mode: str = 'weekly', download_events: TextIO = None, download_eve
     Args:
         lims: LIMS instance for project information retrieval
         mode (str): Mode of operation ('weekly' for usage report, 'daily' for reminder emails)
-        download_events (TextIO): File object for logging download events
-        download_event_summary (TextIO): File object for logging download event summaries
     """
 
     session, Run = createDBSession()
@@ -213,8 +207,8 @@ def run(lims, mode: str = 'weekly', download_events: TextIO = None, download_eve
 
     # Check raw directory usage
     nextcloud_util = _setup_nextcloud_util(Config.NEXTCLOUD_RAW_DIR)
-    check_usage(lims, nextcloud_util, historic_shares, mode, download_events, download_event_summary)
+    check_usage(lims, nextcloud_util, historic_shares, mode)
 
     # Check manual directory usage
-    # nextcloud_util = _setup_nextcloud_util(Config.NEXTCLOUD_MANUAL_DIR)
-    # check_usage(lims, nextcloud_util, historic_shares, mode, download_events, download_event_summary)
+    nextcloud_util = _setup_nextcloud_util(Config.NEXTCLOUD_MANUAL_DIR)
+    check_usage(lims, nextcloud_util, historic_shares, mode)

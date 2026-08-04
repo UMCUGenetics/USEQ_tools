@@ -606,18 +606,6 @@ class USEQTools:
             default='weekly',
             help='Monitoring mode'
         )
-        nc_parser.add_argument(
-            '-e', '--download_events',
-            type=argparse.FileType('w'),
-            default=sys.stdout,
-            help='File for logging download events'
-        )
-        nc_parser.add_argument(
-            '-s', '--download_event_summary',
-            type=argparse.FileType('w'),
-            default=sys.stdout,
-            help='File for logging download event summaries'
-        )
 
         nc_parser.set_defaults(func=self.nextcloud_monitor)
 
@@ -1528,7 +1516,7 @@ class USEQTools:
                 python useq_tools.py daemons nextcloud_monitor
         """
         try:
-            daemons.useq_nextcloud_monitor.run(self.lims, args.mode, args.download_events, args.download_event_summary)
+            daemons.useq_nextcloud_monitor.run(self.lims, args.mode)
         except Exception:
             logger.error(f"Nextcloud monitoring failed: {traceback.format_exc()}")
             raise
