@@ -1,0 +1,11 @@
+{% extends "useq_mail_template.html" %}
+{% block content %}
+{% set color_list1 = ['#ffff00','#0000ff'] %}
+
+<p>
+  This is a reminder that, acccording to our records, {{project_id}} with downloadlink <a href="https://{{ nextcloud_host }}/index.php/s/{{ share_id }}">https://{{ nextcloud_host }}/index.php/s/{{ share_id }}</a> has not been downloaded yet.
+  Our previous email contains instructions on how to download the data efficiently. The download link will remain active for <u>5 more days</u>. If you're unable to download your data within this period, please let us know.
+  Please also be aware that we're able to store your sequencing data for a <u>maximum of 6 weeks</u>, after which it is automatically deleted from our servers.
+</p>
+
+{% endblock %}
