@@ -274,34 +274,35 @@ class NextcloudUtil:
                 file_path.endswith("raw_data/") or
                 file_path.endswith("other_data/")):
                 continue
-
+            
             size = 0
             if file.contenttype:
                 size = file.size
             else:  # Directory - sum size of all files
                 for subfile in self.webdav.ls(f"{self.webdav_root}{file_path}"):
                     size += subfile.size
+
                 file_path = file_path[:-1]  # Remove trailing slash
 
-
-                files[file_path] = {
-                    "file": file_path,
-                    "size": size,
-                    "mtime": file.mtime,
-                    "share_expiration" : "",
-                    "share_id": "",
-                    "downloaded": "",
-                    "download_count": 0,
-                    "view_count": 0,
-                    "not_found_count": 0,
-                    "unique_ips": 0,
-                    "ip_locations": "",
-                    "files": "",
-                    "total_bytes_downloaded": 0,
-                    "first_seen": "",
-                    "last_seen": "",
-                    "integrity_flags": "",
-                }
+                
+            files[file_path] = {
+                "file": file_path,
+                "size": size,
+                "mtime": file.mtime,
+                "share_expiration" : "",
+                "share_id": "",
+                "downloaded": "",
+                "download_count": 0,
+                "view_count": 0,
+                "not_found_count": 0,
+                "unique_ips": 0,
+                "ip_locations": "",
+                "files": "",
+                "total_bytes_downloaded": 0,
+                "first_seen": "",
+                "last_seen": "",
+                "integrity_flags": "",
+            }
 
         # Get share IDs and match with download logs
         self._populate_share_info(files, token_summary, historic_shares)
@@ -515,7 +516,7 @@ class NextcloudUtil:
             }
 
         for file_path in files:
-            
+
             if file_path in active_shares:
                 share_id = active_shares[file_path]['share_id']
                 files[file_path]["share_id"] = share_id
