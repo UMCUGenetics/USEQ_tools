@@ -85,7 +85,7 @@ def create_samplesheet(lims: Lims, step_uri: str) -> str:
             input_sample = input_sample_artifact.samples[0]
 
             samplesheet_data["run_type"] = input_sample.udf.get('Sequencing Runtype', 'NA')
-
+            print(samplesheet_data["run_type"])
             index_name = input_sample_artifact.reagent_labels[0]
             reagent = lims.get_reagent_types(name=index_name)[0]
             index_seqs = reagent.sequence.split("-")
@@ -173,6 +173,11 @@ def _calculate_sample_settings(input_sample: Sample, input_sample_artifact: Arti
     else:
         index1_cycles = len(index_seqs[0])
         index2_cycles = 0
+
+    if "GEM-X" in samplesheet_data["run_type"]:
+        read1_cycles = 28
+        read2_cycles = 90
+
 
     # Override with lane-specific read settings if specified
     if "Read Settings" in lane_pool.udf and lane_pool.udf["Read Settings"]:

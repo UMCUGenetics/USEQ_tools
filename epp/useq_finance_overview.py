@@ -456,7 +456,7 @@ def update_run_costs(run_data: Dict[str, Any], costs: Dict[str, Any], applicatio
         run_data['discount_step_costs'] = f"{float(costs['Discount']['step_cost']):.2f}"
         run_data['discount_personell_costs'] = f"{float(costs['Discount']['personell_cost']):.2f}"
         run_data['discount'] = f"{float(costs['UMCU Discount']):.2f}"
-        
+
     except (KeyError, ValueError) as e:
         run_data['errors'].add(f"Warning: Error parsing cost data - {str(e)}")
 
@@ -710,7 +710,6 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
                     #     run_data['nr_samples_sequenced'] += 1
                     #     sample_meta['Sequenced'] = True
                 ###Check if sample_meta['Sequenced'] = True needs to be set####
-
 
             # Fetch and update costs
             costs = fetch_project_costs(project_id, run_meta)
