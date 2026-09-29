@@ -1090,6 +1090,7 @@ class DataSharer:
             'conversion_stats': conversion_stats,
             'sample_measurements': sample_measurements,
             'analysis_steps': analysis_steps,
+            'data_expiry' : datetime.date.today() + datetime.timedelta(weeks=Config.RUN_EXPIRY_WEEKS)
         }
 
         mail_content = render_template('share_illumina_template.html', template_data)
@@ -1131,7 +1132,8 @@ class DataSharer:
             'nextcloud_host': Config.NEXTCLOUD_HOST,
             'share_id': share_id,
             'file_list': file_list,
-            'sample_measurements': sample_measurements
+            'sample_measurements': sample_measurements,
+            'data_expiry' : datetime.date.today() + datetime.timedelta(weeks=Config.RUN_EXPIRY_WEEKS)
         }
 
         mail_content = render_template('share_nanopore_template.html', template_data)

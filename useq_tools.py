@@ -487,7 +487,7 @@ class USEQTools:
         )
         worksheet_parser.add_argument(
             '-m', '--mode',
-            choices=['illumina', 'ont', 'snp'],
+            choices=['illumina', 'ont', '10x', 'snp'],
             required=True,
             help='Parsing mode (affects available barcodes)'
         )

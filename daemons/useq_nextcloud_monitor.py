@@ -9,7 +9,7 @@ from modules.useq_mail import send_mail
 from sqlalchemy import create_engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from genologics.entities import Project
 # File size constants
 BYTES_PER_KB = 1024.0
@@ -100,7 +100,7 @@ def _send_usage_report(nextcloud_util: NextcloudUtil, files: Dict[str, Dict[str,
 
     content = render_template('nextcloud_overview.html', data)
     send_mail(subject, content, Config.MAIL_SENDER, Config.MAIL_ADMINS, attachments={'summary': Config.NEXTCLOUD_DOWNLOAD_SUMMARY})
-    
+
 
 def _send_reminder_email(lims, files: Dict[str, Dict[str, Any]]):
     """Send reminder email for files that have not been downloaded.
@@ -136,7 +136,8 @@ def _send_reminder_email(lims, files: Dict[str, Dict[str, Any]]):
                 'project_id': candidate_runid,
                 'name': f"{researcher.first_name} {researcher.last_name}",
                 'share_id' :  info.get('share_id'),
-                'expiration': expiration_date.strftime("%Y-%m-%d")
+                'expiration': expiration_date.strftime("%Y-%m-%d"),
+                'data_expiry' : date.today() + timedelta(weeks=Config.RUN_EXPIRY_WEEKS) - timedelta(days=9) # Adjusting for the 14-day download period
             }
             content = render_template('share_reminder_template.html', data)
             send_mail(subject, content, Config.MAIL_SENDER, [researcher.email, Config.MAIL_ADMINS[0]])
@@ -151,7 +152,7 @@ def check_usage(lims, nextcloud_util: NextcloudUtil, historic_shares: Dict[Any, 
         lims: LIMS instance for project information retrieval
         nextcloud_util (NextcloudUtil): Configured NextcloudUtil instance with directory set
         historic_shares (Dict[Any, Any]): Dictionary of historic shares
-        mode (str): Mode of operation (e.g., 'weekly', 'daily')   
+        mode (str): Mode of operation (e.g., 'weekly', 'daily')
     """
 
     files = nextcloud_util.file_list(historic_shares)

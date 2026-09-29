@@ -31,6 +31,7 @@ STEP_ISOLATION_V2 = 'USEQ - Isolation v2'
 STEP_PRE_LIBPREP_QC = 'USEQ - Pre LibPrep QC'
 STEP_LIBPREP_ILLUMINA = 'USEQ - LibPrep Illumina'
 STEP_LIBPREP_NANOPORE = 'USEQ - LibPrep Nanopore'
+STEP_LIBPREP_10X = 'USEQ - Chromium X Run'
 STEP_POST_LIBPREP_QC = 'USEQ - Post LibPrep QC'
 
 # UDF name constants
@@ -60,6 +61,8 @@ def _get_barcode_set(first_sample: Sample, mode: str) -> Optional[Dict[str, str]
         return Config.UMI_BARCODES
     elif mode == 'ont':
         return Config.ONT_BARCODES
+    elif mode == '10x':
+        return Config.CHROMIUM_BARCODES
     return None
 
 
@@ -274,7 +277,7 @@ def _parse_samples_from_worksheet(sample_worksheet: Worksheet, columns: Dict[str
         if current_step == STEP_PRE_LIBPREP_QC:
             sample.update(_parse_pre_libprep_qc_data(row_cells, columns, row_nr))
 
-        if current_step in (STEP_LIBPREP_ILLUMINA, STEP_LIBPREP_NANOPORE):
+        if current_step in (STEP_LIBPREP_ILLUMINA, STEP_LIBPREP_NANOPORE, STEP_LIBPREP_10X):
             sample.update(_parse_libprep_data(row_cells, columns, row_nr, barcode_set))
 
         if current_step == STEP_POST_LIBPREP_QC:
@@ -463,6 +466,6 @@ def run(lims: Lims, step_uri: str, aid: str, output_file: TextIO, mode: str):
         step_uri (str): URI of the processing step
         aid (str): Artifact ID of the worksheet
         output_file (TextIO): File object to write output logs
-        mode (str): Processing mode ('illumina' or 'ont')
+        mode (str): Processing mode ('illumina','ont','10x', 'snp')
     """
     parse(lims, step_uri, aid, output_file, mode)
