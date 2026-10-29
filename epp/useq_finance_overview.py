@@ -287,6 +287,7 @@ def process_run_artifact(lims: Lims, sample_artifact: Artifact, sample_meta: Dic
         run_meta['date'] = run_data['run_date']
 
     project_id = run_data['id']
+    # print(project_id, run_date,sample_artifact, sample_artifact.parent_process.date_run)
     if project_id:
         pid_sequenced[project_id].add(sample_artifact.parent_process.date_run)
 
@@ -400,7 +401,7 @@ def set_project_metadata(sample: Sample, pool: Artifact, run_data: Dict[str, Any
     if 'UMCU_VATNr' in researcher.lab.udf:
         run_data['vat_nr'] = researcher.lab.udf['UMCU_VATNr']
 
-@retry(requests.exceptions.ConnectionError, tries=2, delay=2)
+@retry(requests.exceptions.ConnectionError, tries=2, delay=2, backoff=2)
 def fetch_project_costs(project_id: str, run_meta: Dict[str, Any]) -> Dict[str, Any]:
     """Fetch project costs from the portal API.
 
@@ -422,7 +423,7 @@ def fetch_project_costs(project_id: str, run_meta: Dict[str, Any]) -> Dict[str, 
             url,
             headers=headers,
             data=json.dumps(run_meta, indent=4),
-            timeout=60
+            timeout=240
         )
         response.raise_for_status()
         return response.json()
@@ -472,11 +473,12 @@ def convert_sets_to_strings(data_dict: Dict[str, Any]) -> None:
             data_dict[key] = ",".join(str(item) for item in sorted(value))
 
 
-def deduplicate_runs(runs: Dict[str, Dict[str, Dict[str, Any]]]) -> Dict[str, Dict[str, Dict[str, Any]]]:
+def deduplicate_runs(runs: Dict[str, Dict[str, Dict[str, Any]]], log_file: TextIO) -> Dict[str, Dict[str, Dict[str, Any]]]:
     """Deduplicate runs based on project ID and run date.
 
     Args:
         runs (Dict[str, Dict[str, Dict[str, Any]]]): Dictionary of runs organized by pool and project
+        log_file (TextIO): Log file handle
 
     Returns:
         Deduplicated runs dictionary
@@ -484,6 +486,7 @@ def deduplicate_runs(runs: Dict[str, Dict[str, Dict[str, Any]]]) -> Dict[str, Di
     runs_dedup = {}
     unique_ids = []
 
+    # print("Deduplicating pools (pools sequenced on >1 lanes)")
     for pool_id in runs:
         for project_id in runs[pool_id]:
             unique_id = f"{project_id}-{runs[pool_id][project_id]['run_date']}"
@@ -494,16 +497,17 @@ def deduplicate_runs(runs: Dict[str, Dict[str, Dict[str, Any]]]) -> Dict[str, Di
                     runs_dedup[pool_id] = {}
                 runs_dedup[pool_id][project_id] = runs[pool_id][project_id]
                 convert_sets_to_strings(runs_dedup[pool_id][project_id])
-
+    log_file.write(f"Found {len(unique_ids)} billable project IDs (deduplicated for lanes)\n")
     return runs_dedup
 
 @retry(requests.exceptions.ConnectionError, tries=2, delay=2)
-def get_seq_finance(lims: Lims, step_uri: str) -> str:
+def get_seq_finance(lims: Lims, step_uri: str, log_file: TextIO) -> str:
     """Calculate costs for all sequencing runs included in the step.
 
     Args:
         lims (Lims): LIMS instance.
         step_uri (str): Step URI
+        log_file (TextIO): Log file handle
 
     Returns:
         Rendered CSV template with finance data
@@ -515,12 +519,11 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
     runs = {}
     pool_samples = {}
     pid_sequenced = {}
-
+    errors = 0
     io_maps = step_details.input_output_maps
-    for io_map in tqdm(io_maps, desc="Processing Runs", unit="run"):
-    # for io_map in step_details.input_output_maps:
-        if io_map[1]['output-generation-type'] == 'PerAllInputs':
-            continue  # Skip the billing table file
+    io_maps = [m for m in io_maps if m[1]['output-generation-type'] == 'PerAllInputs' ]
+
+    for io_map in tqdm(io_maps, desc="Processing input pools", unit="pool"):
 
         pool = io_map[0]['uri']
         pool_samples[pool.id] = {}
@@ -529,7 +532,7 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
         run_date = None
         run_comments = ''
         pool_parent_process = pool.parent_process  # BCL to FastQ
-
+        log_file.write(f"{'':2}Working on pool {pool.name}:{pool.id}.\n")
         # Try to determine the date this run was sequenced
         if pool_parent_process:
             for parent_io_map in pool_parent_process.input_output_maps:
@@ -555,6 +558,11 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
 
         # Process each project in the pool
         for project_id in pool_samples[pool.id]:
+            # if project_id == 'KOP13685':
+            #     print(project_id)
+            # else:
+            #     continue
+            log_file.write(f"{'':4}Working on LIMS project ID {project_id}.\n")
             application = None
             platform = None
 
@@ -572,7 +580,7 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
                 runs[pool.id][project_id]['errors'].add(
                     'Warning: Number of samples sequenced not equal to number of samples submitted!'
                 )
-
+            log_file.write(f"{'':6}{len(pool_samples[pool.id][project_id])}/{len(samples)} samples were included in this pool.\n")
             # Process each sample
             for sample in samples:
                 sample_meta = initialize_sample_metadata()
@@ -649,6 +657,7 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
                             continue
 
                         process_name = sample_artifact.parent_process.type.name
+                        # print(process_name)
                         # print('test', process_name)
                         # Handle different process types
                         if process_name in Config.ISOLATION_PROCESSES:
@@ -665,9 +674,9 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
                                 runs[pool.id][project_id]
                             )
 
-                        # elif process_name in Config.RUN_PROCESSES or \
-                        #      process_name in Config.LOAD_PROCESSES:
-                        elif process_name in Config.RUN_PROCESSES:
+                        elif process_name in Config.RUN_PROCESSES or \
+                             process_name in Config.LOAD_PROCESSES:
+                        # elif process_name in Config.RUN_PROCESSES:
                             process_run_artifact(
                                 lims, sample_artifact, sample_meta,
                                 runs[pool.id][project_id], run_meta,
@@ -692,32 +701,46 @@ def get_seq_finance(lims: Lims, step_uri: str) -> str:
                 if not runs[pool.id][project_id]['name']:
                     set_project_metadata(sample, pool, runs[pool.id][project_id])
 
+            log_file.write(f"{'':6}{runs[pool.id][project_id]['nr_samples_isolated']}/{len(samples)} went through isolation.\n")
+            log_file.write(f"{'':6}{runs[pool.id][project_id]['nr_samples_prepped']}/{len(samples)} went through library prep.\n")
+            log_file.write(f"{'':6}{runs[pool.id][project_id]['nr_samples_sequenced']}/{len(samples)} went through sequencing.\n")
             # Calculate costs via API
             if len(pid_sequenced[project_id]) > 1:
                 runs[pool.id][project_id]['errors'].add(
                     "Warning: Run was sequenced before more than once!"
                 )
+                log_file.write(f"{'':6}Project ID {project_id} was sequenced more than once at {' | '.join(pid_sequenced[project_id])}.\n")
                 # In case of reruns always bill at the costs of the oldest run
                 run_meta['date'] = min(pid_sequenced[project_id])
 
             if not run_meta['date'] and pid_sequenced[project_id]:
                 run_meta['date'] = min(pid_sequenced[project_id])
                 runs[pool.id][project_id]['run_date'] = run_meta['date']
-            # elif not run_meta['date'] and run_date:
-            #     run_meta['date'] = run_date
-            #     runs[pool.id][project_id]['run_date'] = run_meta['date']
-                    # if not sample_meta['Sequenced']:
-                    #     run_data['nr_samples_sequenced'] += 1
-                    #     sample_meta['Sequenced'] = True
-                ###Check if sample_meta['Sequenced'] = True needs to be set####
+
 
             # Fetch and update costs
+
+            log_file.write(f"{'':6}Retrieving costs...\n")
+
             costs = fetch_project_costs(project_id, run_meta)
+            if 'error' in costs:
+                log_file.write(f"{'':6}Error : Failed to retrieve costs with message {costs['error']}.\n")
+                errors +=1
+            else:
+                log_file.write(f"{'':6}Done!\n")
             update_run_costs(runs[pool.id][project_id], costs, application)
 
             runs[pool.id][project_id]['run_comments'] = run_comments
     # Deduplicate and convert sets to strings
-    runs_dedup = deduplicate_runs(runs)
+
+    log_file.write("\n###SUMMARY###\n")
+    log_file.write(f"Processed {len(io_maps)} input pools.\n")
+    runs_dedup = deduplicate_runs(runs, log_file)
+    log_file.write(f"{errors} errors found while retrieving run costs.\n")
+    log_file.write("#############\n")
+
+
+
     return render_template('seq_finance_overview_template.csv', {'pools': runs_dedup})
 
 @retry(requests.exceptions.ConnectionError, tries=2, delay=2)
@@ -835,13 +858,14 @@ def get_snp_finance(lims: Lims, step_uri: str) -> str:
     return render_template('snp_finance_overview_template.csv', {'runs': runs})
 
 
-def run(lims: Lims, step_uri: str, output_file: TextIO) -> None:
+def run(lims: Lims, step_uri: str, output_file: TextIO, log_file: TextIO) -> None:
     """Run the finance overview generation based on protocol.
 
     Args:
         lims (Lims): LIMS connection
         step_uri (str): Step URI
         output_file (TextIO): Output file handle
+        log_file (TextIO): Log file handle
 
     Raises:
         FinanceError: If protocol is unknown or finance calculation fails
@@ -849,7 +873,7 @@ def run(lims: Lims, step_uri: str, output_file: TextIO) -> None:
     protocol_name = get_step_protocol(lims, step_uri=step_uri)
 
     if protocol_name.startswith("USEQ - Post Sequencing"):
-        finance_table = get_seq_finance(lims, step_uri)
+        finance_table = get_seq_finance(lims, step_uri, log_file)
         output_file.write(finance_table)
     elif protocol_name.startswith("USEQ - Post Fingerprinting"):
         finance_table = get_snp_finance(lims, step_uri)
