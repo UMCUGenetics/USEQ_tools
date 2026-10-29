@@ -470,6 +470,12 @@ class USEQTools:
             default=sys.stdout,
             help='Output file path'
         )
+        finance_parser.add_argument(
+            '-l', '--log_file',
+            type=argparse.FileType('w'),
+            default=sys.stdout,
+            help='Log file path'
+        )
         finance_parser.set_defaults(func=self.finance_overview)
 
         # Parse worksheet
@@ -1211,6 +1217,7 @@ class USEQTools:
 
                 - step: LIMS Step uri.
                 - output_file: Optional output file, defaults to stdout.
+                - log_file : Optional log file, defaults to stdout
 
         Raises:
             Exception: Re-raises any exceptions that occur when generating the finance overview.
@@ -1220,14 +1227,14 @@ class USEQTools:
 
             .. parsed-literal::
 
-                python useq_tools.py epp finance_overview --step |lims_uri|/api/v2/steps/<STEP_ID> --output_file <output_file>
+                python useq_tools.py epp finance_overview --step |lims_uri|/api/v2/steps/<STEP_ID> --output_file <output_file> --log_file <log_file>
 
         Note:
             To get the STEP_ID for the example above go to the step in the LIMS and copy the number after |lims_uri|/clarity/work-complete/.
             For most steps add 24- in front of this number, for pooling steps add 122-.
         """
         try:
-            epp.useq_finance_overview.run(self.lims, args.step, args.output_file)
+            epp.useq_finance_overview.run(self.lims, args.step, args.output_file, args.log_file)
         except Exception as e:
             logger.error(f"Finance overview failed: {e}")
             raise
