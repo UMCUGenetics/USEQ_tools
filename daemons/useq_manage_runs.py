@@ -821,8 +821,8 @@ def upload_to_hpc(lims: Lims, run_dir: Path, pid: Optional[str], logger: logging
         samples = lims.get_samples(projectlimsid=project.id)
 
         if samples:
-            analysis_steps = samples[0].udf.get('Analysis', '').split(',')
-            if len(analysis_steps) > 1 or project.udf.get('Application', '') == 'SNP Fingerprinting':
+            # analysis_steps = samples[0].udf.get('Analysis', '').split(',')
+            if project.udf.get('Application', '') == 'SNP Fingerprinting' or project.udf.get('Application', '') == '10X Single Cell':
                 command += '--exclude "*Undetermined_*.fastq.gz" '
                 command += f'--include "Conversion/{pid}/*.fastq.gz" '
             else:
