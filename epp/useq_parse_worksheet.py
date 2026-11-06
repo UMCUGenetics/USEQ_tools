@@ -354,7 +354,7 @@ def _update_artifact_barcode(artifact: Artifact, sample_info: Dict[str, Any], ar
         project_id (str): Project ID for logging
         output_file (TextIO): File to write log output
     """
-    
+
     if 'barcode' in sample_info:
         reagent_label = ET.SubElement(artifact.root, 'reagent-label')
         reagent_label.set('name', sample_info['barcode'])
@@ -397,7 +397,7 @@ def _update_artifacts(step: Step, samples: Dict[str, Dict[str, Any]], first_samp
     for io_map in step.details.input_output_maps:
         if io_map[1]['output-generation-type'] != 'PerInput':
             continue
-        
+
         artifact = io_map[1]['uri']
 
         artifact_sample = artifact.samples[0]
@@ -405,7 +405,7 @@ def _update_artifacts(step: Step, samples: Dict[str, Dict[str, Any]], first_samp
         sample_info = samples[str(artifact.name)]
         #  if mode =='10x' else samples[str(artifact_sample.name)]
         project_id = artifact_sample.project.id
-        
+
         # Update various artifact properties
         _update_artifact_concentration(artifact, sample_info, 'pre conc ng/ul')
         if artifact.type == 'Analyte': #Only update the container name for analytes
@@ -452,7 +452,7 @@ def parse(lims: Lims, step_uri: str, aid: str, output_file: TextIO, mode: str):
     samples = _parse_samples_from_worksheet(
         sample_worksheet, columns, current_step, barcode_set
     )
-    
+
 
     # Update artifacts
     artifacts_to_update, containers_to_update = _update_artifacts(
@@ -460,8 +460,8 @@ def parse(lims: Lims, step_uri: str, aid: str, output_file: TextIO, mode: str):
     )
 
     # Commit changes to LIMS
-    # lims.put_batch(artifacts_to_update)
-    # lims.put_batch(containers_to_update)
+    lims.put_batch(artifacts_to_update)
+    lims.put_batch(containers_to_update)
 
 
 def run(lims: Lims, step_uri: str, aid: str, output_file: TextIO, mode: str):
