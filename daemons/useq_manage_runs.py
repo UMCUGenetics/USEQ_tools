@@ -563,6 +563,7 @@ def parse_conversion_stats(reports_dir: Path) -> Dict[str, Any]:
         'total_reads_lane_project': {},
         'undetermined_reads': 0,
         'samples': {},
+        'sample_totals': {},
         'top_unknown': {}
     }
 
@@ -586,6 +587,14 @@ def parse_conversion_stats(reports_dir: Path) -> Dict[str, Any]:
                         '# Reads': 0,
                         '# Perfect Index Reads': 0,
                         '# One Mismatch Index Reads': 0,
+                    }
+                if project_id not in stats['sample_totals']:
+                    stats['sample_totals'][project_id] = {}
+                if sample_id not in stats['sample_totals'][project_id] and 'Undetermined' not in sample_id:
+                    stats['sample_totals'][project_id][sample_id] = {
+                        '# Reads': 0,
+                        '# Perfect Index Reads': 0,
+                        'On Lanes' : set()
                     }
 
                 if project_id not in stats['total_reads_project']:
@@ -615,6 +624,10 @@ def parse_conversion_stats(reports_dir: Path) -> Dict[str, Any]:
                 samples_tmp[lane][sample_id]['# Reads'] += int(reads)
                 samples_tmp[lane][sample_id]['# Perfect Index Reads'] += int(row['# Perfect Index Reads'])
                 samples_tmp[lane][sample_id]['# One Mismatch Index Reads'] += int(row['# One Mismatch Index Reads'])
+                if 'Undetermined' not in sample_id:
+                    stats['sample_totals'][project_id][sample_id]['# Reads'] += int(reads)
+                    stats['sample_totals'][project_id][sample_id]['# Perfect Index Reads'] += int(row['# Perfect Index Reads'])
+                    stats['sample_totals'][project_id][sample_id]['On Lanes'].add(lane)
 
     # Parse quality metrics if available
     if qual_metrics.is_file():
@@ -626,10 +639,9 @@ def parse_conversion_stats(reports_dir: Path) -> Dict[str, Any]:
                 project_id = row.get('Sample_Project', 'Unknown')
                 sample_id = f"{project_id}:{row['SampleID']}"
 
+                mqs_key = f'Read {read_num} Mean Quality Score (PF)'
+                q30_key = f'Read {read_num} % Q30'
                 if lane in samples_tmp and sample_id in samples_tmp[lane]:
-                    mqs_key = f'Read {read_num} Mean Quality Score (PF)'
-                    q30_key = f'Read {read_num} % Q30'
-
                     if mqs_key not in samples_tmp[lane][sample_id]:
                         samples_tmp[lane][sample_id][mqs_key] = 0
                     if q30_key not in samples_tmp[lane][sample_id]:
@@ -638,7 +650,28 @@ def parse_conversion_stats(reports_dir: Path) -> Dict[str, Any]:
                     samples_tmp[lane][sample_id][mqs_key] += float(row['Mean Quality Score (PF)'])
                     samples_tmp[lane][sample_id][q30_key] += float(row['% Q30'])
 
-    # Process final sample statistics
+                if sample_id in stats['sample_totals'][project_id]:
+                    if mqs_key not in stats['sample_totals'][project_id][sample_id]:
+                        stats['sample_totals'][project_id][sample_id][mqs_key] = 0
+                    if q30_key not in stats['sample_totals'][project_id][sample_id]:
+                        stats['sample_totals'][project_id][sample_id][q30_key] = 0
+
+                    stats['sample_totals'][project_id][sample_id][mqs_key] += float(row['Mean Quality Score (PF)'])
+                    stats['sample_totals'][project_id][sample_id][q30_key] += float(row['% Q30'])
+
+    # Process sample total statistics
+    for pid, samples in stats['sample_totals'].items():
+        for sample_id, sample in samples.items():
+            for read_number in ['1', '2', 'I1', 'I2']:
+                mqs_key = f'Read {read_number} Mean Quality Score (PF)'
+                q30_key = f'Read {read_number} % Q30'
+
+                if mqs_key in sample:
+                    sample[mqs_key] = sample[mqs_key] / len(sample['On Lanes'])
+                if q30_key in sample:
+                    sample[q30_key] = (sample[q30_key] / len(sample['On Lanes'])) * 100
+
+    # Process lane sample statistics
     for lane, lane_samples in samples_tmp.items():
         if lane not in stats['samples']:
             stats['samples'][lane] = {}
@@ -673,6 +706,7 @@ def parse_conversion_stats(reports_dir: Path) -> Dict[str, Any]:
                     stats['top_unknown'][lane] = []
                 if len(stats['top_unknown'][lane]) < 5:
                     stats['top_unknown'][lane].append(row)
+
 
     return stats
 
@@ -1238,7 +1272,7 @@ def process_run_directory(lims: Lims, run_dir: Path, machine: str, logger: loggi
             transfer_mode = 'fastq' if status['projects'][pid]['Demultiplexing'] else 'bcl'
 
             # Nextcloud transfer
-            if not status['projects'][pid]['Transfer-nc']:
+            if not status['projects'][pid]['Transfer-nc'] and not Config.DEVMODE:
                 skip_undetermined = any(len(run_data['lanes'][lane]['projects']) > 1
                                       for lane in project_data[pid]['on_lanes'])
 
@@ -1258,7 +1292,7 @@ def process_run_directory(lims: Lims, run_dir: Path, machine: str, logger: loggi
                     raise
 
             # HPC transfer
-            if not status['projects'][pid]['Transfer-hpc']:
+            if not status['projects'][pid]['Transfer-hpc']  and not Config.DEVMODE:
                 try:
                     success = upload_to_hpc(lims, run_dir, pid, logger)
                     status['projects'][pid]['Transfer-hpc'] = success
@@ -1291,6 +1325,7 @@ def process_run_directory(lims: Lims, run_dir: Path, machine: str, logger: loggi
                 raise
 
         # Check if everything is complete
+        if Config.DEVMODE: send_status_mail(lims, 'Finished', run_dir, project_data, run_data)
         if (status['run']['Stats'] and status['run']['Archive'] and
             all(status['projects'][pid]['Transfer-nc'] and status['projects'][pid]['Transfer-hpc']
                 for pid in project_data)):
