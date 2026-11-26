@@ -268,6 +268,8 @@ class StatsParser:
 
             stats = {
                 'total_reads': 0, 'total_mean_qual': 0, 'total_q30': 0,
+                'avg_q30_r1':0,'avg_q30_r2':0,
+                'yield_r1':0,'yield_r2':0,
                 'avg_quality_r1': 0, 'avg_quality_r2': 0, 'samples': []
             }
 
@@ -276,9 +278,10 @@ class StatsParser:
             with open(demux_stats_file, 'r') as demux_file:
                 csv_reader = csv.DictReader(demux_file)
                 for row in csv_reader:
-                    stats['total_reads'] += float(row['# Reads'])
 
                     sample_id = row['SampleID']
+                    if sample_id in sample_names:
+                        stats['total_reads'] += float(row['# Reads'])
                     if sample_id not in samples_data:
                         samples_data[sample_id] = {
                             'Index': None, '# Reads': 0, '# Perfect Index Reads': 0,
@@ -298,7 +301,7 @@ class StatsParser:
             with open(qual_metrics_file, 'r') as qual_file:
                 csv_reader = csv.DictReader(qual_file)
                 for row in csv_reader:
-                    qual_metrics_rows += 1
+
                     sample_id = row['SampleID']
                     read_num = row["ReadNumber"]
 
@@ -310,16 +313,24 @@ class StatsParser:
                     if q30_key not in samples_data[sample_id]:
                         samples_data[sample_id][q30_key] = 0
 
-                    if read_num == '1':
+                    if read_num == '1' and 'Undetermined' not in sample_id:
                         read1_rows += 1
+                        qual_metrics_rows += 1
                         stats['avg_quality_r1'] += float(row['Mean Quality Score (PF)'])
-                    elif read_num == '2':
+                        stats['avg_q30_r1'] += float(row['% Q30'])
+                        stats['yield_r1'] += float(row['Yield'])
+                        stats['total_q30'] += float(row['% Q30'])
+                        stats['total_mean_qual'] += float(row['Mean Quality Score (PF)'])
+                    elif read_num == '2' and 'Undetermined' not in sample_id:
+                        qual_metrics_rows += 1
                         stats['avg_quality_r2'] += float(row['Mean Quality Score (PF)'])
+                        stats['avg_q30_r2'] += float(row['% Q30'])
+                        stats['yield_r2'] += float(row['Yield'])
+                        stats['total_q30'] += float(row['% Q30'])
+                        stats['total_mean_qual'] += float(row['Mean Quality Score (PF)'])
 
                     samples_data[sample_id][mqs_key] += float(row['Mean Quality Score (PF)'])
                     samples_data[sample_id][q30_key] += float(row['% Q30'])
-                    stats['total_q30'] += float(row['% Q30'])
-                    stats['total_mean_qual'] += float(row['Mean Quality Score (PF)'])
 
             # Calculate averages
             if qual_metrics_rows > 0:
@@ -329,6 +340,11 @@ class StatsParser:
             if read1_rows > 0:
                 stats['avg_quality_r1'] = round(stats['avg_quality_r1'] / read1_rows, 2)
                 stats['avg_quality_r2'] = round(stats['avg_quality_r2'] / read1_rows, 2)
+
+                stats['avg_q30_r1'] = round(stats['avg_q30_r1'] / read1_rows, 2)*100
+                stats['avg_q30_r2'] = round(stats['avg_q30_r2'] / read1_rows, 2)*100
+                stats['yield_r1'] = round(stats['yield_r1'] / 1e9, 2)
+                stats['yield_r2'] = round(stats['yield_r2'] / 1e9, 2)
 
             # Process sample data
             for sample_id, sample_data in samples_data.items():
@@ -462,6 +478,7 @@ class RunDetailsRetriever:
                 flowcell_id = fid
             else:
                 continue
+
 
             denature_step = process.parent_processes()[0] if process.parent_processes() else None
             phix_control = 0
@@ -829,8 +846,8 @@ class DataSharer:
 
         if share_response:
             portal_run.raw_share = share_response
-            session.commit()    
-            return True    
+            session.commit()
+            return True
         else:
             return False
 
@@ -1271,6 +1288,7 @@ class DataSharer:
         pid_lanes = self.stats_parser.parse_samplesheet(run_dir, project_id)
         summary_stats = self.stats_parser.parse_summary_stats(run_dir, pid_lanes)
 
+
         if not summary_stats:
             print(f'Error: No summary stats could be found for {run_dir}!')
             return False
@@ -1414,15 +1432,15 @@ class DataSharer:
             date_started=run_meta['date_started'],
             date_send=datetime.datetime.now(),
             run_name=run_dir.name,
-            yield_r1=summary_stats.get('yield_r1', 0),
-            yield_r2=summary_stats.get('yield_r2', 0),
-            reads=summary_stats.get('reads', 0),
+            yield_r1=conversion_stats.get('yield_r1', 0),
+            yield_r2=conversion_stats.get('yield_r2', 0),
+            reads=conversion_stats.get('total_reads', 0),
             avg_quality_r1=conversion_stats.get('avg_quality_r1', 0) if conversion_stats else 0,
             avg_quality_r2=conversion_stats.get('avg_quality_r2', 0) if conversion_stats else 0,
             cluster_density=summary_stats.get('cluster_density', 0),
             load_conc=run_meta.get('load_conc', 0),
-            perc_q30_r1=summary_stats.get('perc_q30_r1', 0),
-            perc_q30_r2=summary_stats.get('perc_q30_r2', 0),
+            perc_q30_r1=conversion_stats.get('avg_q30_r1', 0),
+            perc_q30_r2=summary_stats.get('avg_q30_r2', 0),
             perc_occupied=summary_stats.get('perc_occupied', 0),
             phix_loaded=run_meta.get('phix_loaded', 0),
             phix_aligned=summary_stats.get('phix_aligned', 0),

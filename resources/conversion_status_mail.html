@@ -74,7 +74,7 @@
 <br>
 <table class='useq_table'>
   <tr>
-    <th style="visibility: hidden;border: 0px" colspan="4"></th>
+    <th style="visibility: hidden;border: 0px" colspan="5"></th>
     <th colspan="2"><b>Yield (Gbp)</b></th>
     <th colspan="2"><b>% Q30</b></th>
   </tr>
@@ -84,6 +84,7 @@
     <th><b>Project(s)</b></th>
     <th><b>% Aligned PhiX</b></th>
     <th><b>% Occupied</b></th>
+    <th><b>M Reads PF</b></th>
     <th><b>Read 1</b></th>
     <th><b>Read 2</b></th>
     <th><b>Read 1</b></th>
@@ -95,6 +96,8 @@
     {% set read2 = '' %}
     {% set phix = lane_data[read1]['Aligned']|float %}
     {% set occ = lane_data[read1]['% Occupied']|float %}
+    {% set pf_reads = lane_data[read1]['Reads PF']|float %}
+    {% set total_reads = lane_data[read1]['Reads']|float %}
     {% set yield_r1 =  lane_data[read1]['Yield']|float %}
     {% set yield_r2 = '' %}
     {% set q30_r1 =  lane_data[read1]['%>=Q30']|float %}
@@ -114,6 +117,7 @@
       <td>{{run_data.lanes[lane]['projects']|join(", ")}}</td>
       <td>{{"{:,.2f}".format(phix)}}</td>
       <td>{{"{:,.2f}".format(occ)}}</td>
+      <td>{{ "{:,.2f}".format(pf_reads)}}</td>
       <td>{{"{:,.2f}".format(yield_r1)}} <small>(Expected : {{expected_yield_r1}})</small></td>
       {% if yield_r2 %}
       <td>{{"{:,.2f}".format(yield_r2)}} <small>(Expected : {{expected_yield_r2}})</small></td>
@@ -140,13 +144,20 @@
 <tr> <td><b>Output (filtered) / Output (expected)</b></td> <td>{{nr_reads}}</td> </tr>
 </table>
 <br>
+<h4>Project summary</h4>
 <table class='useq_table'>
   <tr>
-    <th><b>Lane</b></th>
     <th><b>ProjectID</b></th>
     <th><b>M Reads</b></th>
   </tr>
-  {% for lane, lane_data in run_data.lanes.items() %}
+  {% for pid, reads in conversion_stats.total_reads_project.items() %}
+    <tr>
+      <td>{{ pid }}</td>
+      <td>{{ "{:,.2f}".format(reads/1000000) }}</td>
+    </tr>
+  {% endfor %}
+  <!--  -->
+  <!-- {% for lane, lane_data in run_data.lanes.items() %}
     {% for pid in lane_data.projects %}
       <tr>
         <td>{{ lane }}</td>
@@ -164,14 +175,74 @@
       {% endif %}
     </tr>
     <tr>
-        <!-- <td colspan="4"></td> -->
+        
         <td style="visibility: hidden;border: 0px" colspan="4"></td>
     </tr>
+  {% endfor %} -->
+  <!--  -->
+</table>
+<h4>Sample summary</h4>
+<table class='useq_table'>
+  <tr>
+    <th style="visibility: hidden;border: 0px" colspan="4"></th>
+    {% if 'Read 2 Mean Quality Score (PF)' in conversion_stats.samples[first_lane][first_sample] %}
+      <th colspan="4"><b>Means</b></th>
+    {% else %}
+      <th colspan="2"><b>Means</b></th>
+    {% endif %}
+  </tr>
+  <tr>
+    <th><b>ProjectID</b></th>
+    <th><b>SampleID</b></th>
+    <th><b>M Reads (Total)</b></th>
+    <th><b>% Perfect Index</b></th>
+    <th><b>MQS Read 1</b></th>
+    <th><b>MQS Read 2</b></th>
+    <th><b>% Q30 Read 1</b></th>
+    <th><b>% Q30 Read 2</b></th>
+  </tr>
+  {% for pid, samples in conversion_stats.sample_totals.items() %}
+    {% for sample_id, sample in samples.items() %}
+      {% set perc_pindex = (sample['# Perfect Index Reads'] / sample['# Reads']) * 100 if sample['# Reads'] else 0 %}
+      <tr>
+        <td>{{ pid }}</td>
+        <td>{{ sample_id.split(":")[-1] }}</td>
+        <td>{{ "{:,.2f}".format(sample['# Reads']/1000000) }}</td>
+        <td>{{ "{:,.2f}".format(perc_pindex) }}</td>
+        {% for read_nr in ['1','2'] -%}
+          {% if 'Read '+read_nr+' Mean Quality Score (PF)' in sample -%}
+            {% if sample['Read '+read_nr+' Mean Quality Score (PF)'] <30 %}
+              {% set mqs_color = color_list1[0] %}
+            {% else %}
+              {% set mqs_color = color_list1[1] %}
+            {% endif %}
+            <td style="">
+              <span style="position:relative; float:left;background-color:{{mqs_color}};"class="dot"></span>
+              <div style="position:relative; float:right;">{{ "{:,.2f}".format(sample['Read '+read_nr+' Mean Quality Score (PF)']) }}</div>
+            </td>
+          {% endif %}
+        {% endfor %}
+        {% for read_nr in ['1','2'] -%}
+          {% if 'Read '+read_nr+' % Q30' in sample -%}
+            {% if sample['Read '+read_nr+' % Q30'] <80 %}
+              {% set q30_color = color_list1[0] %}
+            {% else %}
+              {% set q30_color = color_list1[1] %}
+            {% endif %}
+            <td>
+              <span style="position:relative; float:left;background-color:{{q30_color}};"class="dot"></span>
+              <div style="position:relative; float:right;"> {{ "{:,.2f}".format(sample['Read '+read_nr+' % Q30']) }}</div>
+            </td>
+          {% endif %}
+        {% endfor %}
+      </tr>
+    {% endfor %}
   {% endfor %}
+
 </table>
 <br>
 
-<h3>Samples</h3>
+<h3>Demultiplexing Details</h3>
 <table class='useq_table'>
   <tr>
     <th style="visibility: hidden;border: 0px" colspan="6"></th>
